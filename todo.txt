@@ -1,0 +1,42 @@
+
+
+- Convert to 1234p3423m45z format 
+- Convert to handConfig object
+- Process "Special rules" 
+
+https://github.com/MahjongRepository/mahjong/blob/master/mahjong/hand_calculating/hand_config.py
+https://github.com/MahjongRepository/mahjong/blob/master/doc/examples.py
+
+Method to convert one line string tiles format to the 136 array, like
+"123s456p789m11222z". 's' stands for sou, 'p' stands for pin,
+'m' stands for man and 'z' or 'h' stands for honor.
+You can pass r or 0 instead of 5 for it to become a red five from
+that suit. To prevent old usage without red,
+has_aka_dora has to be True for this to do that.
+
+
+What is needed for hand_calculating: 
+- tiles object
+- win_tile object
+- melds object
+- hand_config object
+- OptionalRules object
+
+Agari outputs: 
+- Tiles in 123spm format
+- melds in 123spm format
+  - Tiles in the weird order
+  - marker for called tile
+  - marker for facedown
+- openHand
+- winningTile
+- Round Wind
+- Seat Wind
+- honba sticks
+- riichi sticks
+- dora indicator
+- Han
+- Fu
+- Yakus Achieved (with han)
+- points 
+
