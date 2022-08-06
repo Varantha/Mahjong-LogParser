@@ -29,29 +29,44 @@ class Meld:
         tileArray = [[],[],[],[]]
         allTiles = self.tiles
 
-        orderedTiles = allTiles
-        indexOfCalledTile = allTiles.index(self.calledTile)
-        desiredIndex = 3 - self.fromWho
-        direction = (desiredIndex - indexOfCalledTile) / abs(desiredIndex - indexOfCalledTile) #return +1 or -1
-        while(indexOfCalledTile != desiredIndex):
-            orderedTiles[indexOfCalledTile], orderedTiles[indexOfCalledTile + direction] = orderedTiles[indexOfCalledTile + direction], orderedTiles[indexOfCalledTile]
-            indexOfCalledTile = indexOfCalledTile + direction
+        isKan = (self.meldType == 'Kan')
+        isChakan = (self.meldType == 'Chakan')
 
-        for tile in orderedTiles:
+        if(isKan and not self.open):
             tileID = tile // 4
             whichSuit = tileID // 9
-            if(tile in AKA_DORA_LIST):
-                tileArray[whichSuit].append("0")
-            else:
-                tileArray[whichSuit].append(str(((tileID) % 9) + 1))
-        
-        outputString = "" 
-        for j in range(0,len(tileArray[whichSuit])):
-            if(j == indexOfCalledTile):
-                outputString += "c{}".format(tileArray[whichSuit][j])
-            else:
-                outputString += tileArray[whichSuit][j]
-            outputString += tileOrder[whichSuit]
+            outputString = "f{}{}{}f{}{}".format(tileID,tileID,tileID,tileID,tileOrder[whichSuit])
+            #We don't need to worry about order or red fives for closed kans
+        else:
+            orderedTiles = allTiles[:3] #treat open kans / chakans like 3 tiles for now
+            indexOfCalledTile = allTiles.index(self.calledTile)
+            desiredIndex = 3 - self.fromWho
+            direction = (desiredIndex - indexOfCalledTile) / abs(desiredIndex - indexOfCalledTile) #return +1 or -1
+            while(indexOfCalledTile != desiredIndex):
+                orderedTiles[indexOfCalledTile], orderedTiles[indexOfCalledTile + direction] = orderedTiles[indexOfCalledTile + direction], orderedTiles[indexOfCalledTile]
+                indexOfCalledTile = indexOfCalledTile + direction
+
+            for tile in orderedTiles:
+                tileID = tile // 4
+                whichSuit = tileID // 9
+                if(tile in AKA_DORA_LIST):
+                    tileArray[whichSuit].append("0")
+                else:
+                    tileArray[whichSuit].append(str(((tileID) % 9) + 1))
+            if(isKan):
+                tileArray.insert(1,allTiles[3]) #insert the tile we took out earlier
+                #it works in all cases if inserted into index 1 
+            outputString = "" 
+            for j in range(0,len(tileArray[whichSuit])):
+                if(j == indexOfCalledTile):
+                    outputString += "c{}".format(tileArray[whichSuit][j])
+                    if(isChakan):
+                        outputString += "c{}".format(tileArray[whichSuit][j]) 
+                else:
+                    outputString += tileArray[whichSuit][j]
+
+                outputString += tileOrder[whichSuit]
+    
         return outputString
     
 def processMeld(meldCode: int):
