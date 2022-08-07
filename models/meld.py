@@ -41,7 +41,7 @@ class Meld:
             orderedTiles = allTiles[:3] #treat open kans / chakans like 3 tiles for now
             indexOfCalledTile = allTiles.index(self.calledTile)
             desiredIndex = 3 - self.fromWho
-            direction = (desiredIndex - indexOfCalledTile) / abs(desiredIndex - indexOfCalledTile) #return +1 or -1
+            direction = int((desiredIndex - indexOfCalledTile) / abs(desiredIndex - indexOfCalledTile)) #return +1 or -1
             while(indexOfCalledTile != desiredIndex):
                 orderedTiles[indexOfCalledTile], orderedTiles[indexOfCalledTile + direction] = orderedTiles[indexOfCalledTile + direction], orderedTiles[indexOfCalledTile]
                 indexOfCalledTile = indexOfCalledTile + direction

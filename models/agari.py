@@ -7,8 +7,8 @@ from models.round import Round
 
 
 class Agari:  
-    hand = []
-    melds = []
+    hand = [int]
+    melds = [Meld]
     winningTile = None
     riichiSticks = None
     honbaSticks = None
@@ -37,6 +37,17 @@ class Agari:
     def toHandConfig(self):
         True
 
+    def meldsToTileStringArray(self):
+        melds = self.melds
+        meldStrings = []
+        if melds is None:
+            return meldStrings
+            
+        for meld in melds:
+            meldStrings.append(meld.toTileString())
+        return meldStrings
+
+
     def handToTileString(self):
         tileOrder = ["s","p","m","h"]
         tileArray = [[],[],[],[]]
@@ -56,13 +67,7 @@ class Agari:
                 outputString += tileArray[i][j]
             if(len(tileArray[i]) > 0):
                 outputString += tileOrder[i]
-        return outputString
-
-        if melds is not None:
-            allTiles = [tiles for meld in melds for tiles in meld.tiles] #Python in weird
-        allTiles.extend(hand.tiles)
-
-        
+        return outputString        
 
 
 def processAgari(agariString,lastEntry,roundObject):

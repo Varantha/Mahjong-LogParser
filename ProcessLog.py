@@ -22,9 +22,7 @@ for elem in tree.iter():
     if(elem.tag == "AGARI"):
         agari: Agari = processAgari(elem.attrib,lastEntry,round)
         print(elem.attrib)
-        print("Hand: {}, melds: {}".format(agari.hand,agari.melds))
-
-        print(agari.isRiichi)
+        print("Hand: {}, melds: {}".format(agari.handToTileString(),agari.meldsToTileStringArray()))
 
 
     lastEntry = elem.tag
