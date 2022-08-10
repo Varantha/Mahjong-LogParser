@@ -2,6 +2,7 @@
 import xml.etree.ElementTree as ET
 from models.agari import processAgari
 
+
 from models.meld import processMeld
 from models.round import Round, processRound
 from models.agari import Agari
@@ -21,9 +22,9 @@ for elem in tree.iter():
             round.addRiichiStick()
     if(elem.tag == "AGARI"):
         agari: Agari = processAgari(elem.attrib,lastEntry,round)
-        print(elem.attrib)
-        print("Hand: {}, melds: {}".format(agari.handToTileString(),agari.meldsToTileStringArray()))
-
+        #print(elem.attrib)
+        #print("Hand: {}, melds: {}, Tsumo: {}, Riichi: {}, YakusAndHan: {}".format(agari.handToTileString(),agari.meldsToTileStringArray(),agari.isTsumo,agari.isRiichi,agari.yakusAchieved))
+        print(agari.toJson())
 
     lastEntry = elem.tag
 
