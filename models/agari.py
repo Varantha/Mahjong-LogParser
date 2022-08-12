@@ -131,7 +131,7 @@ def getWinningTile(lastEntry):
     return int(re.search("\d+",lastEntry).group())
 
 def getSeatWind(oya,winner):
-    return WINDS[int(winner)-int(oya)]
+    return WINDS[int(winner)-int(oya)] * 4
 
 def isPlayerDealer(agariString, dealerId):
     return(agariString["who"]==dealerId)
