@@ -22,13 +22,16 @@ class Agari:
     yakusAchieved = []
     pointValue = 0
     fu = 0
+    openHand = False
 
-    def __init__(self, hand, melds , roundWind, seatWind, doraIndicator, winningTile, isDealer, isTsumo, yakusAchieved, pointValue=0, fu=0, riichiSticks=0, honbaSticks=0,isRiichi=False):
+    def __init__(self, hand, melds , roundWind, seatWind, doraIndicator, winningTile, isDealer, isTsumo, yakusAchieved, pointValue=0, fu=0, han=0, riichiSticks=0, honbaSticks=0,isRiichi=False):
         self.hand = hand
-        if self.melds is None: 
+        if melds is None: 
             self.melds = []
+            self.openHand = False
         else: 
             self.melds = melds
+            self.openHand = True in [meld.open for meld in melds]
         self.winningTile = winningTile
         self.riichiSticks = riichiSticks
         self.honbaSticks = honbaSticks
@@ -41,6 +44,9 @@ class Agari:
         self.yakusAchieved = yakusAchieved
         self.pointValue = pointValue
         self.fu = fu
+        self.han = han
+        
+
 
     def toHandConfig(self):
         True
@@ -55,34 +61,37 @@ class Agari:
             meldStrings.append(meld.toTileString())
         return meldStrings
 
-
-    def handToTileString(self):
-        tileOrder = ["s","p","m","h"]
-        tileArray = [[],[],[],[]]
-        allTiles = self.hand
-
-        for tile in allTiles:
-            tileID = tile // 4
-            whichSuit = tileID // 9
-            if(tile in AKA_DORA_LIST):
-                tileArray[whichSuit].append("0")
-            else:
-                tileArray[whichSuit].append(str(((tileID) % 9) + 1))
-        
-        outputString = "" 
-        for i in range(0,len(tileArray)):
-            for j in range(0,len(tileArray[i])):
-                outputString += tileArray[i][j]
-            if(len(tileArray[i]) > 0):
-                outputString += tileOrder[i]
-        return outputString        
-
     def toJson(self):
         newAgari: Agari = self
-        newAgari.hand = newAgari.handToTileString()
+        newAgari.hand = toTileString(self.hand)
         newAgari.melds = newAgari.meldsToTileStringArray()
+        newAgari.winningTile = toTileString(self.winningTile)
+        newAgari.seatWind = toTileString(self.seatWind)
+        newAgari.doraIndicator = toTileString(self.doraIndicator)
         return json.dumps(vars(newAgari))
 
+
+def toTileString(tiles):
+    tileOrder = ["s","p","m","h"]
+    tileArray = [[],[],[],[]]
+    allTiles =  tiles if isinstance(tiles, list) else [tiles]
+
+
+    for tile in allTiles:
+        tileID = tile // 4
+        whichSuit = tileID // 9
+        if(tile in AKA_DORA_LIST):
+            tileArray[whichSuit].append("0")
+        else:
+            tileArray[whichSuit].append(str(((tileID) % 9) + 1))
+    
+    outputString = "" 
+    for i in range(0,len(tileArray)):
+        for j in range(0,len(tileArray[i])):
+            outputString += tileArray[i][j]
+        if(len(tileArray[i]) > 0):
+            outputString += tileOrder[i]
+    return outputString   
 
 def processAgari(agariString,lastEntry,roundObject):
     handTiles = getHand(agariString)
@@ -99,12 +108,13 @@ def processAgari(agariString,lastEntry,roundObject):
     isTsumo = isWinTsumo(yakusAchieved)
     isRiichi = isPlayerRiichi(yakusAchieved)
     fu, pointValue = getFuAndPointValue(agariString)
+    han = sum(yakusAchieved.values())
     
     
     if('m' in agariString):
-        return Agari(handTiles, melds , roundWind, seatWind, doraIndicator, winningTile, isDealer, isTsumo, yakusAchieved, pointValue, fu, riichiSticks, honbaSticks,isRiichi)
+        return Agari(handTiles, melds , roundWind, seatWind, doraIndicator, winningTile, isDealer, isTsumo, yakusAchieved, pointValue, fu, han, riichiSticks, honbaSticks,isRiichi)
     else: 
-        return Agari(handTiles, None , roundWind, seatWind, doraIndicator, winningTile, isDealer, isTsumo, yakusAchieved, pointValue, fu, riichiSticks, honbaSticks,isRiichi)
+        return Agari(handTiles, None , roundWind, seatWind, doraIndicator, winningTile, isDealer, isTsumo, yakusAchieved, pointValue, fu, han, riichiSticks, honbaSticks,isRiichi)
 
 
 def getHand(agariString):
@@ -137,7 +147,7 @@ def splitYakuString(agariString):
     yakusAchieved = {}
     for x in range(0,len(yakuString)):
         if(x % 2 == 0):
-            yakusAchieved[yakuString[x]] = yakuString[x + 1]
+            yakusAchieved[yakuString[x]] = int(yakuString[x + 1])
     return yakusAchieved
 
 def getFuAndPointValue(agariString):

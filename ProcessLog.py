@@ -11,6 +11,7 @@ from models.agari import Agari
 
 
 lastEntry = ""
+FileNumber = 1
 
 tree = ET.parse('ExampleLog.xml')
 for elem in tree.iter():
@@ -24,7 +25,11 @@ for elem in tree.iter():
         agari: Agari = processAgari(elem.attrib,lastEntry,round)
         #print(elem.attrib)
         #print("Hand: {}, melds: {}, Tsumo: {}, Riichi: {}, YakusAndHan: {}".format(agari.handToTileString(),agari.meldsToTileStringArray(),agari.isTsumo,agari.isRiichi,agari.yakusAchieved))
-        print(agari.toJson())
+
+        with open('./output/{}.json'.format(FileNumber), 'w') as file:
+            file.write(str(agari.toJson()))
+        FileNumber = FileNumber + 1
+
 
     lastEntry = elem.tag
 
