@@ -4,9 +4,6 @@ Repo to process Tenhou game logs. Idea is to export them for use in a seperate w
 
 ## thanks to 
 ```
-FluffyStuff
-https://github.com/FluffyStuff/riichi-mahjong-tiles
-
 Euophrys
 https://github.com/Euophrys/
 

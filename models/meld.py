@@ -65,7 +65,7 @@ class Meld:
                 else:
                     outputString += tileArray[whichSuit][j]
 
-                outputString += tileOrder[whichSuit]
+            outputString += tileOrder[whichSuit]
     
         return outputString
     
