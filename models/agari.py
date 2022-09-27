@@ -16,7 +16,8 @@ class Agari:
     honbaSticks = None
     roundWind = None
     seatWind = None
-    doraIndicator = None
+    doraIndicators = None
+    uraDoraIndicators = None
     isDealer = False
     isTsumo = False
     yakusAchieved = []
@@ -24,7 +25,7 @@ class Agari:
     fu = 0
     openHand = False
 
-    def __init__(self, hand, melds , roundWind, seatWind, doraIndicator, winningTile, isDealer, isTsumo, yakusAchieved, pointValue=0, fu=0, han=0, riichiSticks=0, honbaSticks=0,isRiichi=False):
+    def __init__(self, hand, melds , roundWind, seatWind, doraIndicators, uraDoraIndicators, winningTile, isDealer, isTsumo, yakusAchieved, pointValue=0, fu=0, han=0, riichiSticks=0, honbaSticks=0,isRiichi=False):
         self.hand = hand
         if melds is None: 
             self.melds = []
@@ -37,7 +38,8 @@ class Agari:
         self.honbaSticks = honbaSticks
         self.roundWind = roundWind
         self.seatWind =seatWind
-        self.doraIndicator = doraIndicator
+        self.doraIndicators = doraIndicators
+        self.uraDoraIndicators = uraDoraIndicators
         self.isDealer = isDealer
         self.isTsumo = isTsumo
         self.isRiichi = isRiichi
@@ -67,7 +69,6 @@ class Agari:
         newAgari.melds = newAgari.meldsToTileStringArray()
         newAgari.winningTile = toTileString(self.winningTile)
         newAgari.seatWind = toTileString(self.seatWind)
-        newAgari.doraIndicator = toTileString(self.doraIndicator)
         return json.dumps(vars(newAgari))
 
 
@@ -102,7 +103,8 @@ def processAgari(agariString,lastEntry,roundObject):
     seatWind = getSeatWind(roundObject.dealerId,agariString["who"])
     honbaSticks = int(roundObject.honbaSticks)
     riichiSticks = int(roundObject.riichiSticks)
-    doraIndicator = int(roundObject.doraIndicator)
+    doraIndicator = getDoraIndicators(agariString)
+    uraDoraIndicators = getUradoraIndicators(agariString)
     isDealer = isPlayerDealer(agariString,roundObject.dealerId)
     yakusAchieved = splitYakuString(agariString)
     isTsumo = isWinTsumo(yakusAchieved)
@@ -112,9 +114,9 @@ def processAgari(agariString,lastEntry,roundObject):
     
     
     if('m' in agariString):
-        return Agari(handTiles, melds , roundWind, seatWind, doraIndicator, winningTile, isDealer, isTsumo, yakusAchieved, pointValue, fu, han, riichiSticks, honbaSticks,isRiichi)
+        return Agari(handTiles, melds , roundWind, seatWind, doraIndicator, uraDoraIndicators, winningTile, isDealer, isTsumo, yakusAchieved, pointValue, fu, han, riichiSticks, honbaSticks,isRiichi)
     else: 
-        return Agari(handTiles, None , roundWind, seatWind, doraIndicator, winningTile, isDealer, isTsumo, yakusAchieved, pointValue, fu, han, riichiSticks, honbaSticks,isRiichi)
+        return Agari(handTiles, None , roundWind, seatWind, doraIndicator, uraDoraIndicators, winningTile, isDealer, isTsumo, yakusAchieved, pointValue, fu, han, riichiSticks, honbaSticks,isRiichi)
 
 
 def getHand(agariString):
@@ -142,6 +144,15 @@ def isWinTsumo(yakusAchieved):
 def isPlayerRiichi(yakusAchieved):
     return("1" in yakusAchieved)
 
+def getDoraIndicators(agariString):
+    return(list(map(lambda tile: toTileString(int(tile)), agariString["doraHai"].split(","))))
+
+def getUradoraIndicators(agariString):
+    if('doraHaiUra' in agariString):
+        return(list(map(lambda tile: toTileString(int(tile)), agariString["doraHaiUra"].split(","))))
+    else:
+        return([])
+    
 def splitYakuString(agariString):
     yakuString = agariString["yaku"].split(",")
     yakusAchieved = {}
