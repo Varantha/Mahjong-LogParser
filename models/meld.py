@@ -33,15 +33,15 @@ class Meld:
         isChakan = (self.meldType == 'Chakan')
 
         if(isKan and not self.open):
-            tileID = tile // 4
+            tileID = allTiles[0] // 4
             whichSuit = tileID // 9
-            outputString = "f{}{}{}f{}{}".format(tileID,tileID,tileID,tileID,tileOrder[whichSuit])
+            outputString = "f{}{}{}f{}{}".format((((tileID) % 9) + 1),(((tileID) % 9) + 1),(((tileID) % 9) + 1),(((tileID) % 9) + 1),tileOrder[whichSuit])
             #We don't need to worry about order or red fives for closed kans
         else:
             orderedTiles = allTiles[:3] #treat open kans / chakans like 3 tiles for now
             indexOfCalledTile = allTiles.index(self.calledTile)
             desiredIndex = 3 - self.fromWho
-            direction = int((desiredIndex - indexOfCalledTile) / abs(desiredIndex - indexOfCalledTile)) #return +1 or -1
+            direction = int((desiredIndex - indexOfCalledTile) / abs(max(desiredIndex - indexOfCalledTile,1))) #return +1 or -1
             while(indexOfCalledTile != desiredIndex):
                 orderedTiles[indexOfCalledTile], orderedTiles[indexOfCalledTile + direction] = orderedTiles[indexOfCalledTile + direction], orderedTiles[indexOfCalledTile]
                 indexOfCalledTile = indexOfCalledTile + direction
@@ -54,7 +54,7 @@ class Meld:
                 else:
                     tileArray[whichSuit].append(str(((tileID) % 9) + 1))
             if(isKan):
-                tileArray.insert(1,allTiles[3]) #insert the tile we took out earlier
+                tileArray[whichSuit].insert(1,str(((allTiles[3]) % 9) + 1)) #insert the tile we took out earlier
                 #it works in all cases if inserted into index 1 
             outputString = "" 
             for j in range(0,len(tileArray[whichSuit])):
@@ -75,7 +75,7 @@ def processMeld(meldCode: int):
     openCall = True
     calledFrom = int(binaryString[-2:],2)
 
-    # I have 0.5 idea how any of the below works. Anyone who can explain it to me gets a cookie. Written by @NegativeMjark 
+    # I have 0.5 idea how any of the below works. Anyone who can explain it to me gets a cookie. Written by @NegativeMjark / @Euophrys
     if binaryString[-3] == '1':
         # Chii
         callType = "Chi"
@@ -87,7 +87,7 @@ def processMeld(meldCode: int):
         Tiles = [t0 + 4 * (baseTile + 0), t1 + 4 * (baseTile + 1), t2 + 4 * (baseTile + 2)]
         calledTile = Tiles[order]
 
-    elif binaryString[-4] == '1':
+    elif meldCode & 0x18:
         t4 = (meldCode >> 5) & 0x3
         t0, t1, t2 = ((1, 2, 3), (0, 2, 3), (0, 1, 3), (0, 1, 2))[t4]
         baseAndCalled = meldCode >> 9
@@ -98,15 +98,15 @@ def processMeld(meldCode: int):
             Tiles = [t0 + 4 * base, t1 + 4 * base, t2 + 4 * base]
         else:
             callType = "Chakan"
-            Tiles = [t0 + 4 * base, t1 + 4 * base, t2 + 4 * base, t4 + 4 * base]
+            Tiles = [t0 + base * 4, t1 + base* 4, t2 + base* 4, t4 + base* 4]
         calledTile = Tiles[order]
       
-    elif binaryString[-6] != '1':
+    else:
         # Kan
         callType = "Kan"
-        baseAndCalled = meldCode >> 8
+        baseAndCalled = meldCode >>8
         base = baseAndCalled // 4
-        Tiles = [4 * base, 1 + 4 * base, 2 + 4 * base, 3 + 4 * base]
+        Tiles = [base* 4, 1 + base* 4, 2 + base* 4, 3 + base* 4]
         if(calledFrom == 0):
             openCall = False
         calledTile = Tiles[3 - calledFrom]

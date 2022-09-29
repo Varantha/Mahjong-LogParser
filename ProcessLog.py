@@ -17,13 +17,11 @@ def GetWinsFromLog(logPath,outputFilename):
             if(elem.attrib["step"]== "2"):
                 round.addRiichiStick()
         if(elem.tag == "AGARI"):
-            agari: Agari = processAgari(elem.attrib,lastEntry,round)
-            with open('./output/{}{}.json'.format(outputFilename,FileNumber), 'w') as file:
-                file.write(str(agari.toJson()))
-            FileNumber = FileNumber + 1
-
-    lastEntry = elem.tag
-
-
-
-
+            if('yakuman' not in elem.attrib):
+                agari: Agari = processAgari(elem.attrib,lastEntry,round)
+                if agari.validate(): #validate that there are 14 tiles in total
+                    with open('./output/{}{}.json'.format(outputFilename,FileNumber), 'w') as file:
+                        file.write(str(agari.toJson()))
+                    FileNumber = FileNumber + 1
+        if(elem.tag != "AGARI"):
+            lastEntry = elem.tag

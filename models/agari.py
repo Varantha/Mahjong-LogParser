@@ -71,6 +71,18 @@ class Agari:
         newAgari.seatWind = toTileString(self.seatWind)
         return json.dumps(vars(newAgari))
 
+    def validate(self):
+        tileTotal = 0
+        handCount = len(self.hand)
+        tileTotal = tileTotal + handCount
+        if self.melds is not None:
+            for meld in self.melds:
+                tileTotal = tileTotal + 3
+        if tileTotal != 14:
+            return False
+        else: 
+            return True
+
 
 def toTileString(tiles):
     tileOrder = ["s","p","m","h"]
@@ -164,6 +176,7 @@ def splitYakuString(agariString):
 def getFuAndPointValue(agariString):
     pointString = agariString["ten"].split(",")
     return(pointString[0],pointString[1])
+
 
 
 
