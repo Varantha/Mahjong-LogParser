@@ -12,4 +12,7 @@ https://github.com/ApplySci
 
 Nihisil
 https://github.com/MahjongRepository/mahjong
+
+NegativeMjark
+https://github.com/NegativeMjark/
 ```

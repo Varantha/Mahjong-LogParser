@@ -19,6 +19,7 @@ def GetWinsFromLog(logPath,outputFilename):
         if(elem.tag == "AGARI"):
             if('yakuman' not in elem.attrib):
                 agari: Agari = processAgari(elem.attrib,lastEntry,round)
+                #print(agari.getFuCalculations())
                 if agari.validate(): #validate that there are 14 tiles in total
                     with open('./output/{}{}.json'.format(outputFilename,FileNumber), 'w') as file:
                         file.write(str(agari.toJson()))

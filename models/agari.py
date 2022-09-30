@@ -7,6 +7,10 @@ import json
 from models.meld import Meld, processMeld
 from models.round import Round
 
+from mahjong.meld import Meld as calcMeld
+from mahjong.hand_calculating.hand import HandCalculator
+from mahjong.tile import TilesConverter
+from mahjong.hand_calculating.hand_config import HandConfig, OptionalRules
 
 class Agari:  
     hand = [int]
@@ -80,8 +84,43 @@ class Agari:
                 tileTotal = tileTotal + 3
         if tileTotal != 14:
             return False
-        else: 
-            return True
+        if "2" in self.yakusAchieved: #hardcode ippatsu removal for now
+            return False
+        if "3" in self.yakusAchieved: #hardcode chankan removal for now
+            return False
+        if "4" in self.yakusAchieved: #hardcode rinshan removal for now
+            return False
+        if "5" in self.yakusAchieved: #hardcode haitei removal for now
+            return False
+        if "6" in self.yakusAchieved: #hardcode houtei removal for now
+            return False
+        if "21" in self.yakusAchieved: #hardcode double riichi removal for now
+            return False
+        return True
+
+    def getFuCalculations(self):
+        hand = HandCalculator()  
+        converter = TilesConverter()
+        handstring = toTileString(self.hand).replace("0","5")
+        tiles = converter.one_line_string_to_136_array(handstring)
+        wintilestring = toTileString(self.winningTile)
+        win_tile = converter.one_line_string_to_136_array(wintilestring)[0]
+
+        melds = []
+        for agariMeld in self.melds:
+            meldtiles = agariMeld.toTileString().replace("c","")
+            if "f" in meldtiles: 
+                meldtiles = meldtiles[0] + meldtiles[0] + meldtiles
+                meldtiles = meldtiles.replace("f","")
+            meld = calcMeld(meld_type=agariMeld.meldType, tiles=converter.one_line_string_to_136_array(meldtiles), opened=agariMeld.open)
+            melds.append(meld)
+  
+        config=HandConfig(is_tsumo=self.isTsumo,is_riichi=self.isRiichi,player_wind=[EAST, SOUTH, WEST, NORTH][int(toTileString(self.seatWind).replace("h",""))],round_wind=self.roundWind)
+        hand_est = hand.estimate_hand_value(tiles, win_tile, melds=melds,config=config)
+
+        return hand_est
+        
+        
 
 
 def toTileString(tiles):
@@ -119,11 +158,10 @@ def processAgari(agariString,lastEntry,roundObject):
     uraDoraIndicators = getUradoraIndicators(agariString)
     isDealer = isPlayerDealer(agariString,roundObject.dealerId)
     yakusAchieved = splitYakuString(agariString)
-    isTsumo = isWinTsumo(yakusAchieved)
+    isTsumo = isWinTsumo(agariString)
     isRiichi = isPlayerRiichi(yakusAchieved)
     fu, pointValue = getFuAndPointValue(agariString)
     han = sum(yakusAchieved.values())
-    
     
     if('m' in agariString):
         return Agari(handTiles, melds , roundWind, seatWind, doraIndicator, uraDoraIndicators, winningTile, isDealer, isTsumo, yakusAchieved, pointValue, fu, han, riichiSticks, honbaSticks,isRiichi)
@@ -150,8 +188,8 @@ def getSeatWind(oya,winner):
 def isPlayerDealer(agariString, dealerId):
     return(agariString["who"]==dealerId)
 
-def isWinTsumo(yakusAchieved):
-    return("0" in yakusAchieved)
+def isWinTsumo(agariString):
+    return(agariString["who"]==agariString["fromWho"])
 
 def isPlayerRiichi(yakusAchieved):
     return("1" in yakusAchieved)
@@ -176,7 +214,6 @@ def splitYakuString(agariString):
 def getFuAndPointValue(agariString):
     pointString = agariString["ten"].split(",")
     return(pointString[0],pointString[1])
-
 
 
 
