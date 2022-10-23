@@ -23,5 +23,5 @@ def GetWinsFromLog(logPath,outputFilename):
                     with open('./output/{}{}.json'.format(outputFilename,FileNumber), 'w') as file:
                         file.write(str(agari.toJson()))
                     FileNumber = FileNumber + 1
-        if(elem.tag != "AGARI"):
+        if(elem.tag != "AGARI" and elem.tag != "N"):
             lastEntry = elem.tag

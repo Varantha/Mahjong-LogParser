@@ -41,7 +41,7 @@ class Meld:
             orderedTiles = allTiles[:3] #treat open kans / shouminkans like 3 tiles for now
             indexOfCalledTile = allTiles.index(self.calledTile)
             desiredIndex = 3 - self.fromWho
-            direction = int((desiredIndex - indexOfCalledTile) / abs(max(desiredIndex - indexOfCalledTile,1))) #return +1 or -1
+            direction = int((desiredIndex - indexOfCalledTile) / max(abs(desiredIndex - indexOfCalledTile),1)) #return +1 or -1
             while(indexOfCalledTile != desiredIndex):
                 orderedTiles[indexOfCalledTile], orderedTiles[indexOfCalledTile + direction] = orderedTiles[indexOfCalledTile + direction], orderedTiles[indexOfCalledTile]
                 indexOfCalledTile = indexOfCalledTile + direction
@@ -54,7 +54,7 @@ class Meld:
                 else:
                     tileArray[whichSuit].append(str(((tileID) % 9) + 1))
             if(iskan):
-                tileArray[whichSuit].insert(1,str(((allTiles[3]) % 9) + 1)) #insert the tile we took out earlier
+                tileArray[whichSuit].insert(1,str(((allTiles[3] // 4) % 9) + 1)) #insert the tile we took out earlier
                 #it works in all cases if inserted into index 1 
             outputString = "" 
             for j in range(0,len(tileArray[whichSuit])):
