@@ -124,13 +124,26 @@ class Agari:
 
         seatWindString = toTileString(self.seatWind).replace("h","")
 
-        config=HandConfig(is_tsumo=self.isTsumo,is_riichi=self.isRiichi,player_wind=[EAST, SOUTH, WEST, NORTH][int(seatWindString) - 1],round_wind=self.roundWind)
+        config=HandConfig(is_tsumo=self.isTsumo,is_riichi=self.isRiichi,player_wind=[EAST, SOUTH, WEST, NORTH][int(seatWindString) - 1],round_wind=roundStringToInt(self.roundWind))
         hand_est = hand.estimate_hand_value(tiles, win_tile, melds=melds,config=config)
 
-        
+#         calculatedFu = 0
+
+#         foreach line in hand_est.fu_details:
+#         calculatedFu =+ line.fu
+
+#         difference = hand_est.fu - calculatedFu
+#         if(difference != 0){
+#             hand_est.fu_details.append({'fu': difference, 'reason': 'rounding' })
+#           }
+
         return hand_est.fu_details
         
-        
+def roundStringToInt(round_wind):
+    winds = ['EAST','SOUTH','WEST','NORTH']
+    index = winds.index(round_wind)
+    windInt = index + 27
+    return windInt
 
 
 def toTileString(tiles):

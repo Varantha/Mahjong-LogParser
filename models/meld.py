@@ -29,16 +29,16 @@ class Meld:
         tileArray = [[],[],[],[]]
         allTiles = self.tiles
 
-        isKan = (self.meldType == 'Kan')
-        isChakan = (self.meldType == 'Chakan')
+        iskan = (self.meldType == 'kan')
+        isShouminkan = (self.meldType == 'shouminkan')
 
-        if(isKan and not self.open):
+        if(iskan and not self.open):
             tileID = allTiles[0] // 4
             whichSuit = tileID // 9
             outputString = "f{}{}{}f{}{}".format((((tileID) % 9) + 1),(((tileID) % 9) + 1),(((tileID) % 9) + 1),(((tileID) % 9) + 1),tileOrder[whichSuit])
             #We don't need to worry about order or red fives for closed kans
         else:
-            orderedTiles = allTiles[:3] #treat open kans / chakans like 3 tiles for now
+            orderedTiles = allTiles[:3] #treat open kans / shouminkans like 3 tiles for now
             indexOfCalledTile = allTiles.index(self.calledTile)
             desiredIndex = 3 - self.fromWho
             direction = int((desiredIndex - indexOfCalledTile) / abs(max(desiredIndex - indexOfCalledTile,1))) #return +1 or -1
@@ -53,14 +53,14 @@ class Meld:
                     tileArray[whichSuit].append("0")
                 else:
                     tileArray[whichSuit].append(str(((tileID) % 9) + 1))
-            if(isKan):
+            if(iskan):
                 tileArray[whichSuit].insert(1,str(((allTiles[3]) % 9) + 1)) #insert the tile we took out earlier
                 #it works in all cases if inserted into index 1 
             outputString = "" 
             for j in range(0,len(tileArray[whichSuit])):
                 if(j == indexOfCalledTile):
                     outputString += "c{}".format(tileArray[whichSuit][j])
-                    if(isChakan):
+                    if(isShouminkan):
                         outputString += "c{}".format(tileArray[whichSuit][j]) 
                 else:
                     outputString += tileArray[whichSuit][j]
@@ -94,16 +94,16 @@ def processMeld(meldCode: int):
         order = baseAndCalled % 3
         base = baseAndCalled // 3
         if meldCode & 0x8:
-            callType = "Pon"
+            callType = "pon"
             Tiles = [t0 + 4 * base, t1 + 4 * base, t2 + 4 * base]
         else:
-            callType = "Chakan"
+            callType = "shouminkan"
             Tiles = [t0 + base * 4, t1 + base* 4, t2 + base* 4, t4 + base* 4]
         calledTile = Tiles[order]
       
     else:
-        # Kan
-        callType = "Kan"
+        # kan
+        callType = "kan"
         baseAndCalled = meldCode >>8
         base = baseAndCalled // 4
         Tiles = [base* 4, 1 + base* 4, 2 + base* 4, 3 + base* 4]

@@ -5,7 +5,7 @@ def ReadDatabase(databaseFile):
     con = sqlite3.connect(databaseFile)
     cur = con.cursor()
 
-    for row in cur.execute("SELECT log_id,log_content FROM logs LIMIT 1000"):
+    for row in cur.execute("SELECT log_id,log_content FROM logs LIMIT 300"):
         data = bz2.decompress(row[1])
         
         file = open("./input/{}.xml".format(row[0]), "wb")
