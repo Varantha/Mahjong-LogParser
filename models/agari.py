@@ -28,6 +28,7 @@ class Agari:
     pointValue = 0
     fu = 0
     openHand = False
+    fu_details = ""
 
     def __init__(self, hand, melds , roundWind, seatWind, doraIndicators, uraDoraIndicators, winningTile, isDealer, isTsumo, yakusAchieved, pointValue=0, fu=0, han=0, riichiSticks=0, honbaSticks=0,isRiichi=False):
         self.hand = hand
@@ -52,6 +53,7 @@ class Agari:
         self.fu = fu
         self.han = han
         
+        
 
 
     def toHandConfig(self):
@@ -68,6 +70,7 @@ class Agari:
         return meldStrings
 
     def toJson(self):
+        self.fu_details = self.getFuCalculations()
         newAgari: Agari = self
         newAgari.hand = toTileString(self.hand)
         newAgari.melds = newAgari.meldsToTileStringArray()
@@ -101,24 +104,31 @@ class Agari:
     def getFuCalculations(self):
         hand = HandCalculator()  
         converter = TilesConverter()
-        handstring = toTileString(self.hand).replace("0","5")
-        tiles = converter.one_line_string_to_136_array(handstring)
-        wintilestring = toTileString(self.winningTile)
-        win_tile = converter.one_line_string_to_136_array(wintilestring)[0]
 
+        meldstring = ""
         melds = []
         for agariMeld in self.melds:
             meldtiles = agariMeld.toTileString().replace("c","")
             if "f" in meldtiles: 
                 meldtiles = meldtiles[0] + meldtiles[0] + meldtiles
                 meldtiles = meldtiles.replace("f","")
+            meldstring += meldtiles
             meld = calcMeld(meld_type=agariMeld.meldType, tiles=converter.one_line_string_to_136_array(meldtiles), opened=agariMeld.open)
             melds.append(meld)
-  
-        config=HandConfig(is_tsumo=self.isTsumo,is_riichi=self.isRiichi,player_wind=[EAST, SOUTH, WEST, NORTH][int(toTileString(self.seatWind).replace("h",""))],round_wind=self.roundWind)
+
+        handstring = toTileString(self.hand).replace("0","5")
+        handstring += meldstring
+        tiles = converter.one_line_string_to_136_array(handstring)
+        wintilestring = toTileString(self.winningTile).replace("0","5")
+        win_tile = converter.one_line_string_to_136_array(wintilestring)[0]
+
+        seatWindString = toTileString(self.seatWind).replace("h","")
+
+        config=HandConfig(is_tsumo=self.isTsumo,is_riichi=self.isRiichi,player_wind=[EAST, SOUTH, WEST, NORTH][int(seatWindString) - 1],round_wind=self.roundWind)
         hand_est = hand.estimate_hand_value(tiles, win_tile, melds=melds,config=config)
 
-        return hand_est
+        
+        return hand_est.fu_details
         
         
 
