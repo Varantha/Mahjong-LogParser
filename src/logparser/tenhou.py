@@ -9,6 +9,7 @@ Every win (AGARI) in a taken game becomes a hand record, a JSON-ready dict:
                        Each call is {type, tiles, calledTile, calledFrom}, in the order made.
     answerKey          Tenhou's recorded yaku (contract keys), han, fu, points and payments
     quarantineReasons  one reason code per failed check; empty when verified
+    tags               the keys of the hand's tags (see `logparser.tags`)
 """
 
 import re
@@ -17,6 +18,7 @@ from dataclasses import dataclass, field
 
 from logparser.calls import Call, decode_call
 from logparser.payments import payments, score_changes
+from logparser.tags import hand_tags
 from logparser.tiles import mpsz, tile
 from logparser.verification import quarantine_reasons
 from logparser.yaku import TENHOU_YAKU_KEYS, YAKUMAN_HAN
@@ -144,7 +146,7 @@ def _hand(log_id: str, round_: _Round, agari: ET.Element) -> dict:
         expected_score_changes=score_changes(answer_key["payments"], winner=winner, discarder=discarder,
                                              dealer=round_.dealer),
     )
-    return {
+    hand = {
         "id": f"{log_id}/{round_.index}/{round_.wins}",
         "replayUrl": REPLAY_URL.format(log_id=log_id, round_index=round_.index, seat=winner),
         "situation": {
@@ -166,6 +168,8 @@ def _hand(log_id: str, round_: _Round, agari: ET.Element) -> dict:
         "answerKey": answer_key,
         "quarantineReasons": reasons,
     }
+    hand["tags"] = hand_tags(hand)
+    return hand
 
 
 def _tile_handed_over(move: _Move | None, *, winner: int, discarder: int) -> int | None:
