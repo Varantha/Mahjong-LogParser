@@ -6,7 +6,7 @@ Every win (AGARI) in a taken game becomes a hand record, a JSON-ready dict:
     replayUrl          Tenhou replay of the round from the winner's seat (hand store only)
     situation          winds, dealer, honba, riichi sticks, tsumo, riichi
     tiles              concealed tiles, winning tile and dora indicators, in mpsz
-    answerKey          Tenhou's recorded yaku (contract keys), han, fu and points
+    answerKey          Tenhou's recorded yaku (contract keys), han, fu, points and payments
     quarantineReasons  one reason code per failed check; empty when verified
 """
 
