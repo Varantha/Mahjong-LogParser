@@ -43,7 +43,8 @@ def only_hand(xml: str) -> dict:
 
 
 def win(wall: Wall, *, concealed: str, winning: str, ten: str, yaku: str | None = None, yakuman: str | None = None,
-        calls: tuple[int, ...] = (), who: int = 1, tsumo: bool = False, dora: str = "1z", ura: str | None = None) -> str:
+        calls: tuple[int, ...] = (), who: int = 1, tsumo: bool = False, dora: str = "1z",
+        ura: str | None = None) -> str:
     """A win by `who` on `winning`, with `concealed` the rest of its concealed tiles. A ron is on
     the discard of the seat before. Tiles are in mpsz and come from `wall`, as do the tiles of
     `calls` (call codes, in the order made). The dora indicator is East unless given."""
