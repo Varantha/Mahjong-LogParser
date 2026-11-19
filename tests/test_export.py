@@ -88,6 +88,7 @@ def test_each_hand_appears_once_with_its_id_situation_tiles_and_answer_key(hand_
             "lastTile": False,
             "rinshan": False,
             "chankan": False,
+            "firstDraw": False,
         },
         "tiles": {
             "concealed": "123m45699p234789s",

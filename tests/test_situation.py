@@ -306,3 +306,49 @@ def test_the_draw_after_an_added_kan_closes_the_ippatsu_window():
                riichi_ron(who=2, from_who=0, yaku="1,1,7,1", ten="30,2000,0"))
 
     assert only_hand(xml)["situation"]["ippatsu"] is False
+
+
+def first_draw_win(who: int, yakuman: str, ten: str) -> str:
+    """CLOSED_HAND won by `who` on a draw of 4s (84), with Tenhou listing only the yakuman."""
+    return agari(who=who, from_who=who, hai=CLOSED_HAND, machi=84, ten=ten, yakuman=yakuman)
+
+
+@pytest.mark.parametrize(
+    ("moves", "win"),
+    [
+        (draw(0, 84), first_draw_win(who=0, yakuman="37", ten="20,48000,5")),  # dealer: tenhou
+        (turns(2) + draw(2, 84), first_draw_win(who=2, yakuman="38", ten="20,32000,5")),  # non-dealer: chiihou
+    ],
+    ids=["dealer", "non-dealer"],
+)
+def test_a_tsumo_on_the_players_first_draw_of_the_round_is_on_the_first_draw(moves, win):
+    xml = game(init(), moves, win)
+
+    assert only_hand(xml)["situation"]["firstDraw"] is True
+
+
+def test_a_tsumo_on_the_players_second_draw_is_not_on_the_first_draw():
+    xml = game(init(), turns(6), draw(2, 84), tsumo(who=2, yaku="0,1,7,1"))
+
+    assert only_hand(xml)["situation"]["firstDraw"] is False
+
+
+@pytest.mark.parametrize(
+    ("moves", "win"),
+    [
+        # Seat 2 calls a pon of seat 0's East, then seat 3 wins on its first draw: menzen tsumo, pinfu.
+        (draw(0, 109) + discard(0, 109) + call(2, pon((109, 110, 111), called=109, from_seat=TOIMEN))
+         + discard(2, 135) + draw(3, 84), tsumo(who=3, yaku="0,1,7,1")),
+        # Seat 0 makes a closed kan, then seat 1 wins on its first draw: menzen tsumo, pinfu.
+        (draw(0, 108) + call(0, EAST_KAN) + draw(0, 130) + discard(0, 130) + draw(1, 84),
+         tsumo(who=1, yaku="0,1,7,1")),
+        # Seat 0 makes a closed kan and wins on its draw from the dead wall: menzen tsumo, rinshan,
+        # seat and round wind East.
+        (draw(0, 108) + call(0, EAST_KAN) + draw(0, 105), tsumo_after_east_kan(who=0, yaku="0,1,4,1,10,1,14,1")),
+    ],
+    ids=["after-a-pon", "after-a-closed-kan", "after-its-own-closed-kan"],
+)
+def test_a_tsumo_on_the_players_first_draw_after_a_call_is_not_on_the_first_draw(moves, win):
+    xml = game(init(), moves, win)
+
+    assert only_hand(xml)["situation"]["firstDraw"] is False

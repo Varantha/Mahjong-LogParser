@@ -13,6 +13,9 @@ the acceptance once nobody wins on that discard. A riichi that is declared
 with the player's first discard of the round, before any call (closed kans
 included), is a double riichi.
 
+A tsumo on the player's first draw of the round, before any call (closed kans
+included), is on the first draw: tenhou for the dealer, chiihou for the others.
+
 The ippatsu window opens when a riichi is accepted. It closes at the player's
 next discard, or at any call by anyone, closed kans included. An added kan
 closes it only after the chance to rob the kan has passed.
@@ -89,4 +92,5 @@ class RoundMoves:
             "lastTile": self._draws + self._kans == LIVE_WALL and not (rinshan or chankan),
             "rinshan": rinshan,
             "chankan": chankan,
+            "firstDraw": tsumo and winner not in self._discarded and not self._called,
         }

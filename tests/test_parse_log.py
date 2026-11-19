@@ -102,14 +102,19 @@ def test_situation_of_a_non_dealer_ron():
         "lastTile": False,
         "rinshan": False,
         "chankan": False,
+        "firstDraw": False,
     }
 
 
 def test_situation_of_a_dealer_tsumo_without_riichi():
-    # South 2 (round number 5): seat 1 deals and wins by tsumo; seat 3 is the one in riichi.
+    # South 2 (round number 5): seat 1 deals and wins by tsumo on its second draw; seat 3 is the one
+    # in riichi.
     xml = game(
         init(round_number=5, oya=1),
-        '<REACH who="3" step="1"/><G30/><REACH who="3" step="2" ten="250,250,250,240"/>',
+        turns(2, first_seat=1),
+        '<W30/><REACH who="3" step="1"/><G30/><REACH who="3" step="2" ten="250,250,250,240"/>',
+        turns(1),
+        "<U84/>",
         agari(who=1, from_who=1, ba="0,1", hai=CLOSED_HAND, machi=84, ten="30,1500,0", yaku="0,1,7,1", dealer=1),
     )
 
@@ -128,6 +133,7 @@ def test_situation_of_a_dealer_tsumo_without_riichi():
         "lastTile": False,
         "rinshan": False,
         "chankan": False,
+        "firstDraw": False,
     }
 
 
