@@ -4,3 +4,4 @@ input
 
 *.db
 .scratch/
+local/
