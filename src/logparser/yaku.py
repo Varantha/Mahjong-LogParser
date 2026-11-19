@@ -63,3 +63,6 @@ TENHOU_YAKU_KEYS = {
     53: "ura-dora",
     54: "aka-dora",
 }
+
+# Tenhou IDs 37-51. On a yakuman win Tenhou lists only the yakuman.
+YAKUMAN_KEYS = frozenset(TENHOU_YAKU_KEYS[tenhou_id] for tenhou_id in range(37, 52))

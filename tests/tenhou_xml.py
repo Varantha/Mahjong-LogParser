@@ -106,6 +106,17 @@ def settlement(*, who: int, from_who: int, ten: str, ba: str, dealer: int) -> st
     return ",".join(f"250,{change // 100}" for change in changes)
 
 
+def turns(count: int, first_seat: int = 0, tile_id: int = 135) -> str:
+    """`count` turns in seat order from `first_seat`, each a draw and a discard of the same made-up tile."""
+    return "".join(draw(seat, tile_id) + discard(seat, tile_id)
+                   for seat in ((first_seat + turn) % 4 for turn in range(count)))
+
+
+def riichi(seat: int, tile_id: int = 135) -> str:
+    """A riichi declared with a discard and accepted: Tenhou's REACH steps 1 and 2 around the discard."""
+    return f'<REACH who="{seat}" step="1"/>{discard(seat, tile_id)}<REACH who="{seat}" step="2"/>'
+
+
 def ryuukyoku() -> str:
     return '<RYUUKYOKU ba="0,0" sc="250,0,250,0,250,0,250,0"/>'
 

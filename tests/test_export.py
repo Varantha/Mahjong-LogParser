@@ -14,7 +14,7 @@ from logparser.log_store import LogStore
 from logparser.tags import TAGS
 from logparser.yaku import TENHOU_YAKU_KEYS
 from tenhou_xml import (CLOSED_HAND, KAMICHA, added_kan, agari, called_win, chi, closed_kan, closed_win, game, ids,
-                        init, m, short_win)
+                        init, m, short_win, turns)
 
 SCHEMA_PATH = Path(__file__).parents[1] / "src" / "logparser" / "schema" / "trainer-bundle.schema.json"
 LOG_ID = "2024010112gm-00a9-0000-0123abcd"
@@ -85,6 +85,12 @@ def test_each_hand_appears_once_with_its_id_situation_tiles_answer_key_and_tags(
             "riichiSticks": 0,
             "tsumo": False,
             "riichi": False,
+            "doubleRiichi": False,
+            "ippatsu": False,
+            "lastTile": False,
+            "rinshan": False,
+            "chankan": False,
+            "firstDraw": False,
         },
         "tiles": {
             "concealed": "123m45699p234789s",
@@ -107,10 +113,11 @@ def test_each_hand_appears_once_with_its_id_situation_tiles_answer_key_and_tags(
 def test_the_bundle_carries_each_kind_of_payment_with_the_honba_and_riichi_sticks_apart(tmp_path):
     logs = LogStore(tmp_path / "log-store")
     logs.add(LOG_ID, game(
-        # Dealer tsumo: 3 han 30 fu, 2000 all.
-        init(round_number=0), agari(who=0, from_who=0, hai=CLOSED_HAND, machi=84, ten="30,6000,0", yaku="0,1,52,2"),
-        # Non-dealer tsumo with 1 honba and 1 stick: 3 han 40 fu, 1300 / 2600.
-        init(round_number=1, honba=1, sticks=1),
+        # Dealer tsumo on its second draw: 3 han 30 fu, 2000 all.
+        init(round_number=0), turns(4),
+        agari(who=0, from_who=0, hai=CLOSED_HAND, machi=84, ten="30,6000,0", yaku="0,1,52,2"),
+        # Non-dealer tsumo on its second draw, with 1 honba and 1 stick: 3 han 40 fu, 1300 / 2600.
+        init(round_number=1, honba=1, sticks=1), turns(5, first_seat=1),
         agari(who=2, from_who=2, ba="1,1", hai=CLOSED_HAND, machi=84, ten="40,5200,0", yaku="0,1,52,2", dealer=1),
         # Ron: 1 han 30 fu, 1000 from the discarder.
         init(round_number=2), closed_win(who=3, from_who=0),

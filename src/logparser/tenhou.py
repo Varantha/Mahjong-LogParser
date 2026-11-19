@@ -4,7 +4,9 @@ Every win (AGARI) in a taken game becomes a hand record, a JSON-ready dict:
 
     id                 <logId>/<roundIndex>/<winIndex>
     replayUrl          Tenhou replay of the round from the winner's seat (hand store only)
-    situation          winds, dealer, honba, riichi sticks, tsumo, riichi
+    situation          winds, dealer, honba, riichi sticks and tsumo, plus riichi, double riichi,
+                       ippatsu, last tile, rinshan, chankan and first draw, worked out from the
+                       round's moves (see `logparser.situation`)
     tiles              concealed tiles, calls, winning tile and dora indicators, in mpsz.
                        Each call is {type, tiles, calledTile, calledFrom}, in the order made.
     answerKey          Tenhou's recorded yaku (contract keys), han, fu, points and payments
@@ -18,6 +20,7 @@ from dataclasses import dataclass, field
 
 from logparser.calls import Call, decode_call
 from logparser.payments import payments, score_changes
+from logparser.situation import RoundMoves
 from logparser.tags import hand_tags
 from logparser.tiles import mpsz, tile
 from logparser.verification import quarantine_reasons
@@ -51,6 +54,7 @@ class _Move:
     kind: str
     seat: int
     tile: int | None  # the tile drawn or discarded; for a call, the tile an added kan adds, else None
+    call_type: str | None = None  # for a call, its type; None if its code is no four-player call
 
 
 @dataclass
@@ -61,7 +65,8 @@ class _Round:
     number: int  # Tenhou's seed[0]: round wind * 4 + hand number - 1
     dealer: int
     wins: int = 0
-    riichi: set[int] = field(default_factory=set)  # seats whose riichi was accepted
+    moves: RoundMoves = field(default_factory=RoundMoves)
+    unreadable_call: bool = False  # a call code in the moves could not be read, so they can't be replayed
     last_move: _Move | None = None
 
 
@@ -83,30 +88,47 @@ def parse_log(log_id: str, xml_text: str) -> ParsedLog:
                 number=_ints(event.get("seed"))[0],
                 dealer=int(event.get("oya")),
             )
-        elif event.tag == "REACH" and event.get("step") == "2":
-            round_.riichi.add(int(event.get("who")))
+        elif event.tag == "REACH":
+            if event.get("step") == "1":
+                round_.moves.declare_riichi(int(event.get("who")))
+            elif event.get("step") == "2":
+                round_.moves.accept_riichi(int(event.get("who")))
         elif event.tag == "AGARI":
             parsed.hands.append(_hand(log_id, round_, event))
             round_.wins += 1
         elif (move := _move(event)) is not None:
             round_.last_move = move
+            _replay(round_, move)
     return parsed
 
 
 def _move(event: ET.Element) -> _Move | None:
     """The move in a draw, discard or call tag; None for any other tag."""
     if event.tag == "N":
+        seat = int(event.get("who"))
         try:
-            added_tile = decode_call(int(event.get("m"))).added_tile
+            call = decode_call(int(event.get("m")))
         except ValueError:
-            added_tile = None
-        return _Move(CALL, int(event.get("who")), added_tile)
+            return _Move(CALL, seat, None)
+        return _Move(CALL, seat, call.added_tile, call.type)
     if match := MOVE_TAG.fullmatch(event.tag):
         letter, tile_id = match[1], int(match[2])
         if letter in DRAW_TAGS:
             return _Move(DRAW, DRAW_TAGS.index(letter), tile_id)
         return _Move(DISCARD, DISCARD_TAGS.index(letter), tile_id)
     return None
+
+
+def _replay(round_: _Round, move: _Move) -> None:
+    """Plays one more move into the round's moves."""
+    if move.kind == DRAW:
+        round_.moves.draw(move.seat)
+    elif move.kind == DISCARD:
+        round_.moves.discard(move.seat)
+    elif move.call_type is None:
+        round_.unreadable_call = True
+    else:
+        round_.moves.call(move.seat, move.call_type)
 
 
 def _skip_reason(game_type: int) -> str | None:
@@ -134,13 +156,25 @@ def _hand(log_id: str, round_: _Round, agari: ET.Element) -> dict:
     first_win = round_.wins == 0
     answer_key = _answer_key(agari, yaku, tsumo=tsumo, dealer=winner == round_.dealer,
                              honba=honba if first_win else 0, riichi_sticks=sticks if first_win else 0)
+    situation = {
+        "roundWind": WINDS[round_.number // 4],
+        "seatWind": WINDS[(winner - round_.dealer) % 4],
+        "dealer": winner == round_.dealer,
+        "honba": honba,
+        "riichiSticks": sticks,
+        "tsumo": tsumo,
+        **round_.moves.situation(winner=winner, discarder=discarder),
+    }
     reasons = quarantine_reasons(
         concealed=concealed,
         calls=calls,
+        unreadable_call_in_moves=round_.unreadable_call,
         winning_tile=winning_tile,
         tile_from_moves=_tile_handed_over(round_.last_move, winner=winner, discarder=discarder),
         dora_indicators=dora_indicators,
         ura_dora_indicators=ura_dora_indicators,
+        situation=situation,
+        yaku=[recorded["key"] for recorded in answer_key["yaku"]],
         unknown_yaku=[tenhou_id for tenhou_id, _ in yaku if tenhou_id not in TENHOU_YAKU_KEYS],
         recorded_score_changes=_recorded_score_changes(agari),
         expected_score_changes=score_changes(answer_key["payments"], winner=winner, discarder=discarder,
@@ -149,15 +183,7 @@ def _hand(log_id: str, round_: _Round, agari: ET.Element) -> dict:
     hand = {
         "id": f"{log_id}/{round_.index}/{round_.wins}",
         "replayUrl": REPLAY_URL.format(log_id=log_id, round_index=round_.index, seat=winner),
-        "situation": {
-            "roundWind": WINDS[round_.number // 4],
-            "seatWind": WINDS[(winner - round_.dealer) % 4],
-            "dealer": winner == round_.dealer,
-            "honba": honba,
-            "riichiSticks": sticks,
-            "tsumo": tsumo,
-            "riichi": winner in round_.riichi,
-        },
+        "situation": situation,
         "tiles": {
             "concealed": mpsz(concealed),
             "calls": [_call_record(call) for call in calls or []],

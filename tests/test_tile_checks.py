@@ -19,6 +19,7 @@ from tenhou_xml import (
     init,
     m,
     pon,
+    turns,
 )
 
 LOG_ID = "2024010112gm-00a9-0000-0123abcd"
@@ -92,15 +93,17 @@ def test_a_hand_whose_winning_tile_is_not_among_its_concealed_tiles_is_quarantin
     assert only_hand(game(init(), win))["quarantineReasons"] == ["winning-tile"]
 
 
-def ron(*moves: str) -> str:
+def ron(*moves: str, yaku: str = "7,1", ten: str = "30,1000,0") -> str:
     """CLOSED_HAND: seat 1 rons seat 0 on 4s (84), after the given moves and nothing else."""
-    return game(init(), *moves, agari(who=1, from_who=0, hai=CLOSED_HAND, machi=84, ten="30,1000,0", yaku="7,1",
+    return game(init(), *moves, agari(who=1, from_who=0, hai=CLOSED_HAND, machi=84, ten=ten, yaku=yaku,
                                       winning_move=False))
 
 
 def tsumo(*moves: str) -> str:
-    """CLOSED_HAND: seat 1 wins by tsumo on 4s (84), after the given moves and nothing else."""
-    return game(init(), *moves, agari(who=1, from_who=1, hai=CLOSED_HAND, machi=84, ten="20,1500,0", yaku="0,1,7,1",
+    """CLOSED_HAND: seat 1 wins by tsumo on 4s (84), after a turn each and then the given moves.
+
+    The turns keep the win off the player's first draw, which would be chiihou."""
+    return game(init(), turns(4), *moves, agari(who=1, from_who=1, hai=CLOSED_HAND, machi=84, ten="20,1500,0", yaku="0,1,7,1",
                                       winning_move=False))
 
 
@@ -139,8 +142,9 @@ def test_a_hand_whose_winning_tile_is_not_the_tile_its_last_move_handed_over_is_
         pytest.param(ron(draw(0, 120), '<REACH who="0" step="1"/>', discard(0, 84)), id="ron-on-a-riichi-declaration"),
         pytest.param(ron(draw(0, 120), discard(0, 84), '<BYE who="0"/>'), id="ron-after-the-discarder-disconnects"),
         pytest.param(tsumo(draw(1, 84), '<UN n0="Alice"/>'), id="tsumo-after-a-player-reconnects"),
-        # Seat 0 adds 4s (84) to its pon of 4s (85 86 87) and seat 1 robs it.
-        pytest.param(ron(draw(0, 84), call(0, added_kan((85, 86, 87), called=86, from_seat=KAMICHA))),
+        # Seat 0 adds 4s (84) to its pon of 4s (85 86 87) and seat 1 robs it: chankan, pinfu.
+        pytest.param(ron(draw(0, 84), call(0, added_kan((85, 86, 87), called=86, from_seat=KAMICHA)),
+                         yaku="3,1,7,1", ten="30,2000,0"),
                      id="ron-on-the-tile-added-to-a-kan"),
     ],
 )
@@ -152,7 +156,8 @@ def test_tags_that_are_no_moves_do_not_hide_the_move_that_handed_over_the_winnin
     "xml",
     [
         # Seat 0 adds 4s (85) to its pon of 4s (84 86 87): the pon's tiles were never on offer.
-        pytest.param(ron(draw(0, 85), call(0, added_kan((84, 86, 87), called=86, from_seat=KAMICHA))),
+        pytest.param(ron(draw(0, 85), call(0, added_kan((84, 86, 87), called=86, from_seat=KAMICHA)),
+                         yaku="3,1,7,1", ten="30,2000,0"),
                      id="ron-on-a-tile-of-the-pon-a-kan-was-added-to"),
         pytest.param(ron(draw(2, 84), call(2, added_kan((85, 86, 87), called=86, from_seat=KAMICHA))),
                      id="ron-on-a-kan-added-by-another-seat"),

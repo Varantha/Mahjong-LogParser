@@ -109,7 +109,7 @@
     "situation": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["roundWind", "seatWind", "dealer", "honba", "riichiSticks", "tsumo", "riichi"],
+      "required": ["roundWind", "seatWind", "dealer", "honba", "riichiSticks", "tsumo", "riichi", "doubleRiichi", "ippatsu", "lastTile", "rinshan", "chankan", "firstDraw"],
       "properties": {
         "roundWind": { "$ref": "#/$defs/wind" },
         "seatWind": { "$ref": "#/$defs/wind" },
@@ -117,7 +117,31 @@
         "honba": { "type": "integer", "minimum": 0 },
         "riichiSticks": { "description": "Riichi sticks on the table when the hand wins.", "type": "integer", "minimum": 0 },
         "tsumo": { "description": "True for a win by tsumo, false for ron.", "type": "boolean" },
-        "riichi": { "type": "boolean" }
+        "riichi": { "description": "True when the hand wins in riichi, double riichi included.", "type": "boolean" },
+        "doubleRiichi": {
+          "description": "True when the hand's riichi was declared with its first discard of the round, before any call (closed kans included).",
+          "type": "boolean"
+        },
+        "ippatsu": {
+          "description": "True when the hand wins in its ippatsu window: after its riichi is accepted, before its next discard and before any call (closed kans included). Robbing an added kan is still in the window.",
+          "type": "boolean"
+        },
+        "lastTile": {
+          "description": "True when the hand wins on the live wall's last tile: its draw by tsumo (haitei) or the discard after it by ron (houtei). A draw from the dead wall after a kan and a robbed kan are never the last tile.",
+          "type": "boolean"
+        },
+        "rinshan": {
+          "description": "True when the hand wins by tsumo on the tile drawn from the dead wall after its own kan.",
+          "type": "boolean"
+        },
+        "chankan": {
+          "description": "True when the hand wins by ron on the tile another player adds to an added kan, robbing the kan.",
+          "type": "boolean"
+        },
+        "firstDraw": {
+          "description": "True when the hand wins by tsumo on its first draw of the round, before any call (closed kans included): tenhou for the dealer, chiihou for the others.",
+          "type": "boolean"
+        }
       }
     },
 
