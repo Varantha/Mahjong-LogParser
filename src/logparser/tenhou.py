@@ -5,7 +5,8 @@ Every win (AGARI) in a taken game becomes a hand record, a JSON-ready dict:
     id                 <logId>/<roundIndex>/<winIndex>
     replayUrl          Tenhou replay of the round from the winner's seat (hand store only)
     situation          winds, dealer, honba, riichi sticks, tsumo, riichi
-    tiles              concealed tiles, winning tile and dora indicators, in mpsz
+    tiles              concealed tiles, calls, winning tile and dora indicators, in mpsz.
+                       Each call is {type, tiles, calledTile, calledFrom}, in the order made.
     answerKey          Tenhou's recorded yaku (contract keys), han, fu and points
     quarantineReasons  one reason code per failed check; empty when verified
 """
@@ -13,6 +14,7 @@ Every win (AGARI) in a taken game becomes a hand record, a JSON-ready dict:
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass, field
 
+from logparser.calls import Call, decode_call
 from logparser.tiles import mpsz, tile
 from logparser.verification import quarantine_reasons
 from logparser.yaku import TENHOU_YAKU_KEYS, YAKUMAN_HAN
@@ -82,10 +84,11 @@ def _hand(log_id: str, round_: _Round, agari: ET.Element) -> dict:
     winner = int(agari.get("who"))
     honba, sticks = _ints(agari.get("ba"))
     concealed = _ints(agari.get("hai"))
+    calls = [decode_call(code) for code in reversed(_ints(agari.get("m", "")))]  # Tenhou lists them latest first
     yaku = _recorded_yaku(agari)
     reasons = quarantine_reasons(
         concealed=concealed,
-        call_codes=_ints(agari.get("m", "")),
+        calls=calls,
         unknown_yaku=[tenhou_id for tenhou_id, _ in yaku if tenhou_id not in TENHOU_YAKU_KEYS],
     )
     return {
@@ -102,12 +105,22 @@ def _hand(log_id: str, round_: _Round, agari: ET.Element) -> dict:
         },
         "tiles": {
             "concealed": mpsz(concealed),
+            "calls": [_call_record(call) for call in calls],
             "winningTile": tile(int(agari.get("machi"))),
             "doraIndicators": mpsz(_ints(agari.get("doraHai"))),
             "uraDoraIndicators": mpsz(_ints(agari.get("doraHaiUra", ""))),
         },
         "answerKey": _answer_key(agari, yaku),
         "quarantineReasons": reasons,
+    }
+
+
+def _call_record(call: Call) -> dict:
+    return {
+        "type": call.type,
+        "tiles": mpsz(call.tiles),
+        "calledTile": None if call.called_tile is None else tile(call.called_tile),
+        "calledFrom": call.called_from,
     }
 
 

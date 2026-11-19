@@ -5,19 +5,22 @@ store with one reason code per failed check and never reaches the trainer
 bundle. Reason codes are stable strings, so reports can group by them.
 """
 
+from logparser.calls import KANS, Call
+
 TILE_TOTAL = "tile-total"
 UNKNOWN_YAKU = "unknown-yaku"
-# Placeholder until calls are decoded: a hand with calls can't be checked yet.
-CALLS_NOT_SUPPORTED = "calls-not-supported"
 
 
-def quarantine_reasons(*, concealed: list[int], call_codes: list[int], unknown_yaku: list[int]) -> list[str]:
+def quarantine_reasons(*, concealed: list[int], calls: list[Call], unknown_yaku: list[int]) -> list[str]:
     reasons = []
-    if call_codes:
-        reasons.append(CALLS_NOT_SUPPORTED)
-    elif len(concealed) != 14:
-        # Check 1: a closed hand is its 14 concealed tiles, winning tile included.
+    if not _tile_total_adds_up(concealed, calls):
         reasons.append(TILE_TOTAL)
     if unknown_yaku:
         reasons.append(UNKNOWN_YAKU)
     return reasons
+
+
+def _tile_total_adds_up(concealed: list[int], calls: list[Call]) -> bool:
+    """Check 1: concealed tiles (winning tile included) plus called tiles come to 14, plus one per kan."""
+    kans = sum(1 for call in calls if call.type in KANS)
+    return len(concealed) + sum(len(call.tiles) for call in calls) == 14 + kans

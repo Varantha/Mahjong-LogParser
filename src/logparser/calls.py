@@ -30,6 +30,7 @@ PON = "pon"
 OPEN_KAN = "open-kan"
 CLOSED_KAN = "closed-kan"
 ADDED_KAN = "added-kan"
+KANS = frozenset({OPEN_KAN, CLOSED_KAN, ADDED_KAN})
 
 CALLED_FROM = {1: "shimocha", 2: "toimen", 3: "kamicha"}
 SUITED_RUNS = 3 * 7  # runs start at rank 1-7 of man, pin or sou

@@ -12,7 +12,7 @@ from logparser.hand_store import HandStore
 from logparser.ingest import ingest
 from logparser.log_store import LogStore
 from logparser.yaku import TENHOU_YAKU_KEYS
-from tenhou_xml import called_win, closed_win, game, init
+from tenhou_xml import KAMICHA, added_kan, agari, called_win, closed_kan, closed_win, game, ids, init, m, short_win
 
 SCHEMA_PATH = Path(__file__).parents[1] / "src" / "logparser" / "schema" / "trainer-bundle.schema.json"
 LOG_ID = "2024010112gm-00a9-0000-0123abcd"
@@ -22,11 +22,11 @@ EVERYTHING = [Drill(key="everything", pool="all", target=500)]
 
 @pytest.fixture
 def hand_store(tmp_path):
-    """Four rounds: three closed wins (verified) and one win with calls (quarantined)."""
+    """Four rounds: three closed wins (verified) and one win with a tile missing (quarantined)."""
     logs = LogStore(tmp_path / "log-store")
     logs.add(LOG_ID, game(
         init(round_number=0), closed_win(who=1),
-        init(round_number=1), called_win(who=2),
+        init(round_number=1), short_win(who=2),
         init(round_number=2), closed_win(who=3),
         init(round_number=3), closed_win(who=0),
     ))
@@ -86,12 +86,54 @@ def test_each_hand_appears_once_with_its_id_situation_tiles_and_answer_key(hand_
         },
         "tiles": {
             "concealed": "123m45699p234789s",
+            "calls": [],
             "winningTile": "4s",
             "doraIndicators": "6z",
             "uraDoraIndicators": "",
         },
         "answerKey": {"yaku": [{"key": "pinfu", "han": 1}], "han": 1, "fu": 30, "points": 1000},
     }
+
+
+def test_a_hand_with_calls_reaches_the_bundle_with_each_call_as_an_object(tmp_path):
+    # A chi with the red 5m and a pon of Chun (CALLED_HAND). Then a closed kan of 5m and an
+    # added kan of 5p whose added tile is the red 5p, with 234s 678s 33m concealed: tanyao and
+    # two aka dora, 3 han 50 fu on a ron of 3m.
+    logs = LogStore(tmp_path / "log-store")
+    logs.add(LOG_ID, game(
+        init(round_number=0), called_win(who=1),
+        init(round_number=1), agari(who=2, from_who=0, hai=ids(8, 9, 76, 80, 84, 92, 96, 100), machi=9,
+                                    m=m(closed_kan(16), added_kan((53, 54, 55), called=54, from_seat=KAMICHA)),
+                                    ten="50,6400,0", yaku="8,1,54,2"),
+    ))
+    with HandStore(tmp_path / "hand-store.sqlite") as hands:
+        ingest(logs, hands)
+        export_bundle(hands, tmp_path / "bundle", EVERYTHING, built_at=BUILT_AT)
+
+    calls = [hand["tiles"]["calls"] for hand in bundle_hands(tmp_path / "bundle")]
+
+    assert calls == [
+        [
+            {"type": "chi", "tiles": "340m", "calledTile": "0m", "calledFrom": "kamicha"},
+            {"type": "pon", "tiles": "777z", "calledTile": "7z", "calledFrom": "toimen"},
+        ],
+        [
+            {"type": "closed-kan", "tiles": "0555m", "calledTile": None, "calledFrom": None},
+            {"type": "added-kan", "tiles": "0555p", "calledTile": "5p", "calledFrom": "kamicha"},
+        ],
+    ]
+
+
+def test_the_schema_requires_a_closed_kan_to_have_no_called_tile_and_other_calls_to_have_one():
+    validator = Draft202012Validator(json.loads(SCHEMA_PATH.read_text()))
+    call_schema = {"$ref": "#/$defs/call", "$defs": validator.schema["$defs"]}
+    closed_kan_call = {"type": "closed-kan", "tiles": "1111z", "calledTile": None, "calledFrom": None}
+    pon_call = {"type": "pon", "tiles": "111z", "calledTile": "1z", "calledFrom": "toimen"}
+
+    assert Draft202012Validator(call_schema).is_valid(closed_kan_call)
+    assert Draft202012Validator(call_schema).is_valid(pon_call)
+    assert not Draft202012Validator(call_schema).is_valid({**closed_kan_call, "calledTile": "1z", "calledFrom": "toimen"})
+    assert not Draft202012Validator(call_schema).is_valid({**pon_call, "calledTile": None, "calledFrom": None})
 
 
 def test_quarantined_hands_player_names_and_replay_links_never_reach_the_bundle(hand_store, tmp_path):

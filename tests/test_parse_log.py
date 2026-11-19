@@ -5,6 +5,15 @@ import pytest
 from logparser.tenhou import parse_log
 from tenhou_xml import (
     CLOSED_HAND,
+    KAMICHA,
+    SHIMOCHA,
+    TOIMEN,
+    added_kan,
+    chi,
+    closed_kan,
+    m,
+    open_kan,
+    pon,
     NO_AKA_HANCHAN,
     NO_KUITAN_HANCHAN,
     PHOENIX_EAST_ONLY,
@@ -171,8 +180,78 @@ def test_a_closed_hand_without_14_tiles_is_quarantined_for_its_tile_total():
     assert only_hand(xml)["quarantineReasons"] == ["tile-total"]
 
 
-def test_a_hand_with_calls_is_quarantined_until_calls_are_supported():
-    assert only_hand(game(init(), called_win()))["quarantineReasons"] == ["calls-not-supported"]
+def test_a_hand_with_calls_records_each_call_in_the_order_it_was_made():
+    hand = only_hand(game(init(), called_win()))
+
+    assert hand["tiles"]["calls"] == [
+        {"type": "chi", "tiles": "340m", "calledTile": "0m", "calledFrom": "kamicha"},
+        {"type": "pon", "tiles": "777z", "calledTile": "7z", "calledFrom": "toimen"},
+    ]
+    assert hand["tiles"]["concealed"] == "45699p234s"
+
+
+# Eleven concealed tiles, winning tile included, to go with one call: 123p 789p 123s 99s.
+ELEVEN_CONCEALED = ids(36, 40, 44, 60, 64, 68, 72, 76, 80, 104, 105)
+
+
+def win_with_calls(*codes_in_call_order: int, hai: str = ELEVEN_CONCEALED) -> str:
+    return game(init(), agari(who=1, from_who=0, hai=hai, m=m(*codes_in_call_order), machi=104,
+                              ten="30,1000,0", yaku="8,1"))
+
+
+@pytest.mark.parametrize(
+    ("code", "call"),
+    [
+        (chi((8, 12, 16), called=12),
+         {"type": "chi", "tiles": "340m", "calledTile": "4m", "calledFrom": "kamicha"}),
+        (pon((52, 53, 54), called=53, from_seat=TOIMEN),
+         {"type": "pon", "tiles": "055p", "calledTile": "5p", "calledFrom": "toimen"}),
+        (open_kan(89, from_seat=SHIMOCHA),
+         {"type": "open-kan", "tiles": "0555s", "calledTile": "5s", "calledFrom": "shimocha"}),
+        (closed_kan(16),
+         {"type": "closed-kan", "tiles": "0555m", "calledTile": None, "calledFrom": None}),
+        (added_kan((53, 54, 55), called=54, from_seat=KAMICHA),  # the red 5p (52) is the added tile
+         {"type": "added-kan", "tiles": "0555p", "calledTile": "5p", "calledFrom": "kamicha"}),
+    ],
+    ids=["chi", "pon", "open-kan", "closed-kan", "added-kan"],
+)
+def test_red_fives_survive_in_every_call_type(code, call):
+    assert only_hand(win_with_calls(code))["tiles"]["calls"] == [call]
+
+
+def test_a_red_five_that_is_the_called_tile_stays_red():
+    code = pon((88, 89, 90), called=88, from_seat=KAMICHA)
+
+    assert only_hand(win_with_calls(code))["tiles"]["calls"][0]["calledTile"] == "0s"
+
+
+@pytest.mark.parametrize(
+    "xml",
+    [
+        game(init(), called_win()),  # 8 concealed + chi 3 + pon 3
+        win_with_calls(closed_kan(16), open_kan(89, from_seat=SHIMOCHA),  # 8 concealed + 2 kans of 4
+                       hai=ids(36, 40, 44, 60, 64, 68, 104, 105)),
+    ],
+    ids=["chi-and-pon", "two-kans"],
+)
+def test_a_hand_with_calls_is_verified_when_its_tiles_come_to_14_plus_one_per_kan(xml):
+    assert only_hand(xml)["quarantineReasons"] == []
+
+
+@pytest.mark.parametrize(
+    "xml",
+    [
+        win_with_calls(chi((8, 12, 16), called=16), hai=ids(36, 40, 44, 60, 64, 68, 72, 76, 80, 84, 104, 105)),
+        win_with_calls(closed_kan(16), hai=ids(36, 40, 44, 60, 64, 68, 72, 76, 104, 105)),
+    ],
+    ids=["one-too-many-beside-a-chi", "kan-counted-as-three"],
+)
+def test_a_hand_with_calls_whose_tiles_dont_come_to_14_plus_one_per_kan_is_quarantined(xml):
+    assert only_hand(xml)["quarantineReasons"] == ["tile-total"]
+
+
+def test_a_closed_hand_has_no_calls():
+    assert only_hand(game(init(), win()))["tiles"]["calls"] == []
 
 
 def test_a_yaku_without_a_contract_key_quarantines_the_hand():
