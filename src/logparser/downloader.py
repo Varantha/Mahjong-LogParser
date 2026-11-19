@@ -58,7 +58,8 @@ HttpGet = Callable[[str], Response]
 
 
 class DownloadStopped(Exception):
-    """Tenhou asked the downloader to wait, or could not be reached. Run it again later to carry on."""
+    """The download stopped before it was done: Tenhou asked it to wait, Tenhou could not be reached,
+    or another download is running. Run it again later to carry on where it stopped."""
 
 
 @dataclass
@@ -78,7 +79,14 @@ class Downloader:
         self._last_request: float | None = None
         state = Path(state)
         state.parent.mkdir(parents=True, exist_ok=True)
-        self._db = sqlite3.connect(state)
+        # The state file stays locked while this downloader is open, so a second one on it cannot start.
+        self._db = sqlite3.connect(state, timeout=0)
+        try:
+            self._db.execute("PRAGMA locking_mode = EXCLUSIVE")
+            self._db.execute("BEGIN EXCLUSIVE")
+        except sqlite3.OperationalError as error:
+            self._db.close()
+            raise DownloadStopped(f"another download is using {state}: Tenhou allows one download at a time") from error
         self._db.executescript(SCHEMA)
 
     def __enter__(self) -> "Downloader":

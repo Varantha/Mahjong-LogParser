@@ -202,3 +202,11 @@ def test_a_log_tenhou_cannot_give_is_skipped_now_and_in_later_runs(tenhou, clock
     assert list(log_store.log_ids()) == [GAME_B]
     assert tenhou.urls().count(tenhou.log_url(GAME_A)) == 1
     assert first.failed == 1
+
+
+def test_a_second_download_cannot_start_while_one_is_running(state, log_store, tenhou, clock, no_network):
+    with Downloader(log_store, state, http_get=tenhou, clock=clock, sleep=clock.sleep):
+        with pytest.raises(DownloadStopped, match="another download"):
+            Downloader(log_store, state, http_get=tenhou, clock=clock, sleep=clock.sleep)
+
+    Downloader(log_store, state, http_get=tenhou, clock=clock, sleep=clock.sleep).close()
