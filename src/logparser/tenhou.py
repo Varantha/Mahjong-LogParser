@@ -13,6 +13,7 @@ Every win (AGARI) in a taken game becomes a hand record, a JSON-ready dict:
                        payments, plus the raw fu and fu breakdown (contract keys) of a hand whose
                        cross-check matched; both are None for any other hand
     quarantineReasons  one reason code per failed check; empty when verified
+    plainValues        the facts drills filter on directly (see `logparser.plain_values`)
     tags               the keys of the hand's tags (see `logparser.tags`)
 """
 
@@ -23,6 +24,7 @@ from dataclasses import dataclass, field
 from logparser.calls import Call, decode_call
 from logparser.payments import payments, score_changes
 from logparser.situation import RoundMoves
+from logparser.plain_values import plain_values
 from logparser.tags import hand_tags
 from logparser.tiles import mpsz, tile
 from logparser.verification import verify
@@ -203,6 +205,7 @@ def _hand(log_id: str, round_: _Round, agari: ET.Element) -> dict:
         "answerKey": answer_key,
         "quarantineReasons": verification.reasons,
     }
+    hand["plainValues"] = plain_values(hand)
     hand["tags"] = hand_tags(hand)
     return hand
 
