@@ -3,6 +3,12 @@
 It reads Tenhou's FileIndex, then the `scc` lists of Phoenix-room games it
 names, then fetches each listed log. It is the only part of the pipeline that
 uses the network.
+
+It keeps to Tenhou's rules for automatic downloads (https://tenhou.net/sc/raw/):
+one download at a time, so it never makes two requests at once and a second
+downloader on the same state cannot start; the FileIndex at most every 20
+minutes; and an scc list again only when its size has changed. Its state (lists
+read, log IDs listed, logs Tenhou could not give) lets a stopped run carry on.
 """
 
 import gzip
@@ -30,6 +36,7 @@ LOG_URL = TENHOU + "/0/log/?{log_id}"
 DEFAULT_INTERVAL = 2.0
 # Tenhou: refresh the FileIndex no more often than every 20 minutes.
 INDEX_REFRESH = 20 * 60.0
+TIMEOUT = 60.0  # seconds to wait for Tenhou to answer
 
 # The FileIndex is a JavaScript call, list([...]);, holding entries such as {file:'scc2026110604.html.gz',size:735}.
 FILE_INDEX = re.compile(r"\s*list\s*\(\s*(?:\[(.*)\])?\s*\)\s*;\s*", re.DOTALL)
@@ -40,8 +47,9 @@ LISTED_GAME = re.compile(r"^(\d{2}:\d{2}).*?log=([^\"'&>]+)", re.MULTILINE)
 MJLOG_START = re.compile(r"\A\s*(?:<\?xml\s[\s\S]*?\?>\s*)?<mjloggm(?=[\s/>])")
 
 SCHEMA = """
--- The scc lists in the FileIndex last read, with their sizes, and when it was read.
+-- The scc lists in the FileIndex last read, with their sizes.
 CREATE TABLE IF NOT EXISTS file_index (file TEXT PRIMARY KEY, size INTEGER NOT NULL);
+-- When the FileIndex was last read (index_read_at) and when the last request started (last_request_at).
 CREATE TABLE IF NOT EXISTS state (key TEXT PRIMARY KEY, value);
 -- Each scc list already read, at the size the FileIndex gave it then.
 CREATE TABLE IF NOT EXISTS lists_read (file TEXT PRIMARY KEY, size INTEGER NOT NULL);
@@ -60,8 +68,6 @@ class Response:
 
 
 HttpGet = Callable[[str], Response]
-
-TIMEOUT = 60.0  # seconds to wait for Tenhou to answer
 
 
 class DownloadStopped(Exception):
@@ -86,7 +92,6 @@ class Downloader:
         self._interval = interval
         self._clock = clock
         self._sleep = sleep
-        self._last_request: float | None = None
         state = Path(state)
         state.parent.mkdir(parents=True, exist_ok=True)
         # The state file stays locked while this downloader is open, so a second one on it cannot start.
@@ -98,6 +103,7 @@ class Downloader:
             self._db.close()
             raise DownloadStopped(f"another download is using {state}: Tenhou allows one download at a time") from error
         self._db.executescript(SCHEMA)
+        self._last_request = self._state("last_request_at")  # the gap holds from one run to the next
 
     def __enter__(self) -> "Downloader":
         return self
@@ -137,6 +143,8 @@ class Downloader:
             if wait > 0:
                 self._sleep(min(wait, self._interval))  # never longer, even if the clock jumps back
         self._last_request = self._clock()
+        with self._db:
+            self._set_state("last_request_at", self._last_request)
         reply = self._http_get(url)
         if reply.status in (408, 429) or reply.status >= 500:
             retry_after = reply.headers.get("retry-after")
@@ -162,8 +170,8 @@ class Downloader:
 
         A FileIndex read less than 20 minutes ago is used again rather than read anew.
         """
-        read_at = self._db.execute("SELECT value FROM state WHERE key = 'index_read_at'").fetchone()
-        if read_at is None or not 0 <= self._clock() - read_at[0] < INDEX_REFRESH:
+        read_at = self._state("index_read_at")
+        if read_at is None or not 0 <= self._clock() - read_at < INDEX_REFRESH:
             read_at = self._clock()
             index = []
             for url in FILE_INDEXES:
@@ -177,8 +185,15 @@ class Downloader:
             with self._db:
                 self._db.execute("DELETE FROM file_index")
                 self._db.executemany("INSERT OR REPLACE INTO file_index (file, size) VALUES (?, ?)", index)
-                self._db.execute("INSERT OR REPLACE INTO state (key, value) VALUES ('index_read_at', ?)", (read_at,))
+                self._set_state("index_read_at", read_at)
         return self._db.execute("SELECT file, size FROM file_index ORDER BY rowid").fetchall()
+
+    def _state(self, key: str) -> float | None:
+        row = self._db.execute("SELECT value FROM state WHERE key = ?", (key,)).fetchone()
+        return None if row is None else row[0]
+
+    def _set_state(self, key: str, value: float) -> None:
+        self._db.execute("INSERT OR REPLACE INTO state (key, value) VALUES (?, ?)", (key, value))
 
     def _read_list(self, file: str, size: int) -> bool:
         """Keeps the log IDs an scc list names. A list that cannot be read is left for the next run."""

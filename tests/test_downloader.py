@@ -120,6 +120,17 @@ def test_the_gap_between_requests_can_be_set(tenhou, download):
     assert request_gaps(tenhou) == [7.5, 7.5, 7.5, 7.5]
 
 
+def test_the_gap_between_requests_holds_from_one_run_to_the_next(tenhou, download):
+    tenhou.add_list("scc2026110604.html.gz", GAME_A, GAME_B)
+    tenhou.add_log(GAME_A, log(1))
+    tenhou.add_log(GAME_B, log(2))
+
+    download(max_logs=1)
+    download()
+
+    assert min(request_gaps(tenhou)) >= 2.0
+
+
 MINUTE = 60.0
 GAME_C = "2026110605gm-00a9-0000-0000000c"
 
