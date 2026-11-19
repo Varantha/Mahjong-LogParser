@@ -363,6 +363,25 @@ def test_an_id_list_download_tenhou_asks_to_wait_stops_at_once_and_resumes_where
     assert list(log_store.log_ids()) == [GAME_A, GAME_B, GAME_C]
 
 
+def test_an_empty_reply_stops_the_download_without_marking_the_log_failed_and_it_resumes_later(tenhou, clock, log_store,
+                                                                                               download_ids):
+    # Tenhou answers 200 with no body when it won't serve a client: that says nothing about the log.
+    for n, log_id in enumerate([GAME_A, GAME_B, GAME_C]):
+        tenhou.add_log(log_id, log(n))
+    tenhou.reply(tenhou.log_url(GAME_B), 200, b"")
+    with pytest.raises(DownloadStopped, match="empty reply"):
+        download_ids(GAME_A, GAME_B, GAME_C)
+    tenhou.replies_reset()
+    clock.advance(5 * MINUTE)
+    tenhou.requests.clear()
+
+    summary = download_ids(GAME_A, GAME_B, GAME_C)
+
+    assert tenhou.urls() == [tenhou.log_url(GAME_B), tenhou.log_url(GAME_C)]
+    assert list(log_store.log_ids()) == [GAME_A, GAME_B, GAME_C]
+    assert summary.failed == 0
+
+
 def test_an_id_list_download_can_be_limited_to_a_number_of_logs_and_says_how_many_are_left(tenhou, log_store,
                                                                                            download_ids):
     for n, log_id in enumerate([GAME_A, GAME_B, GAME_C]):

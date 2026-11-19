@@ -39,6 +39,8 @@ DEFAULT_INTERVAL = 2.0
 # Tenhou: refresh the FileIndex no more often than every 20 minutes.
 INDEX_REFRESH = 20 * 60.0
 TIMEOUT = 60.0  # seconds to wait for Tenhou to answer
+# Tenhou answers Python's default client with an empty body, so name this one.
+USER_AGENT = "Mahjong-LogParser/2"
 
 # The FileIndex is a JavaScript call, list([...]);, holding entries such as {file:'scc2026110604.html.gz',size:735}.
 FILE_INDEX = re.compile(r"\s*list\s*\(\s*(?:\[(.*)\])?\s*\)\s*;\s*", re.DOTALL)
@@ -195,6 +197,8 @@ class Downloader:
         reply = self._get(LOG_URL.format(log_id=log_id))
         if reply.status != 200:
             return None, f"HTTP {reply.status}"
+        if not reply.body:  # says nothing about the log: Tenhou is not serving this client
+            raise DownloadStopped(f"Tenhou sent an empty reply for {log_id}; it may be refusing this client")
         try:
             xml = reply.body.decode("utf-8-sig")
         except UnicodeDecodeError:
@@ -265,7 +269,7 @@ def _skip_reason(log_id: str) -> str | None:
 
 def urllib_get(url: str) -> Response:
     """Fetches a URL, following redirects and decoding a gzip-encoded reply. Error replies are returned, not raised."""
-    request = urllib.request.Request(url, headers={"Accept-Encoding": "gzip"})
+    request = urllib.request.Request(url, headers={"Accept-Encoding": "gzip", "User-Agent": USER_AGENT})
     try:
         try:
             with urllib.request.urlopen(request, timeout=TIMEOUT) as reply:
