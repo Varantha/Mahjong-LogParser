@@ -8,6 +8,7 @@ from dataclasses import dataclass, field
 
 from logparser.hand_store import HandStore
 from logparser.log_store import LogStore
+from logparser.tags import TagSettings
 from logparser.tenhou import parse_log
 
 
@@ -19,11 +20,11 @@ class IngestSummary:
     quarantined: int = 0
 
 
-def ingest(logs: LogStore, hands: HandStore) -> IngestSummary:
+def ingest(logs: LogStore, hands: HandStore, tag_settings: TagSettings = TagSettings()) -> IngestSummary:
     summary = IngestSummary()
     skipped = Counter()
     for log_id in logs.log_ids():
-        parsed = parse_log(log_id, logs.read(log_id))
+        parsed = parse_log(log_id, logs.read(log_id), tag_settings)
         hands.replace_log(log_id, parsed.hands)
         summary.logs += 1
         if parsed.skipped:

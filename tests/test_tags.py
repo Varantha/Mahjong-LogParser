@@ -2,7 +2,7 @@
 
 import pytest
 
-from logparser.tags import TAGS
+from logparser.tags import TAGS, TagSettings
 from logparser.tenhou import parse_log
 from logparser.yaku import TENHOU_YAKU_KEYS
 from tenhou_xml import (KAMICHA, TOIMEN, Wall, agari, called_win, chi, closed_kan, closed_win, game, ids, init, m, pon,
@@ -355,3 +355,17 @@ def test_a_hand_with_less_than_50_fu_has_no_high_fu(xml):
 
     assert hand["quarantineReasons"] == []
     assert "high-fu" not in hand["tags"]
+
+
+@pytest.mark.parametrize(
+    ("xml", "high_fu", "tagged"),
+    [
+        pytest.param(closed_honitsu(), 40, True, id="40-fu-at-40"),
+        pytest.param(tanki_or_ryanmen(), 60, False, id="50-fu-at-60"),
+        pytest.param(honitsu_with_a_closed_kan(), 60, True, id="70-fu-at-60"),
+    ],
+)
+def test_the_high_fu_threshold_can_be_set(xml, high_fu, tagged):
+    (hand,) = parse_log(LOG_ID, xml, TagSettings(high_fu=high_fu)).hands
+
+    assert ("high-fu" in hand["tags"]) == tagged

@@ -7,6 +7,7 @@ import pytest
 from dumps import compressed, make_dump
 from fake_tenhou import FILE_INDEXES, FakeClock, FakeTenhou
 from logparser.cli import main
+from logparser.hand_store import HandStore
 from logparser.log_store import LogStore
 from tenhou_xml import closed_win, game, init, short_win
 
@@ -47,6 +48,18 @@ def test_ingest_reports_what_it_did(tmp_path, capsys):
     main(["ingest", "--log-store", str(logs), "--hand-store", str(hands)])
 
     assert capsys.readouterr().out.splitlines()[-1] == "1 logs (0 skipped), 2 hands (1 verified, 1 quarantined)"
+
+
+@pytest.mark.parametrize(("options", "tagged"), [([], False), (["--high-fu", "30"], True)], ids=["default", "set-to-30"])
+def test_ingest_tags_hands_with_the_high_fu_threshold_given(tmp_path, options, tagged):
+    (tmp_path / f"{LOG_ID}.xml").write_text(game(init(), closed_win()))  # 30 fu
+    logs, hands = tmp_path / "logs", tmp_path / "hands.sqlite"
+    main(["add-logs", "--log-store", str(logs), str(tmp_path / f"{LOG_ID}.xml")])
+
+    main(["ingest", "--log-store", str(logs), "--hand-store", str(hands), *options])
+
+    with HandStore(hands) as store:
+        assert ("high-fu" in store.get(f"{LOG_ID}/0/0")["tags"]) == tagged
 
 
 def test_a_dump_is_imported_into_the_log_store_under_local_and_ingested_without_the_network(tmp_path, monkeypatch, capsys,
