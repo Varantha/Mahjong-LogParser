@@ -15,12 +15,28 @@ CATALOGUE_PATH = Path(__file__).with_name("drills.toml")
 
 @dataclass(frozen=True)
 class Filter:
-    """Hands whose plain values and tags meet every condition."""
+    """Hands whose plain values and tags meet every condition.
+
+    A condition names a plain value, or `tags`, and gives one value or a list of them. A hand
+    meets it when its value is one of them; for yaku, call types and tags, which hold several
+    values, when it holds any of them.
+    """
 
     conditions: dict = field(default_factory=dict)
 
     def matches(self, hand: dict) -> bool:
-        return all(hand["plainValues"][name] == wanted for name, wanted in self.conditions.items())
+        return all(_holds(_value(hand, name), wanted) for name, wanted in self.conditions.items())
+
+
+def _value(hand: dict, name: str):
+    return hand["tags"] if name == "tags" else hand["plainValues"][name]
+
+
+def _holds(value, wanted) -> bool:
+    wanted = wanted if isinstance(wanted, list) else [wanted]
+    if isinstance(value, list):
+        return any(held in wanted for held in value)
+    return value in wanted
 
 
 @dataclass(frozen=True)
