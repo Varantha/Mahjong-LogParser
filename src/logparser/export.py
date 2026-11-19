@@ -20,7 +20,7 @@ from logparser.hand_store import HandStore
 from logparser.plain_values import LIMIT_TIERS
 from logparser.tags import TAGS
 
-SCHEMA_VERSION = "1.0.0"
+SCHEMA_VERSION = "1.1.0"
 SCHEMA_PATH = Path(__file__).parent / "schema" / "trainer-bundle.schema.json"
 DEFAULT_CHUNK_SIZE = 200
 # The parts of a hand-store record the trainer sees. Replay links, quarantine

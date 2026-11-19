@@ -48,7 +48,7 @@ def bundle_hands(folder: Path) -> list[dict]:
     return [hand for chunk in manifest["chunks"] for hand in json.loads((folder / chunk).read_text())["hands"]]
 
 
-def test_every_bundle_file_validates_against_the_schema_at_version_1_0_0(hand_store, tmp_path):
+def test_every_bundle_file_validates_against_the_schema_at_version_1_1_0(hand_store, tmp_path):
     schema = json.loads(SCHEMA_PATH.read_text())
     Draft202012Validator.check_schema(schema)
 
@@ -57,7 +57,7 @@ def test_every_bundle_file_validates_against_the_schema_at_version_1_0_0(hand_st
     files = bundle_files(tmp_path / "bundle")
     for name, data in files.items():
         Draft202012Validator(schema).validate(data)
-    assert files["manifest.json"]["schemaVersion"] == "1.0.0"
+    assert files["manifest.json"]["schemaVersion"] == "1.1.0"
 
 
 def test_the_manifest_lists_each_drill_with_the_ids_of_its_hands_and_counts_them(hand_store, tmp_path):
@@ -85,6 +85,7 @@ def test_each_hand_appears_once_with_its_id_situation_tiles_answer_key_plain_val
             "dealer": False,
             "honba": 0,
             "riichiSticks": 0,
+            "secondWinner": False,
             "tsumo": False,
             "riichi": False,
             "doubleRiichi": False,

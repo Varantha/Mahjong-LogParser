@@ -1,13 +1,13 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "Trainer bundle",
-  "description": "The contract between LogParser and the Scoring Trainer. A trainer bundle is manifest.json plus hand chunk files; every file in it validates against this schema. A breaking change bumps the major schemaVersion.",
+  "description": "The contract between LogParser and the Scoring Trainer. A trainer bundle is manifest.json plus hand chunk files; every file in it validates against this schema. A breaking change bumps the major schemaVersion; an additive one, such as a new field, bumps the minor.",
   "oneOf": [
     { "$ref": "#/$defs/manifest" },
     { "$ref": "#/$defs/handChunk" }
   ],
   "$defs": {
-    "schemaVersion": { "const": "1.0.0" },
+    "schemaVersion": { "const": "1.1.0" },
 
     "manifest": {
       "description": "manifest.json: what the bundle holds and where its hands are.",
@@ -116,13 +116,17 @@
     "situation": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["roundWind", "seatWind", "dealer", "honba", "riichiSticks", "tsumo", "riichi", "doubleRiichi", "ippatsu", "lastTile", "rinshan", "chankan", "firstDraw"],
+      "required": ["roundWind", "seatWind", "dealer", "honba", "riichiSticks", "secondWinner", "tsumo", "riichi", "doubleRiichi", "ippatsu", "lastTile", "rinshan", "chankan", "firstDraw"],
       "properties": {
         "roundWind": { "$ref": "#/$defs/wind" },
         "seatWind": { "$ref": "#/$defs/wind" },
         "dealer": { "type": "boolean" },
         "honba": { "type": "integer", "minimum": 0 },
         "riichiSticks": { "description": "Riichi sticks on the table when the hand wins.", "type": "integer", "minimum": 0 },
+        "secondWinner": {
+          "description": "True when the hand is the second winner of a double ron. The first winner, the next in turn after the discarder, collects the honba and riichi sticks on the table, so this hand's honbaBonus and riichiSticksCollected are 0 even though honba show on the table. Added in 1.1.0.",
+          "type": "boolean"
+        },
         "tsumo": { "description": "True for a win by tsumo, false for ron.", "type": "boolean" },
         "riichi": { "description": "True when the hand wins in riichi, double riichi included.", "type": "boolean" },
         "doubleRiichi": {
@@ -290,13 +294,13 @@
           ]
         },
         "honbaBonus": {
-          "description": "The honba bonus the winner collects on top of the base payments: 300 per honba, paid by the discarder on a ron or 100 per honba by each player on a tsumo. In a double ron only the first winner collects it, so the second winner's is 0 even though honba are on the table.",
+          "description": "The honba bonus the winner collects on top of the base payments: 300 per honba, paid by the discarder on a ron or 100 per honba by each player on a tsumo. In a double ron only the first winner collects it, so the second winner's (situation.secondWinner) is 0 even though honba are on the table.",
           "type": "integer",
           "minimum": 0,
           "multipleOf": 300
         },
         "riichiSticksCollected": {
-          "description": "Points from the riichi sticks the winner collects, 1000 per stick. In a double ron only the first winner collects them.",
+          "description": "Points from the riichi sticks the winner collects, 1000 per stick. In a double ron only the first winner collects them, so the second winner's (situation.secondWinner) is 0.",
           "type": "integer",
           "minimum": 0,
           "multipleOf": 1000

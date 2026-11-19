@@ -4,7 +4,8 @@ Every win (AGARI) in a taken game becomes a hand record, a JSON-ready dict:
 
     id                 <logId>/<roundIndex>/<winIndex>
     replayUrl          Tenhou replay of the round from the winner's seat (hand store only)
-    situation          winds, dealer, honba, riichi sticks and tsumo, plus riichi, double riichi,
+    situation          winds, dealer, honba, riichi sticks, the second winner of a double ron and
+                       tsumo, plus riichi, double riichi,
                        ippatsu, last tile, rinshan, chankan and first draw, worked out from the
                        round's moves (see `logparser.situation`)
     tiles              concealed tiles, calls, winning tile and dora indicators, in mpsz.
@@ -173,6 +174,7 @@ def _hand(log_id: str, round_: _Round, agari: ET.Element, tag_settings: TagSetti
         "dealer": winner == round_.dealer,
         "honba": honba,
         "riichiSticks": sticks,
+        "secondWinner": not first_win,
         "tsumo": tsumo,
         **round_.moves.situation(winner=winner, discarder=discarder),
     }

@@ -20,7 +20,7 @@ Database dumps ───── import-dump ───┼─► Log store ──(s
 
 - its ID, `<logId>/<roundIndex>/<winIndex>`, which depends only on the source log, so re-running ingest never changes it
 - its tiles and calls, in `mpsz` notation
-- its situation (winds, dealer, honba, riichi sticks, tsumo or ron, riichi, ippatsu, last tile, rinshan, chankan, first draw), worked out from the game's moves
+- its situation (winds, dealer, honba, riichi sticks, tsumo or ron, riichi, ippatsu, last tile, rinshan, chankan, first draw), worked out from the game's moves, and whether it is the second winner of a double ron, which collects none of the honba and riichi sticks on the table
 - its answer key: the yaku, han, fu, limit tier, points and payments Tenhou recorded, plus the raw fu and the fu breakdown once the cross-check (below) has matched
 - its plain values, the facts drills filter on directly: han, fu, raw fu, limit tier, dealer, tsumo or ron, open or closed, yaku, dora count, honba, riichi sticks and call types
 - its tags, such as `kuisagari`

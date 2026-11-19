@@ -106,6 +106,15 @@ def test_in_a_double_ron_the_first_winner_collects_the_honba_and_the_riichi_stic
     }
 
 
+def test_the_second_winner_of_a_double_ron_is_marked_so_the_trainer_can_say_why_it_collects_nothing_on_the_table():
+    first, second = parse_log(LOG_ID, double_ron(second_sc="227,-10,283,0,250,0,240,10")).hands
+
+    assert (first["situation"]["secondWinner"], second["situation"]["secondWinner"]) == (False, True)
+    # Both see the honba on the table, but only the first winner collects them.
+    assert [hand["situation"]["honba"] for hand in (first, second)] == [1, 1]
+    assert second["answerKey"]["payments"]["honbaBonus"] == 0
+
+
 def test_the_second_winner_of_a_double_ron_paid_the_honba_fails_check_5():
     second = parse_log(LOG_ID, double_ron(second_sc="227,-13,283,0,250,0,240,13")).hands[1]
 
