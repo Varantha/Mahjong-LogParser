@@ -20,6 +20,9 @@ from logparser.tiles import kinds
 # Yaku worth 1 han less when the hand is open (kuisagari).
 YAKU_LOSING_A_HAN_WHEN_OPEN = frozenset({"sanshoku-doujun", "ittsu", "chanta", "junchan", "honitsu", "chinitsu"})
 
+# Yaku whose hands always score the same fu, so their fu can't be miscounted (knife-edge-fu).
+FIXED_FU_YAKU = frozenset({"chiitoitsu", "pinfu"})
+
 # A dora indicator names the next tile of its kind as dora. These indicators wrap round to the first.
 WRAPAROUND_DORA = {"9m": "1m", "9p": "1p", "9s": "1s", "4z": "1z", "7z": "5z"}  # North names East, Chun names Haku
 
@@ -69,9 +72,9 @@ def _high_fu(hand: dict, settings: TagSettings) -> bool:
 
 def _knife_edge_fu(hand: dict, settings: TagSettings) -> bool:
     """Re-scoring the hand with raw fu 2 higher or 2 lower changes its points. Hands with fixed fu,
-    chiitoitsu and pinfu tsumo, never have it, nor does a hand with no raw fu."""
+    chiitoitsu and pinfu (20 fu by tsumo, 30 by ron), never have it, nor does a hand with no raw fu."""
     plain = hand["plainValues"]
-    if plain["rawFu"] is None or "chiitoitsu" in plain["yaku"] or ("pinfu" in plain["yaku"] and plain["tsumo"]):
+    if plain["rawFu"] is None or not FIXED_FU_YAKU.isdisjoint(plain["yaku"]):
         return False
 
     def scored(fu: int) -> int:

@@ -125,7 +125,7 @@ def test_each_hand_appears_once_with_its_id_situation_tiles_answer_key_plain_val
             "riichiSticks": 0,
             "callTypes": [],
         },
-        "tags": ["knife-edge-fu"],
+        "tags": [],
     }
 
 

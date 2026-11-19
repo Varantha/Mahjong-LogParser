@@ -434,6 +434,8 @@ def pinfu_tsumo() -> str:
         pytest.param(seven_pairs(dora=ids(28)), 25, id="chiitoitsu"),
         # 2 han, fixed at 20 fu, 1500; scored at 30 fu it would be 2000.
         pytest.param(pinfu_tsumo(), 20, id="pinfu-tsumo"),
+        # 4 han, fixed at 30 fu, 7700; scored at 40 fu it would be mangan.
+        pytest.param(pinfu_tanyao_iipeikou(), 30, id="pinfu-ron"),
     ],
 )
 def test_a_hand_with_fixed_fu_has_no_knife_edge_fu(xml, fu):
