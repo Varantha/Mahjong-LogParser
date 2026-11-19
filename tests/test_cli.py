@@ -24,7 +24,7 @@ def test_logs_go_from_xml_files_to_a_trainer_bundle_under_local_without_the_netw
     main(["export"])
 
     manifest = json.loads((tmp_path / "local" / "bundle" / "manifest.json").read_text())
-    assert manifest["drills"] == [{"key": "everything", "handIds": [f"{LOG_ID}/0/0"]}]
+    assert {drill["key"]: drill["handIds"] for drill in manifest["drills"]}["everything"] == [f"{LOG_ID}/0/0"]
 
 
 def test_every_location_can_be_given_on_the_command_line(tmp_path, no_network):

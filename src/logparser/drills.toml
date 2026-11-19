@@ -31,6 +31,39 @@
 # Each share (the trap hands, the lookalikes, each quota and the rest) draws on older
 # years on its own, and is not made up from another share when it falls short.
 
+# Random hands at their real-game frequency. Skill: general scoring.
 [[drill]]
 key = "everything"
 target = 500
+
+# Hands with a yaku worth 1 han less when open; the closed ones are the lookalikes.
+# Skill: the han lost when the hand is open.
+[[drill]]
+key = "open-hand-han"
+target = 500
+pool = { yaku = ["sanshoku-doujun", "ittsu", "chanta", "junchan", "honitsu", "chinitsu"] }
+trap = { open = true }
+lookalikes = 0.5
+
+# Haneman and above. Sanbaiman, kazoe yakuman and yakuman are about 1 in 100 of these
+# hands in real games; here they make up a fifth of the drill. One year of logs holds
+# only about 22 of them, so this drill draws on several years.
+# Skill: han counting for big hands, limit tiers.
+[[drill]]
+key = "big-hands"
+target = 500
+pool = { limitTier = ["haneman", "baiman", "sanbaiman", "kazoe-yakuman", "yakuman"] }
+quotas = [{ share = 0.2, where = { limitTier = ["sanbaiman", "kazoe-yakuman", "yakuman"] } }]
+
+# Tsumo hands, dealer and non-dealer, at their real-game frequency: about 3 in 10 are
+# the dealer's and about a third have honba. Skill: payment splits.
+[[drill]]
+key = "payments"
+target = 500
+pool = { tsumo = true }
+
+# Hands with a situational yaku. Skill: situational yaku.
+[[drill]]
+key = "rare-situations"
+target = 500
+pool = { yaku = ["ippatsu", "haitei", "houtei", "rinshan", "chankan", "double-riichi"] }

@@ -274,3 +274,87 @@ def test_a_drill_the_engine_cannot_follow_is_refused_naming_the_drill_and_the_pr
 def test_a_catalogue_with_two_drills_under_one_key_is_refused(tmp_path):
     with pytest.raises(CatalogueError, match="'payments'"):
         catalogue(tmp_path, '[[drill]]\nkey = "payments"\ntarget = 500\n\n[[drill]]\nkey = "payments"\ntarget = 50\n')
+
+
+# The drill catalogue this repo ships.
+
+def shipped_drill(key: str, hands: list[dict]):
+    [drill] = [drill for drill in draw_drills(load_catalogue(), hands) if drill.key == key]
+    return drill
+
+
+def numbered(count: int, start: int = 0, **values) -> list[dict]:
+    return [hand(number, **values) for number in range(start, start + count)]
+
+
+def test_the_catalogue_holds_everything_open_hand_han_big_hands_payments_and_rare_situations_each_aiming_for_500():
+    assert [(drill.key, drill.target) for drill in load_catalogue()] == [
+        ("everything", 500), ("open-hand-han", 500), ("big-hands", 500), ("payments", 500), ("rare-situations", 500)]
+
+
+def test_everything_draws_500_hands_of_every_kind():
+    hands = (numbered(200) + numbered(200, 200, tsumo=True, dealer=True)
+             + numbered(200, 400, han=13, limitTier="yakuman", yaku=["kokushi-musou"], open=False))
+
+    everything = shipped_drill("everything", hands)
+
+    assert len(everything.hand_ids) == 500 and everything.short_by == 0
+
+
+def test_open_hand_han_takes_hands_with_a_yaku_worth_less_open_half_of_them_closed_lookalikes():
+    open_hands = (numbered(150, yaku=["honitsu"], open=True) + numbered(150, 150, yaku=["sanshoku-doujun"], open=True)
+                  + numbered(50, 300, yaku=["chanta"], open=True) + numbered(50, 350, yaku=["junchan"], open=True))
+    closed_hands = (numbered(150, 400, yaku=["riichi", "ittsu"]) + numbered(150, 550, yaku=["chinitsu"]))
+    other_hands = numbered(300, 700, yaku=["tanyao"], open=True) + numbered(300, 1000, yaku=["sanshoku-doukou"])
+
+    open_hand_han = shipped_drill("open-hand-han", open_hands + closed_hands + other_hands)
+
+    drawn = drawn_ids(open_hand_han)
+    assert (len(drawn & ids(open_hands)), len(drawn & ids(closed_hands)), len(drawn)) == (250, 250, 500)
+
+
+def test_big_hands_takes_haneman_and_above_giving_a_fifth_of_the_drill_to_sanbaiman_kazoe_yakuman_and_yakuman():
+    common = numbered(600, han=6, limitTier="haneman") + numbered(200, 600, han=8, limitTier="baiman")
+    rare = (numbered(30, 800, han=11, limitTier="sanbaiman") + numbered(30, 830, han=13, limitTier="kazoe-yakuman")
+            + numbered(40, 860, han=13, limitTier="yakuman"))
+    mangan = numbered(300, 900, han=5, limitTier="mangan")
+
+    big_hands = shipped_drill("big-hands", common + rare + mangan)
+
+    assert (len(big_hands.hand_ids), drawn_ids(big_hands) >= ids(rare), drawn_ids(big_hands) & ids(mangan)) == (
+        500, True, set())
+
+
+def test_big_hands_short_of_sanbaiman_and_above_says_so_rather_than_shrinking():
+    # About what one year of logs holds: a few thousand haneman and baiman, 22 hands above them.
+    common = numbered(2000, han=6, limitTier="haneman")
+    rare = numbered(8, 2000, han=11, limitTier="sanbaiman") + numbered(14, 2008, han=13, limitTier="yakuman")
+
+    big_hands = shipped_drill("big-hands", common + rare)
+
+    assert (len(big_hands.hand_ids), big_hands.target, big_hands.short_by) == (422, 500, 78)
+    assert big_hands.shortfalls == [
+        Shortfall(part="limitTier = sanbaiman/kazoe-yakuman/yakuman", wanted=100, found=22)]
+
+
+def test_payments_takes_tsumo_hands_dealer_and_non_dealer_some_with_honba():
+    non_dealer = numbered(300, tsumo=True, yaku=["menzen-tsumo"]) + numbered(100, 300, tsumo=True, honba=1)
+    dealer = numbered(150, 400, tsumo=True, dealer=True) + numbered(50, 550, tsumo=True, dealer=True, honba=2)
+    ron = numbered(300, 600, honba=1)
+
+    payments = shipped_drill("payments", non_dealer + dealer + ron)
+
+    drawn = drawn_ids(payments)
+    assert (len(drawn), drawn & ids(ron)) == (500, set())
+    assert drawn & ids(dealer) and drawn & ids(non_dealer) and drawn & ids(non_dealer[300:] + dealer[150:])
+
+
+def test_rare_situations_takes_hands_with_ippatsu_haitei_houtei_rinshan_chankan_or_double_riichi():
+    rare = [hand(1, yaku=["riichi", "ippatsu"]), hand(2, yaku=["menzen-tsumo", "haitei"], tsumo=True),
+            hand(3, yaku=["houtei", "dora"]), hand(4, yaku=["rinshan"], tsumo=True), hand(5, yaku=["chankan"]),
+            hand(6, yaku=["double-riichi"])]
+    common = [hand(7, yaku=["riichi"]), hand(8, yaku=["menzen-tsumo", "tanyao"], tsumo=True)]
+
+    rare_situations = shipped_drill("rare-situations", rare + common)
+
+    assert drawn_ids(rare_situations) == ids(rare)
