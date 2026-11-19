@@ -29,7 +29,8 @@ def quarantine_reasons(*, concealed: list[int], calls: list[Call] | None, winnin
     fifth copy but never make one up.
 
     `winning_tile` is Tenhou's `machi`. `tile_from_moves` is the tile the game's moves handed the
-    winner (drawn on a tsumo, discarded on a ron), or None if the last move handed over none.
+    winner: drawn on a tsumo; discarded, or added to a kan, on a ron. It is None if the last move
+    handed over none.
     """
     reasons = []
     if calls is None:
