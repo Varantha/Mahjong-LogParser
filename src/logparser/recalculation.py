@@ -33,6 +33,7 @@ from mahjong.hand_calculating.yaku_config import YAKU_ID_TO_TENHOU_ID
 from mahjong.meld import Meld
 
 from logparser.calls import ADDED_KAN, CHI, CLOSED_KAN, OPEN_KAN, PON, Call
+from logparser.situation import situational_yaku
 from logparser.yaku import TENHOU_YAKU_KEYS
 
 TENHOU_RULES = OptionalRules(
@@ -52,6 +53,18 @@ TENHOU_RULES = OptionalRules(
 )
 
 WIND_TILES = {"east": EAST, "south": SOUTH, "west": WEST, "north": NORTH}
+
+# The library's flag for each situational yaku (see logparser.situation).
+SITUATIONAL_YAKU_FLAGS = {
+    "double-riichi": "is_daburu_riichi",
+    "ippatsu": "is_ippatsu",
+    "haitei": "is_haitei",
+    "houtei": "is_houtei",
+    "rinshan": "is_rinshan",
+    "chankan": "is_chankan",
+    "tenhou": "is_tenhou",
+    "chiihou": "is_chiihou",
+}
 
 MELD_TYPES = {CHI: Meld.CHI, PON: Meld.PON, OPEN_KAN: Meld.KAN, CLOSED_KAN: Meld.KAN, ADDED_KAN: Meld.SHOUMINKAN}
 
@@ -148,7 +161,7 @@ def recalculate(*, concealed: list[int], calls: list[Call], winning_tile: int, d
         han=result.han,
         fu=result.fu,
         limit_tier=_limit_tier(result.cost["yaku_level"], yakuman=any(y.is_yakuman for y in result.yaku)),
-        points=result.cost["main"] + 2 * result.cost["additional"],
+        points=_points(result.cost),
         raw_fu=sum(item["fu"] for item in fu_breakdown),
         fu_breakdown=fu_breakdown,
         split_fu=split_fu.of_splits(),
@@ -161,8 +174,7 @@ def points(*, han: int, fu: int, dealer: bool, tsumo: bool) -> int:
     The hand is taken to have no yakuman: 13 han or more make a kazoe yakuman.
     """
     config = HandConfig(is_tsumo=tsumo, player_wind=EAST if dealer else SOUTH, options=TENHOU_RULES)
-    cost = ScoresCalculator.calculate_scores(han, fu, config)
-    return cost["main"] + 2 * cost["additional"]
+    return _points(ScoresCalculator.calculate_scores(han, fu, config))
 
 
 class _SplitFu(ScoresCalculator):
@@ -192,21 +204,22 @@ class _SplitFu(ScoresCalculator):
 
 
 def _config(situation: dict) -> HandConfig:
+    won_with = situational_yaku(situation)
     return HandConfig(
         is_tsumo=situation["tsumo"],
         is_riichi=situation["riichi"],
-        is_daburu_riichi=situation["doubleRiichi"],
-        is_ippatsu=situation["ippatsu"],
-        is_rinshan=situation["rinshan"],
-        is_chankan=situation["chankan"],
-        is_haitei=situation["lastTile"] and situation["tsumo"],
-        is_houtei=situation["lastTile"] and not situation["tsumo"],
-        is_tenhou=situation["firstDraw"] and situation["dealer"],
-        is_chiihou=situation["firstDraw"] and not situation["dealer"],
+        **{flag: yaku in won_with for yaku, flag in SITUATIONAL_YAKU_FLAGS.items()},
         player_wind=WIND_TILES[situation["seatWind"]],
         round_wind=WIND_TILES[situation["roundWind"]],
         options=TENHOU_RULES,
     )
+
+
+def _points(cost: dict) -> int:
+    """The points in the library's cost of a hand, before honba and riichi sticks. On a ron the main
+    payment is the discarder's and there is no additional one; on a tsumo the main payment is the
+    dealer's (or a first non-dealer's, when the dealer won) and the additional one each other player's."""
+    return cost["main"] + 2 * cost["additional"]
 
 
 def _meld(call: Call) -> Meld:
