@@ -32,6 +32,11 @@ UNREADABLE_CALL = "unreadable-call"
 UNSOUND_TILES = frozenset({UNREADABLE_CALL, TILE_TOTAL, TILE_LIMITS, WINNING_TILE})
 
 
+def is_verified(hand: dict) -> bool:
+    """Whether a hand record passed every check, so it can reach the trainer bundle."""
+    return not hand["quarantineReasons"]
+
+
 @dataclass(frozen=True)
 class Verification:
     reasons: list[str]  # one reason code per failed check; empty when the hand is verified

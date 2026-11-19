@@ -47,6 +47,7 @@ from logparser.log_store import LogStore
 from logparser.plain_values import LIMIT_TIERS
 from logparser.tags import TAGS, TagSettings
 from logparser.tenhou import parse_log
+from logparser.verification import is_verified
 
 
 @dataclass
@@ -99,12 +100,13 @@ def ingest(logs: LogStore, hands: HandStore, reports: Path | None = None, *,
                 skipped[parsed.skipped] += 1
             result.hands += len(parsed.hands)
             for hand in parsed.hands:
-                result.quarantined += bool(hand["quarantineReasons"])
-                for reason in hand["quarantineReasons"]:
-                    quarantined[reason].append(hand["id"])
-                if not hand["quarantineReasons"]:
+                if is_verified(hand):
                     tags.update(hand["tags"])
                     limit_tiers[hand["plainValues"]["limitTier"]] += 1
+                else:
+                    result.quarantined += 1
+                    for reason in hand["quarantineReasons"]:
+                        quarantined[reason].append(hand["id"])
                 change = _change(previous.pop(hand["id"], None), hand)
                 if change:
                     result.changed += 1

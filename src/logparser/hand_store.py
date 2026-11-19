@@ -10,6 +10,8 @@ import sqlite3
 from collections.abc import Iterable, Iterator
 from pathlib import Path
 
+from logparser.verification import is_verified
+
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS hands (
     id TEXT PRIMARY KEY,
@@ -43,7 +45,7 @@ class HandStore:
             self._db.execute("DELETE FROM hands WHERE log_id = ?", (log_id,))
             self._db.executemany(
                 "INSERT INTO hands (id, log_id, verified, record) VALUES (?, ?, ?, ?)",
-                [(hand["id"], log_id, not hand["quarantineReasons"], json.dumps(hand)) for hand in hands],
+                [(hand["id"], log_id, is_verified(hand), json.dumps(hand)) for hand in hands],
             )
 
     def log_ids(self) -> list[str]:
