@@ -3,8 +3,10 @@
 import json
 from datetime import datetime, timezone
 
+import pytest
+
 from logparser.hand_store import HandStore
-from logparser.ingest import IngestResult, ingest
+from logparser.ingest import IngestResult, NoLogsToIngest, ingest
 from logparser.log_store import LogStore
 from logparser.tags import TAGS
 from tenhou_xml import SANMA_HANCHAN, agari, called_win, chi, closed_win, game, ids, init, m, ryuukyoku, short_win
@@ -186,6 +188,24 @@ def test_the_diff_lists_a_hand_a_log_no_longer_gives_as_removed(tmp_path):
     assert diff(result) == [{"id": f"{PHOENIX_LOG}/1/0", "removed": True}]
     assert result.removed == report(result)["hands"]["removed"] == 1
     assert stored == [f"{PHOENIX_LOG}/0/0"]
+
+
+@pytest.mark.parametrize("log_store", ["missing", "empty"])
+def test_ingest_refuses_a_log_store_without_logs_rather_than_drop_every_stored_hand(tmp_path, log_store):
+    logs = LogStore(tmp_path / "log-store")
+    logs.add(PHOENIX_LOG, game(init(), closed_win()))
+    with HandStore(tmp_path / "hand-store.sqlite") as hands:
+        ingest(logs, hands)
+        if log_store == "missing":
+            logs = LogStore(tmp_path / "no-such-folder")
+        else:
+            (tmp_path / "log-store" / f"{PHOENIX_LOG}.xml").unlink()
+
+        with pytest.raises(NoLogsToIngest, match="no logs"):
+            ingest(logs, hands, tmp_path / "reports")
+        left = [hand["id"] for hand in stored(hands)]
+
+    assert (left, (tmp_path / "reports").exists()) == ([f"{PHOENIX_LOG}/0/0"], False)
 
 
 def test_hands_whose_log_has_left_the_log_store_are_dropped_and_listed_as_removed(tmp_path):

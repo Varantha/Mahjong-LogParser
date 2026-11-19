@@ -30,6 +30,8 @@ line is
 
     {"id": "<logId>/1/0", "removed": true}
 
+A missing or empty log store would remove every hand, so ingest refuses it.
+
 Ingest reads only local files: it never uses the network.
 """
 
@@ -64,11 +66,22 @@ class IngestResult:
     report_folder: Path | None = None  # where this run's ingest report is, if it wrote one
 
 
+class NoLogsToIngest(Exception):
+    """The log store is missing or holds no logs. Ingesting it would drop every hand in the hand store,
+    so ingest refuses: most likely the log store's location is wrong."""
+
+
 def ingest(logs: LogStore, hands: HandStore, reports: Path | None = None, *,
            ingested_at: datetime | None = None, tag_settings: TagSettings = TagSettings()) -> IngestResult:
     """Parses every log in the log store into the hand store, replacing the hands each log gave
     before, and tags each hand under `tag_settings`. Drops the hands of any log no longer in the
-    log store. With `reports`, writes this run's ingest report into a new folder there."""
+    log store. With `reports`, writes this run's ingest report into a new folder there.
+
+    Raises NoLogsToIngest, changing nothing, when the log store is missing or holds no logs."""
+    log_ids = list(logs.log_ids())
+    if not log_ids:
+        raise NoLogsToIngest(f"no logs in the log store at {logs.folder}, so ingesting it would drop every "
+                             "hand in the hand store")
     ingested_at = (ingested_at or datetime.now(timezone.utc)).astimezone(timezone.utc)
     result = IngestResult()
     skipped = Counter()
@@ -89,7 +102,7 @@ def ingest(logs: LogStore, hands: HandStore, reports: Path | None = None, *,
                 note({"id": hand_id, "removed": True})
 
         gone = set(hands.log_ids())  # the logs stored hands came from; those not read below have left the log store
-        for log_id in logs.log_ids():
+        for log_id in log_ids:
             gone.discard(log_id)
             parsed = parse_log(log_id, logs.read(log_id), tag_settings)
             previous = {hand["id"]: hand for hand in hands.log_hands(log_id)}

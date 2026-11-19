@@ -19,7 +19,7 @@ from logparser.drills import CATALOGUE_PATH, load_catalogue
 from logparser.dump_import import import_dump
 from logparser.export import DEFAULT_CHUNK_SIZE, export_bundle
 from logparser.hand_store import HandStore
-from logparser.ingest import ingest
+from logparser.ingest import NoLogsToIngest, ingest
 from logparser.log_store import LogStore
 from logparser.tags import TagSettings
 
@@ -120,8 +120,11 @@ def _seconds(value: str) -> float:
 
 
 def _ingest(args) -> None:
-    with HandStore(args.hand_store) as hands:
-        result = ingest(LogStore(args.log_store), hands, args.reports, tag_settings=TagSettings(high_fu=args.high_fu))
+    try:
+        with HandStore(args.hand_store) as hands:
+            result = ingest(LogStore(args.log_store), hands, args.reports, tag_settings=TagSettings(high_fu=args.high_fu))
+    except NoLogsToIngest as refused:
+        raise SystemExit(f"Ingest refused: {refused}. Check --log-store.") from refused
     print(f"{result.logs} logs ({_skipped(result.skipped)}), "
           f"{result.hands} hands ({result.hands - result.quarantined} verified, {result.quarantined} quarantined)")
     print(f"Wrote the ingest report to {result.report_folder} "

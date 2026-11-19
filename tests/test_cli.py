@@ -95,6 +95,21 @@ def test_ingest_reports_what_it_did(tmp_path, capsys):
     ]
 
 
+def test_ingest_of_a_log_store_without_logs_stops_with_an_error_and_leaves_the_hand_store_alone(tmp_path):
+    (tmp_path / f"{LOG_ID}.xml").write_text(game(init(), closed_win()))
+    logs, hands = tmp_path / "logs", tmp_path / "hands.sqlite"
+    main(["add-logs", "--log-store", str(logs), str(tmp_path / f"{LOG_ID}.xml")])
+    main(["ingest", "--log-store", str(logs), "--hand-store", str(hands), "--reports", str(tmp_path / "reports")])
+
+    with pytest.raises(SystemExit, match="no logs") as stopped:
+        main(["ingest", "--log-store", str(tmp_path / "typo"), "--hand-store", str(hands),
+              "--reports", str(tmp_path / "reports")])
+
+    assert stopped.value.code not in (0, None)
+    with HandStore(hands) as store:
+        assert store.get(f"{LOG_ID}/0/0")["quarantineReasons"] == []
+
+
 def test_ingest_writes_its_report_and_diff_under_local(tmp_path, monkeypatch, no_network):
     (tmp_path / f"{LOG_ID}.xml").write_text(game(init(), closed_win()))
     monkeypatch.chdir(tmp_path)

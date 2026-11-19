@@ -83,7 +83,7 @@ Each file must be named after its log ID.
 uv run logparser ingest
 ```
 
-Parses every log in the log store and prints how many logs were skipped and why, and how many hands are verified and quarantined. Running it again replaces each log's hands, so a parser fix reaches every hand already stored. The hand store holds only hands parsed from logs still in the log store: the hands of a log that has left it are dropped.
+Parses every log in the log store and prints how many logs were skipped and why, and how many hands are verified and quarantined. Running it again replaces each log's hands, so a parser fix reaches every hand already stored. The hand store holds only hands parsed from logs still in the log store: the hands of a log that has left it are dropped. A missing or empty log store would drop every hand, so ingest refuses it with an error and changes nothing.
 
 Every ingest also writes an ingest report, in a folder of its own named after the time it ran, under `local/ingest-reports/` (`--reports` picks another folder):
 
