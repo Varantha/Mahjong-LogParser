@@ -88,6 +88,8 @@ def _hand(log_id: str, round_: _Round, agari: ET.Element) -> dict:
     tsumo = winner == discarder
     concealed = _ints(agari.get("hai"))
     calls = _calls(agari)
+    dora_indicators = _ints(agari.get("doraHai"))
+    ura_dora_indicators = _ints(agari.get("doraHaiUra", ""))
     yaku = _recorded_yaku(agari)
     # In a double ron Tenhou pays the honba and the riichi sticks to the first winner only. The
     # second winner's `ba` still shows the honba, but its score change leaves them out.
@@ -97,6 +99,8 @@ def _hand(log_id: str, round_: _Round, agari: ET.Element) -> dict:
     reasons = quarantine_reasons(
         concealed=concealed,
         calls=calls,
+        dora_indicators=dora_indicators,
+        ura_dora_indicators=ura_dora_indicators,
         unknown_yaku=[tenhou_id for tenhou_id, _ in yaku if tenhou_id not in TENHOU_YAKU_KEYS],
         recorded_score_changes=_recorded_score_changes(agari),
         expected_score_changes=score_changes(answer_key["payments"], winner=winner, discarder=discarder,
@@ -118,8 +122,8 @@ def _hand(log_id: str, round_: _Round, agari: ET.Element) -> dict:
             "concealed": mpsz(concealed),
             "calls": [_call_record(call) for call in calls or []],
             "winningTile": tile(int(agari.get("machi"))),
-            "doraIndicators": mpsz(_ints(agari.get("doraHai"))),
-            "uraDoraIndicators": mpsz(_ints(agari.get("doraHaiUra", ""))),
+            "doraIndicators": mpsz(dora_indicators),
+            "uraDoraIndicators": mpsz(ura_dora_indicators),
         },
         "answerKey": answer_key,
         "quarantineReasons": reasons,
