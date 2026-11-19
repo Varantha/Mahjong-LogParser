@@ -1,0 +1,39 @@
+"""Dump import: database dumps that map a log ID to compressed log XML fill the log store.
+
+A dump is V1's SQLite format: a table `logs(log_id, log_content)` holding
+bz2-compressed log XML. Every dump here is built inside the test from
+hand-written logs.
+"""
+
+import bz2
+import sqlite3
+
+from logparser.dump_import import import_dump
+from logparser.log_store import LogStore
+from tenhou_xml import closed_win, game, init
+
+LOG_A = "2024010112gm-00a9-0000-0123abcd"
+LOG_B = "2024010113gm-00a1-0000-89abcdef"
+
+
+def make_dump(path, rows):
+    """Writes a dump holding `rows` of (log_id, log_content) as given."""
+    with sqlite3.connect(path) as dump:
+        dump.execute("CREATE TABLE logs(log_id TEXT PRIMARY KEY, log_content BLOB)")
+        dump.executemany("INSERT INTO logs VALUES (?, ?)", rows)
+    dump.close()
+    return path
+
+
+def compressed(xml_text):
+    return bz2.compress(xml_text.encode("utf-8"))
+
+
+def test_every_log_in_a_dump_is_kept_in_the_log_store_under_its_log_id(tmp_path):
+    log_a, log_b = game(init(), closed_win(who=1)), game(init(round_number=1))
+    dump = make_dump(tmp_path / "dump.db", [(LOG_A, compressed(log_a)), (LOG_B, compressed(log_b))])
+    store = LogStore(tmp_path / "log-store")
+
+    import_dump(dump, store)
+
+    assert {log_id: store.read(log_id) for log_id in store.log_ids()} == {LOG_A: log_a, LOG_B: log_b}
