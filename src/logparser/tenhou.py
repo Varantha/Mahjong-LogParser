@@ -85,6 +85,11 @@ def _hand(log_id: str, round_: _Round, agari: ET.Element) -> dict:
     tsumo = winner == int(agari.get("fromWho"))
     concealed = _ints(agari.get("hai"))
     yaku = _recorded_yaku(agari)
+    # In a double ron Tenhou pays the honba and the riichi sticks to the first winner only. The
+    # second winner's `ba` still shows the honba, but its score change leaves them out.
+    first_win = round_.wins == 0
+    answer_key = _answer_key(agari, yaku, tsumo=tsumo, dealer=winner == round_.dealer,
+                             honba=honba if first_win else 0, riichi_sticks=sticks if first_win else 0)
     reasons = quarantine_reasons(
         concealed=concealed,
         call_codes=_ints(agari.get("m", "")),
@@ -108,8 +113,7 @@ def _hand(log_id: str, round_: _Round, agari: ET.Element) -> dict:
             "doraIndicators": mpsz(_ints(agari.get("doraHai"))),
             "uraDoraIndicators": mpsz(_ints(agari.get("doraHaiUra", ""))),
         },
-        "answerKey": _answer_key(agari, yaku, tsumo=tsumo, dealer=winner == round_.dealer,
-                                 honba=honba, riichi_sticks=sticks),
+        "answerKey": answer_key,
         "quarantineReasons": reasons,
     }
 

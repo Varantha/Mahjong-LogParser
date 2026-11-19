@@ -67,3 +67,29 @@ def test_the_honba_bonus_and_the_riichi_sticks_collected_are_kept_apart_from_the
         "honbaBonus": 600,
         "riichiSticksCollected": 2000,
     }
+
+
+def test_in_a_double_ron_the_first_winner_collects_the_honba_and_the_riichi_sticks():
+    # East 3 with 1 honba and 1 stick carried in. Seat 0 deals into seats 1 and 3. The second
+    # winner's ba still shows the honba, but Tenhou gives the honba and sticks to the first winner.
+    xml = game(
+        init(round_number=2, honba=1, sticks=1),
+        agari(who=1, from_who=0, ba="1,1", hai=CLOSED_HAND, machi=84, ten="30,2000,0", yaku="7,1,52,1",
+              sc="250,-23,250,33,250,0,240,0"),
+        agari(who=3, from_who=0, ba="1,0", hai=CLOSED_HAND, machi=84, ten="30,1000,0", yaku="7,1",
+              sc="227,-10,283,0,250,0,240,10"),
+    )
+
+    first, second = parse_log(LOG_ID, xml).hands
+
+    assert (first["id"], second["id"]) == (f"{LOG_ID}/0/0", f"{LOG_ID}/0/1")
+    assert first["answerKey"]["payments"] == {
+        "base": {"fromDiscarder": 2000},
+        "honbaBonus": 300,
+        "riichiSticksCollected": 1000,
+    }
+    assert second["answerKey"]["payments"] == {
+        "base": {"fromDiscarder": 1000},
+        "honbaBonus": 0,
+        "riichiSticksCollected": 0,
+    }
