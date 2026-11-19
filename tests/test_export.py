@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 from jsonschema import Draft202012Validator
 
-from logparser.drills import Drill, Filter
+from logparser.drills import Conditions, Drill
 from logparser.export import export_bundle
 from logparser.hand_store import HandStore
 from logparser.ingest import ingest
@@ -48,7 +48,7 @@ def bundle_hands(folder: Path) -> list[dict]:
     return [hand for chunk in manifest["chunks"] for hand in json.loads((folder / chunk).read_text())["hands"]]
 
 
-def test_every_bundle_file_validates_against_the_schema_at_version_1_0_0(hand_store, tmp_path):
+def test_every_bundle_file_validates_against_the_schema_at_version_1_1_0(hand_store, tmp_path):
     schema = json.loads(SCHEMA_PATH.read_text())
     Draft202012Validator.check_schema(schema)
 
@@ -57,7 +57,7 @@ def test_every_bundle_file_validates_against_the_schema_at_version_1_0_0(hand_st
     files = bundle_files(tmp_path / "bundle")
     for name, data in files.items():
         Draft202012Validator(schema).validate(data)
-    assert files["manifest.json"]["schemaVersion"] == "1.0.0"
+    assert files["manifest.json"]["schemaVersion"] == "1.1.0"
 
 
 def test_the_manifest_lists_each_drill_with_the_ids_of_its_hands_and_counts_them(hand_store, tmp_path):
@@ -85,6 +85,7 @@ def test_each_hand_appears_once_with_its_id_situation_tiles_answer_key_plain_val
             "dealer": False,
             "honba": 0,
             "riichiSticks": 0,
+            "secondWinner": False,
             "tsumo": False,
             "riichi": False,
             "doubleRiichi": False,
@@ -278,7 +279,7 @@ def test_quarantined_hands_player_names_and_replay_links_never_reach_the_bundle(
 
 def test_export_builds_each_drill_in_the_catalogue_from_the_hand_store_storing_a_hand_in_several_drills_once(
         payments_hand_store, tmp_path):
-    drills = [Drill(key="everything", target=500), Drill(key="payments", target=500, pool=Filter({"tsumo": True}))]
+    drills = [Drill(key="everything", target=500), Drill(key="payments", target=500, pool=Conditions({"tsumo": True}))]
 
     manifest = export_bundle(payments_hand_store, tmp_path / "bundle", drills, built_at=BUILT_AT).manifest
 
@@ -291,11 +292,15 @@ def test_export_builds_each_drill_in_the_catalogue_from_the_hand_store_storing_a
 
 
 def test_export_says_which_drills_the_hand_store_leaves_short_and_by_how_much(payments_hand_store, tmp_path):
-    drills = [Drill(key="everything", target=2), Drill(key="payments", target=500, pool=Filter({"tsumo": True}))]
+    drills = [Drill(key="everything", target=2), Drill(key="payments", target=500, pool=Conditions({"tsumo": True}))]
 
-    export = export_bundle(payments_hand_store, tmp_path / "bundle", drills, built_at=BUILT_AT)
+    # No hand has 5 honba, so the trap part of this drill is made up from the rest of its pool.
+    made_up = Drill(key="made-up", target=1, trap=Conditions({"honba": 5}), lookalikes=0.0)
 
-    assert [(drill.key, drill.target, drill.short_by) for drill in export.short_drills] == [("payments", 500, 498)]
+    export = export_bundle(payments_hand_store, tmp_path / "bundle", [*drills, made_up], built_at=BUILT_AT)
+
+    assert [(drill.key, drill.target, drill.short_by) for drill in export.drills_with_a_short_part] == [
+        ("payments", 500, 498), ("made-up", 1, 0)]
 
 
 def test_a_drill_takes_no_more_hands_than_it_aims_for(hand_store, tmp_path):

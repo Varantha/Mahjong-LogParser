@@ -19,7 +19,7 @@ from logparser.drills import CATALOGUE_PATH, load_catalogue
 from logparser.dump_import import import_dump
 from logparser.export import DEFAULT_CHUNK_SIZE, export_bundle
 from logparser.hand_store import HandStore
-from logparser.ingest import ingest
+from logparser.ingest import NoLogsToIngest, ingest
 from logparser.log_store import LogStore
 from logparser.tags import TagSettings
 
@@ -69,7 +69,8 @@ def _parser() -> argparse.ArgumentParser:
     ingest_.add_argument("--reports", type=Path, default=INGEST_REPORTS,
                          help="folder each ingest writes its report and diff into, in a folder named after the time it ran")
     ingest_.add_argument("--high-fu", type=int, default=TagSettings.high_fu, metavar="FU",
-                         help=f"the fewest fu after rounding a hand tagged high-fu has (default {TagSettings.high_fu})")
+                         help=f"the fewest fu after rounding a hand tagged high-fu has, at 4 han or fewer "
+                              f"(default {TagSettings.high_fu})")
     ingest_.set_defaults(run=_ingest)
 
     export = commands.add_parser("export", help="build the trainer bundle from the verified hands")
@@ -91,12 +92,14 @@ def _add_logs(args) -> None:
 
 def _import_dump(args) -> None:
     summary = import_dump(args.dump, LogStore(args.log_store))
-    skipped = sum(summary.skipped.values())
-    reasons = ", ".join(f"{count} {reason}" for reason, count in sorted(summary.skipped.items()))
-    print(
-        f"Added {summary.added} logs to {args.log_store} "
-        f"({summary.already_stored} already stored, {skipped} skipped{': ' + reasons if reasons else ''})"
-    )
+    print(f"Added {summary.added} logs to {args.log_store} "
+          f"({summary.already_stored} already stored, {_skipped(summary.skipped)})")
+
+
+def _skipped(skipped: dict[str, int]) -> str:
+    """How many were skipped and why, e.g. `3 skipped: 1 malformed, 2 sanma`."""
+    reasons = ", ".join(f"{count} {reason}" for reason, count in sorted(skipped.items()))
+    return f"{sum(skipped.values())} skipped" + (f": {reasons}" if reasons else "")
 
 
 def _download(args) -> None:
@@ -117,15 +120,15 @@ def _seconds(value: str) -> float:
 
 
 def _ingest(args) -> None:
-    with HandStore(args.hand_store) as hands:
-        summary = ingest(LogStore(args.log_store), hands, args.reports, tag_settings=TagSettings(high_fu=args.high_fu))
-    skipped = sum(summary.skipped.values())
-    reasons = ", ".join(f"{count} {reason}" for reason, count in sorted(summary.skipped.items()))
-    print(
-        f"{summary.logs} logs ({skipped} skipped{': ' + reasons if reasons else ''}), "
-        f"{summary.hands} hands ({summary.hands - summary.quarantined} verified, {summary.quarantined} quarantined)"
-    )
-    print(f"Wrote the ingest report to {summary.report_folder} ({summary.changed} hands changed since the previous run)")
+    try:
+        with HandStore(args.hand_store) as hands:
+            result = ingest(LogStore(args.log_store), hands, args.reports, tag_settings=TagSettings(high_fu=args.high_fu))
+    except NoLogsToIngest as refused:
+        raise SystemExit(f"Ingest refused: {refused}. Check --log-store.") from refused
+    print(f"{result.logs} logs ({_skipped(result.skipped)}), "
+          f"{result.hands} hands ({result.hands - result.quarantined} verified, {result.quarantined} quarantined)")
+    print(f"Wrote the ingest report to {result.report_folder} "
+          f"({result.changed} hands changed and {result.removed} removed since the previous run)")
 
 
 def _export(args) -> None:
@@ -135,11 +138,12 @@ def _export(args) -> None:
     manifest = summary.manifest
     drills = ", ".join(f"{key} {count}" for key, count in manifest["counts"]["drills"].items())
     print(f"Wrote {manifest['counts']['hands']} hands in {len(manifest['chunks'])} chunks to {args.bundle} ({drills})")
-    if summary.short_drills:
+    if summary.drills_with_a_short_part:
         print("Short of hands, even drawing on every year of logs in the hand store:")
-    for drill in summary.short_drills:
-        # A drill drawn in one part is short by that part alone; otherwise name the parts that ran out.
+    for drill in summary.drills_with_a_short_part:
+        # A short drill drawn in one part is short by that part alone; otherwise name the parts that ran out.
         parts = "; ".join(f"{short.part}: {short.found} of {short.wanted}"
-                          for short in drill.shortfalls if short.wanted != drill.target)
-        print(f"  {drill.key}: {len(drill.hand_ids)} of {drill.target} hands, {drill.short_by} short"
+                          for short in drill.shortfalls if not (drill.short_by and short.wanted == drill.target))
+        how_short = f"{drill.short_by} short" if drill.short_by else "made up from its other parts"
+        print(f"  {drill.key}: {len(drill.hand_ids)} of {drill.target} hands, {how_short}"
               + (f" ({parts})" if parts else ""))

@@ -171,6 +171,20 @@ def test_a_ron_on_a_call_other_than_the_tile_added_to_a_kan_is_quarantined(xml):
     assert only_hand(xml)["quarantineReasons"] == ["winning-tile"]
 
 
+def test_kokushi_musou_said_to_win_on_a_tile_of_a_closed_kan_is_quarantined_for_its_winning_tile():
+    # Tenhou forbids robbing a closed kan, even with kokushi musou, so a log showing it is bad data.
+    # Seat 0 makes a closed kan of 1m (0-3); seat 1 is said to win on one of its tiles with kokushi
+    # musou: 9m 1p 9p 1s 9s and every honour, with a second Chun.
+    kokushi_waiting_on_1m = (32, 36, 68, 72, 104, 108, 112, 116, 120, 124, 128, 132, 133)
+    xml = game(init(), turns(4), draw(0, 3), call(0, closed_kan(0)),
+               agari(who=1, from_who=0, hai=ids(*kokushi_waiting_on_1m, 2), machi=2, ten="0,32000,5", yakuman="47",
+                     winning_move=False))
+
+    hand = only_hand(xml)
+
+    assert (hand["quarantineReasons"], hand["situation"]["chankan"]) == (["winning-tile"], False)
+
+
 def test_both_winners_of_a_double_ron_win_on_the_one_discard():
     xml = game(
         init(), draw(0, 120), discard(0, 84),

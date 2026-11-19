@@ -21,7 +21,6 @@ from tenhou_xml import (
     game,
     ids,
     init,
-    m,
     open_kan,
     pon,
     riichi,

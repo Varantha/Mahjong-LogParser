@@ -94,7 +94,7 @@ def test_a_hand_without_calls_is_closed():
 def test_a_hand_whose_only_calls_are_closed_kans_counts_as_closed():
     calls = [decode_call(CLOSED_KAN_OF_FIVE_MAN), decode_call(CLOSED_KAN_OF_EAST)]
 
-    assert hand_is_open(calls) is False
+    assert hand_is_open(call.type for call in calls) is False
 
 
 @pytest.mark.parametrize(
@@ -108,4 +108,4 @@ def test_a_hand_whose_only_calls_are_closed_kans_counts_as_closed():
     ids=["chi", "pon", "open-kan", "added-kan"],
 )
 def test_any_other_call_opens_the_hand_even_beside_a_closed_kan(code):
-    assert hand_is_open([decode_call(CLOSED_KAN_OF_EAST), decode_call(code)]) is True
+    assert hand_is_open([decode_call(CLOSED_KAN_OF_EAST).type, decode_call(code).type]) is True

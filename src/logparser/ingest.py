@@ -4,14 +4,17 @@ Given a reports folder, each ingest also writes its ingest report there, in a
 folder of its own named after the time it ran:
 
     report.json   the logs read and skipped; the hands parsed, verified,
-                  quarantined and changed; the quarantined hands' IDs by reason
-                  code; and the verified hands with each tag and at each limit tier
+                  quarantined, changed and removed; the quarantined hands' IDs by
+                  reason code; and the verified hands with each tag and at each
+                  limit tier
     diff.jsonl    one line per hand whose answer key, plain values or tags
-                  changed since the previous run, by hand ID
+                  changed since the previous run, and per hand removed since then,
+                  by hand ID
 
 The previous run is what the hand store holds: before ingest replaces a log's
 hands, it compares them with the ones stored. A hand new to the hand store is
-not a change, so the first run's diff is empty. A diff line looks like
+not a change, so the first run's diff is empty. A changed hand's diff line looks
+like
 
     {"id": "<logId>/0/0",
      "answerKey": {"fu": {"before": 40, "after": 30}},
@@ -19,6 +22,15 @@ not a change, so the first run's diff is empty. A diff line looks like
      "tags": {"added": ["kuisagari"], "removed": []}}
 
 holding only the parts that changed; a value one side lacks is null there.
+
+The hand store holds only hands parsed from logs still in the log store. A
+stored hand that its log no longer gives, after a parser or filter change, or
+whose log has left the log store, is removed from the hand store, and its diff
+line is
+
+    {"id": "<logId>/1/0", "removed": true}
+
+A missing or empty log store would remove every hand, so ingest refuses it.
 
 Ingest reads only local files: it never uses the network.
 """
@@ -28,76 +40,105 @@ from collections import Counter, defaultdict
 from contextlib import nullcontext
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from importlib.metadata import version
 from itertools import count
 from pathlib import Path
 
+from logparser.build import generator, timestamp
+from logparser.counts import HandCounts
 from logparser.hand_store import HandStore
 from logparser.log_store import LogStore
-from logparser.plain_values import LIMIT_TIERS
-from logparser.tags import TAGS, TagSettings
+from logparser.tags import TagSettings
 from logparser.tenhou import parse_log
+from logparser.verification import is_verified
 
 
 @dataclass
-class IngestSummary:
+class IngestResult:
+    """What one ingest did, counted for the command's output. The ingest report, when written, is in
+    `report_folder`."""
+
     logs: int = 0
     skipped: dict[str, int] = field(default_factory=dict)  # logs not taken, by reason
     hands: int = 0
     quarantined: int = 0
     changed: int = 0  # hands whose answer key, plain values or tags changed since the previous run
+    removed: int = 0  # hands stored by the previous run that this run no longer gives
     report_folder: Path | None = None  # where this run's ingest report is, if it wrote one
 
 
+class NoLogsToIngest(Exception):
+    """The log store is missing or holds no logs. Ingesting it would drop every hand in the hand store,
+    so ingest refuses: most likely the log store's location is wrong."""
+
+
 def ingest(logs: LogStore, hands: HandStore, reports: Path | None = None, *,
-           ingested_at: datetime | None = None, tag_settings: TagSettings = TagSettings()) -> IngestSummary:
+           ingested_at: datetime | None = None, tag_settings: TagSettings = TagSettings()) -> IngestResult:
     """Parses every log in the log store into the hand store, replacing the hands each log gave
-    before, and tags each hand under `tag_settings`. With `reports`, writes this run's ingest
-    report into a new folder there."""
+    before, and tags each hand under `tag_settings`. Drops the hands of any log no longer in the
+    log store. With `reports`, writes this run's ingest report into a new folder there.
+
+    Raises NoLogsToIngest, changing nothing, when the log store is missing or holds no logs."""
+    log_ids = list(logs.log_ids())
+    if not log_ids:
+        raise NoLogsToIngest(f"no logs in the log store at {logs.folder}, so ingesting it would drop every "
+                             "hand in the hand store")
     ingested_at = (ingested_at or datetime.now(timezone.utc)).astimezone(timezone.utc)
-    summary = IngestSummary()
+    result = IngestResult()
     skipped = Counter()
     quarantined = defaultdict(list)  # hand IDs, by reason code
-    tags = Counter()  # verified hands, by tag
-    limit_tiers = Counter()  # verified hands, by limit tier
+    verified = HandCounts()
     if reports is not None:
-        summary.report_folder = _new_folder(Path(reports), ingested_at.strftime("%Y%m%dT%H%M%SZ"))
-    diff_path = None if summary.report_folder is None else summary.report_folder / "diff.jsonl"
+        result.report_folder = _new_folder(Path(reports), ingested_at.strftime("%Y%m%dT%H%M%SZ"))
+    diff_path = None if result.report_folder is None else result.report_folder / "diff.jsonl"
     with diff_path.open("w", encoding="utf-8") if diff_path else nullcontext() as diff:
-        for log_id in logs.log_ids():
+
+        def note(line: dict) -> None:
+            if diff:
+                diff.write(json.dumps(line) + "\n")
+
+        def removed(hand_ids: list[str]) -> None:
+            result.removed += len(hand_ids)
+            for hand_id in hand_ids:
+                note({"id": hand_id, "removed": True})
+
+        gone = set(hands.log_ids())  # the logs stored hands came from; those not read below have left the log store
+        for log_id in log_ids:
+            gone.discard(log_id)
             parsed = parse_log(log_id, logs.read(log_id), tag_settings)
             previous = {hand["id"]: hand for hand in hands.log_hands(log_id)}
             hands.replace_log(log_id, parsed.hands)
-            summary.logs += 1
+            result.logs += 1
             if parsed.skipped:
                 skipped[parsed.skipped] += 1
-            summary.hands += len(parsed.hands)
+            result.hands += len(parsed.hands)
             for hand in parsed.hands:
-                summary.quarantined += bool(hand["quarantineReasons"])
-                for reason in hand["quarantineReasons"]:
-                    quarantined[reason].append(hand["id"])
-                if not hand["quarantineReasons"]:
-                    tags.update(hand["tags"])
-                    limit_tiers[hand["plainValues"]["limitTier"]] += 1
-                change = _change(previous.get(hand["id"]), hand)
+                if is_verified(hand):
+                    verified.add(hand)
+                else:
+                    result.quarantined += 1
+                    for reason in hand["quarantineReasons"]:
+                        quarantined[reason].append(hand["id"])
+                change = _change(previous.pop(hand["id"], None), hand)
                 if change:
-                    summary.changed += 1
-                    if diff:
-                        diff.write(json.dumps(change) + "\n")
-    summary.skipped = dict(skipped)
+                    result.changed += 1
+                    note(change)
+            removed(sorted(previous))  # stored hands the log no longer gives
+        for log_id in sorted(gone):
+            removed([hand["id"] for hand in hands.log_hands(log_id)])
+            hands.replace_log(log_id, [])
+    result.skipped = dict(skipped)
     if reports is not None:
         report = {
-            "ingestedAt": ingested_at.strftime("%Y-%m-%dT%H:%M:%SZ"),
-            "generator": f"mahjong-logparser {version('mahjong-logparser')}",
-            "logs": {"read": summary.logs, "skipped": dict(sorted(skipped.items()))},
-            "hands": {"parsed": summary.hands, "verified": summary.hands - summary.quarantined,
-                      "quarantined": summary.quarantined, "changed": summary.changed},
+            "ingestedAt": timestamp(ingested_at),
+            "generator": generator(),
+            "logs": {"read": result.logs, "skipped": dict(sorted(skipped.items()))},
+            "hands": {"parsed": result.hands, "verified": result.hands - result.quarantined,
+                      "quarantined": result.quarantined, "changed": result.changed, "removed": result.removed},
             "quarantined": dict(sorted(quarantined.items())),
-            "verified": {"tags": {tag: tags[tag] for tag in TAGS},
-                         "limitTiers": {tier: limit_tiers[tier] for tier in LIMIT_TIERS}},
+            "verified": {"tags": verified.tags(), "limitTiers": verified.limit_tiers()},
         }
-        (summary.report_folder / "report.json").write_text(json.dumps(report, indent=2), encoding="utf-8")
-    return summary
+        (result.report_folder / "report.json").write_text(json.dumps(report, indent=2), encoding="utf-8")
+    return result
 
 
 def _change(previous: dict | None, hand: dict) -> dict | None:

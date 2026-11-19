@@ -43,7 +43,7 @@ def test_every_location_can_be_given_on_the_command_line(tmp_path, no_network):
 
 
 def test_export_says_which_drills_fall_short_by_how_much_and_which_part_of_a_drill_ran_out(tmp_path, capsys):
-    # One verified hand: a closed pinfu ron, so a lookalike in the drill below but not a trap hand.
+    # One verified hand: a closed pinfu ron, so a lookalike in the drills below but not a trap hand.
     (tmp_path / f"{LOG_ID}.xml").write_text(game(init(), closed_win()))
     logs, hands, catalogue = tmp_path / "logs", tmp_path / "hands.sqlite", tmp_path / "drills.toml"
     catalogue.write_text("""
@@ -61,17 +61,23 @@ def test_export_says_which_drills_fall_short_by_how_much_and_which_part_of_a_dri
         target = 4
         pool = { yaku = "pinfu" }
         trap = { open = true }
+
+        [[drill]]
+        key = "made-up"
+        target = 1
+        trap = { open = true }
     """)
     main(["add-logs", "--log-store", str(logs), str(tmp_path / f"{LOG_ID}.xml")])
-    main(["ingest", "--log-store", str(logs), "--hand-store", str(hands)])
+    main(["ingest", "--log-store", str(logs), "--hand-store", str(hands), "--reports", str(tmp_path / "reports")])
 
     main(["export", "--hand-store", str(hands), "--bundle", str(tmp_path / "out"), "--catalogue", str(catalogue)])
 
-    assert capsys.readouterr().out.splitlines()[-4:] == [
-        f"Wrote 1 hands in 1 chunks to {tmp_path / 'out'} (everything 1, payments 0, open-pinfu 1)",
+    assert capsys.readouterr().out.splitlines()[-5:] == [
+        f"Wrote 1 hands in 1 chunks to {tmp_path / 'out'} (everything 1, payments 0, open-pinfu 1, made-up 1)",
         "Short of hands, even drawing on every year of logs in the hand store:",
         "  payments: 0 of 3 hands, 3 short",
         "  open-pinfu: 1 of 4 hands, 3 short (trap hands: 0 of 2; lookalikes: 1 of 2)",
+        "  made-up: 1 of 1 hands, made up from its other parts (trap hands: 0 of 1)",
     ]
 
 
@@ -85,8 +91,23 @@ def test_ingest_reports_what_it_did(tmp_path, capsys):
     [report_folder] = reports.iterdir()
     assert capsys.readouterr().out.splitlines()[-2:] == [
         "1 logs (0 skipped), 2 hands (1 verified, 1 quarantined)",
-        f"Wrote the ingest report to {report_folder} (0 hands changed since the previous run)",
+        f"Wrote the ingest report to {report_folder} (0 hands changed and 0 removed since the previous run)",
     ]
+
+
+def test_ingest_of_a_log_store_without_logs_stops_with_an_error_and_leaves_the_hand_store_alone(tmp_path):
+    (tmp_path / f"{LOG_ID}.xml").write_text(game(init(), closed_win()))
+    logs, hands = tmp_path / "logs", tmp_path / "hands.sqlite"
+    main(["add-logs", "--log-store", str(logs), str(tmp_path / f"{LOG_ID}.xml")])
+    main(["ingest", "--log-store", str(logs), "--hand-store", str(hands), "--reports", str(tmp_path / "reports")])
+
+    with pytest.raises(SystemExit, match="no logs") as stopped:
+        main(["ingest", "--log-store", str(tmp_path / "typo"), "--hand-store", str(hands),
+              "--reports", str(tmp_path / "reports")])
+
+    assert stopped.value.code not in (0, None)
+    with HandStore(hands) as store:
+        assert store.get(f"{LOG_ID}/0/0")["quarantineReasons"] == []
 
 
 def test_ingest_writes_its_report_and_diff_under_local(tmp_path, monkeypatch, no_network):
@@ -108,7 +129,8 @@ def test_ingest_tags_hands_with_the_high_fu_threshold_given(tmp_path, options, t
     logs, hands = tmp_path / "logs", tmp_path / "hands.sqlite"
     main(["add-logs", "--log-store", str(logs), str(tmp_path / f"{LOG_ID}.xml")])
 
-    main(["ingest", "--log-store", str(logs), "--hand-store", str(hands), *options])
+    main(["ingest", "--log-store", str(logs), "--hand-store", str(hands), "--reports", str(tmp_path / "reports"),
+          *options])
 
     with HandStore(hands) as store:
         assert ("high-fu" in store.get(f"{LOG_ID}/0/0")["tags"]) == tagged

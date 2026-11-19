@@ -197,21 +197,55 @@ def test_lookalikes_make_up_about_half_a_drill_unless_the_catalogue_says_otherwi
     assert (len(drawn_ids(kuisagari) & ids(trap_hands)), len(drawn_ids(kuisagari) & ids(lookalikes))) == (2, 2)
 
 
-def test_a_drill_short_of_trap_hands_is_not_filled_up_with_lookalikes_and_says_which_part_fell_short(tmp_path):
-    drills = catalogue(tmp_path, """
-        [[drill]]
-        key = "kuisagari"
-        target = 6
-        pool = { open = true }
-        trap = { tags = "kuisagari" }
-    """)
+KUISAGARI = """
+    [[drill]]
+    key = "kuisagari"
+    target = 6
+    pool = { open = true }
+    trap = { tags = "kuisagari" }
+"""
+
+
+def test_a_drill_short_of_trap_hands_is_made_up_with_lookalikes_and_says_which_part_fell_short(tmp_path):
     trap_hand = hand(1, yaku=["honitsu"], open=True, tags=["kuisagari"])
     lookalikes = [hand(number, yaku=["haku"], open=True) for number in range(2, 10)]
 
-    [kuisagari] = draw_drills(drills, [trap_hand, *lookalikes])
+    [kuisagari] = draw_drills(catalogue(tmp_path, KUISAGARI), [trap_hand, *lookalikes])
 
-    assert (len(kuisagari.hand_ids), kuisagari.short_by) == (4, 2)
+    assert (len(kuisagari.hand_ids), kuisagari.short_by, trap_hand["id"] in kuisagari.hand_ids) == (6, 0, True)
     assert kuisagari.shortfalls == [Shortfall(part="trap hands", wanted=3, found=1)]
+
+
+def test_a_drill_short_of_lookalikes_is_made_up_with_trap_hands(tmp_path):
+    trap_hands = [hand(number, yaku=["honitsu"], open=True, tags=["kuisagari"]) for number in range(8)]
+    lookalike = hand(8, yaku=["haku"], open=True)
+
+    [kuisagari] = draw_drills(catalogue(tmp_path, KUISAGARI), [*trap_hands, lookalike])
+
+    assert (len(drawn_ids(kuisagari) & ids(trap_hands)), lookalike["id"] in kuisagari.hand_ids) == (5, True)
+    assert kuisagari.shortfalls == [Shortfall(part="lookalikes", wanted=3, found=1)]
+
+
+def test_a_drill_made_up_from_its_other_parts_draws_them_on_the_newest_year_first(tmp_path):
+    trap_hand = hand(1, year=2024, yaku=["honitsu"], open=True, tags=["kuisagari"])
+    lookalikes_2024 = [hand(number, year=2024, yaku=["haku"], open=True) for number in range(2, 7)]
+    lookalikes_2023 = [hand(number, year=2023, yaku=["haku"], open=True) for number in range(7, 12)]
+
+    [kuisagari] = draw_drills(catalogue(tmp_path, KUISAGARI), [trap_hand, *lookalikes_2024, *lookalikes_2023])
+
+    assert (len(kuisagari.hand_ids), drawn_ids(kuisagari) & ids(lookalikes_2023)) == (6, set())
+
+
+def test_a_drill_whose_whole_pool_is_short_takes_every_pool_hand_and_says_which_parts_fell_short(tmp_path):
+    trap_hand = hand(1, yaku=["honitsu"], open=True, tags=["kuisagari"])
+    lookalikes = [hand(2, yaku=["haku"], open=True), hand(3, yaku=["haku"], open=True)]
+    closed = hand(4)
+
+    [kuisagari] = draw_drills(catalogue(tmp_path, KUISAGARI), [trap_hand, *lookalikes, closed])
+
+    assert (drawn_ids(kuisagari), kuisagari.short_by) == (ids([trap_hand, *lookalikes]), 3)
+    assert kuisagari.shortfalls == [Shortfall(part="trap hands", wanted=3, found=1),
+                                    Shortfall(part="lookalikes", wanted=3, found=2)]
 
 
 BIG_HANDS = """
@@ -245,13 +279,13 @@ def test_a_short_quota_reaches_back_through_the_years_while_the_rest_of_the_dril
     assert drawn_ids(big_hands) >= ids(yakuman_2023)
 
 
-def test_a_quota_the_hand_store_cannot_fill_is_not_made_up_from_the_rest_of_the_pool(tmp_path):
+def test_a_quota_the_hand_store_cannot_fill_is_made_up_from_the_rest_of_the_pool(tmp_path):
     haneman = [hand(number, han=6, limitTier="haneman") for number in range(10)]
     yakuman = hand(10, han=13, limitTier="yakuman")
 
     [big_hands] = draw_drills(catalogue(tmp_path, BIG_HANDS), [*haneman, yakuman])
 
-    assert (len(big_hands.hand_ids), yakuman["id"] in big_hands.hand_ids) == (3, True)
+    assert (len(big_hands.hand_ids), big_hands.short_by, yakuman["id"] in big_hands.hand_ids) == (4, 0, True)
     assert big_hands.shortfalls == [Shortfall(part="limitTier = yakuman", wanted=2, found=1)]
 
 
@@ -286,7 +320,7 @@ def test_a_tag_that_gives_the_answer_away_can_be_the_trap_of_a_drill_that_mixes_
         lookalikes = 0.3
     """)
 
-    assert (drill.trap.conditions, drill.lookalikes) == ({"tags": "fu-mangan"}, 0.3)
+    assert (drill.trap.wanted, drill.lookalikes) == ({"tags": "fu-mangan"}, 0.3)
 
 
 def test_a_catalogue_with_two_drills_under_one_key_is_refused(tmp_path):
@@ -399,14 +433,14 @@ def test_big_hands_takes_haneman_and_above_giving_a_fifth_of_the_drill_to_sanbai
         500, True, set())
 
 
-def test_big_hands_short_of_sanbaiman_and_above_says_so_rather_than_shrinking():
-    # About what the logs of 3,000 games hold: a few thousand haneman and baiman, 22 hands above them.
+def test_big_hands_short_of_sanbaiman_and_above_says_so_and_makes_up_the_rest_with_haneman_and_baiman():
+    # A few thousand haneman, but only 22 hands above baiman.
     common = numbered(2000, han=6, limitTier="haneman")
     rare = numbered(8, 2000, han=11, limitTier="sanbaiman") + numbered(14, 2008, han=13, limitTier="yakuman")
 
     big_hands = shipped_drill("big-hands", common + rare)
 
-    assert (len(big_hands.hand_ids), big_hands.target, big_hands.short_by) == (422, 500, 78)
+    assert (len(big_hands.hand_ids), big_hands.short_by, drawn_ids(big_hands) >= ids(rare)) == (500, 0, True)
     assert big_hands.shortfalls == [
         Shortfall(part="limitTier = sanbaiman/kazoe-yakuman/yakuman", wanted=100, found=22)]
 
@@ -444,10 +478,11 @@ def test_rare_situations_gives_haitei_houtei_rinshan_chankan_and_double_riichi_e
         "ippatsu": 0, "haitei": 100, "houtei": 100, "rinshan": 100, "double-riichi": 100, "chankan": 100}
 
 
-def test_rare_situations_short_of_chankan_says_so_and_is_not_filled_up_with_the_other_situations():
+def test_rare_situations_short_of_chankan_says_so_and_makes_up_the_rest_with_the_other_situations():
     hands = situations({"haitei": 400, "houtei": 400, "rinshan": 300, "double-riichi": 150, "chankan": 12})
 
     rare_situations = shipped_drill("rare-situations", [hand for group in hands.values() for hand in group])
 
-    assert (len(rare_situations.hand_ids), rare_situations.short_by) == (412, 88)
+    drawn = drawn_ids(rare_situations)
+    assert (len(drawn), rare_situations.short_by, drawn >= ids(hands["chankan"])) == (500, 0, True)
     assert rare_situations.shortfalls == [Shortfall(part="yaku = chankan", wanted=100, found=12)]

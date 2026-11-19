@@ -181,15 +181,22 @@ def ryanpeikou() -> str:
     return wall_ron(Wall(), concealed="112233m445566p7s", winning="7s", ten="40,5200,0", yaku="32,3")
 
 
+def pinfu_or_tanki_without_a_yaku() -> str:
+    # 123p 456p 789s 234m 44m, won on 4m: read as 23m waiting on 1m-4m it is pinfu, 1 han 30 fu; read as
+    # 44m waiting on the 4m, a single wait, it would be 40 fu but has no yaku, so that split doesn't count.
+    return wall_ron(Wall(), concealed="2344m123456p789s", winning="4m", ten="30,1000,0", yaku="7,1")
+
+
 HANDS_WITHOUT_AN_AMBIGUOUS_WAIT = {
     "one-split": game(init(), closed_win()),
     "several-splits-at-the-same-fu": ryanmen_or_tanki_at_the_same_fu(),
     "seven-pairs-is-no-split": ryanpeikou(),
+    "the-other-split-has-no-yaku": pinfu_or_tanki_without_a_yaku(),
 }
 
 
 @pytest.mark.parametrize("xml", HANDS_WITHOUT_AN_AMBIGUOUS_WAIT.values(), ids=HANDS_WITHOUT_AN_AMBIGUOUS_WAIT.keys())
-def test_a_hand_whose_splits_into_sets_and_a_pair_all_give_the_same_fu_has_no_ambiguous_wait(xml):
+def test_a_hand_whose_splits_with_a_yaku_all_give_the_same_fu_has_no_ambiguous_wait(xml):
     hand = only_hand(xml)
 
     assert hand["quarantineReasons"] == []
@@ -224,9 +231,10 @@ def test_a_hand_with_an_ambiguous_wait_keeps_the_fu_tenhou_gave_the_split_worth_
         pytest.param(triplets_or_runs(), [40, 50], id="triplets-or-runs"),
         pytest.param(ryanmen_or_tanki_at_the_same_fu(), [40, 40], id="several-splits-at-the-same-fu"),
         pytest.param(ryanpeikou(), [40], id="seven-pairs-is-no-split"),
+        pytest.param(pinfu_or_tanki_without_a_yaku(), [30], id="a-split-without-a-yaku-is-left-out"),
     ],
 )
-def test_the_fu_of_every_split_into_sets_and_a_pair_is_worked_out(xml, split_fu):
+def test_the_fu_of_every_split_that_has_a_yaku_is_worked_out(xml, split_fu):
     assert only_hand(xml)["splitFu"] == split_fu
 
 
@@ -332,11 +340,13 @@ def test_a_hand_below_mangan_or_at_mangan_by_han_alone_has_no_fu_mangan(xml):
 HANDS_WITH_HIGH_FU = {
     "50-fu": tanki_or_ryanmen(),
     "70-fu": honitsu_with_a_closed_kan(),
+    # The 9m names the 1m as dora: 4 han 70 fu, where the fu still decide the points.
+    "70-fu-at-4-han": honitsu_with_a_closed_kan(dora=ids(35), yaku="34,3,52,1"),
 }
 
 
 @pytest.mark.parametrize("xml", HANDS_WITH_HIGH_FU.values(), ids=HANDS_WITH_HIGH_FU.keys())
-def test_a_hand_with_50_fu_or_more_has_high_fu(xml):
+def test_a_hand_with_50_fu_or_more_and_4_han_or_fewer_has_high_fu(xml):
     hand = only_hand(xml)
 
     assert hand["quarantineReasons"] == []
@@ -346,11 +356,15 @@ def test_a_hand_with_50_fu_or_more_has_high_fu(xml):
 HANDS_WITHOUT_HIGH_FU = {
     "40-fu": closed_honitsu(),
     "30-fu": game(init(), closed_win()),
+    # The 9m and 8m name the 1m and 9m as dora: 5 han make it mangan whatever its 70 fu.
+    "70-fu-at-5-han": honitsu_with_a_closed_kan(dora=ids(35, 31), yaku="34,3,52,2"),
+    # Baiman at 10 han, whatever its 50 fu.
+    "50-fu-at-10-han": triplets_or_runs(),
 }
 
 
 @pytest.mark.parametrize("xml", HANDS_WITHOUT_HIGH_FU.values(), ids=HANDS_WITHOUT_HIGH_FU.keys())
-def test_a_hand_with_less_than_50_fu_has_no_high_fu(xml):
+def test_a_hand_with_less_than_50_fu_or_more_than_4_han_has_no_high_fu(xml):
     hand = only_hand(xml)
 
     assert hand["quarantineReasons"] == []

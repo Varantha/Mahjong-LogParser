@@ -15,7 +15,7 @@ filter on any of them by name:
 Plain values are never tags. The limit tier is also part of the answer key.
 """
 
-from logparser.calls import CLOSED_KAN
+from logparser.calls import hand_is_open
 
 # The named payment caps a hand can reach, lowest first. A kazoe yakuman reaches the yakuman's cap
 # with 13 han or more and no yakuman; it is told apart from a yakuman.
@@ -30,7 +30,8 @@ PLAIN_VALUE_NAMES = ("han", "fu", "rawFu", "limitTier", "dealer", "tsumo", "open
 
 def plain_values(hand: dict) -> dict:
     """The plain values of a hand record."""
-    answer_key, situation, calls = hand["answerKey"], hand["situation"], hand["tiles"]["calls"]
+    answer_key, situation = hand["answerKey"], hand["situation"]
+    call_types = [call["type"] for call in hand["tiles"]["calls"]]
     return {
         "han": answer_key["han"],
         "fu": answer_key["fu"],
@@ -38,10 +39,10 @@ def plain_values(hand: dict) -> dict:
         "limitTier": answer_key["limitTier"],
         "dealer": situation["dealer"],
         "tsumo": situation["tsumo"],
-        "open": any(call["type"] != CLOSED_KAN for call in calls),
+        "open": hand_is_open(call_types),
         "yaku": [yaku["key"] for yaku in answer_key["yaku"]],
         "doraCount": sum(yaku["han"] for yaku in answer_key["yaku"] if yaku["key"] in DORA_YAKU),
         "honba": situation["honba"],
         "riichiSticks": situation["riichiSticks"],
-        "callTypes": [call["type"] for call in calls],
+        "callTypes": call_types,
     }

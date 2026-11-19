@@ -20,7 +20,7 @@ Database dumps ───── import-dump ───┼─► Log store ──(s
 
 - its ID, `<logId>/<roundIndex>/<winIndex>`, which depends only on the source log, so re-running ingest never changes it
 - its tiles and calls, in `mpsz` notation
-- its situation (winds, dealer, honba, riichi sticks, tsumo or ron, riichi, ippatsu, last tile, rinshan, chankan, first draw), worked out from the game's moves
+- its situation (winds, dealer, honba, riichi sticks, tsumo or ron, riichi, ippatsu, last tile, rinshan, chankan, first draw), worked out from the game's moves, and whether it is the second winner of a double ron, which collects none of the honba and riichi sticks on the table
 - its answer key: the yaku, han, fu, limit tier, points and payments Tenhou recorded, plus the raw fu and the fu breakdown once the cross-check (below) has matched
 - its plain values, the facts drills filter on directly: han, fu, raw fu, limit tier, dealer, tsumo or ron, open or closed, yaku, dora count, honba, riichi sticks and call types
 - its tags, such as `kuisagari`
@@ -83,16 +83,16 @@ Each file must be named after its log ID.
 uv run logparser ingest
 ```
 
-Parses every log in the log store and prints how many logs were skipped and why, and how many hands are verified and quarantined. Running it again replaces each log's hands, so a parser fix reaches every hand already stored.
+Parses every log in the log store and prints how many logs were skipped and why, and how many hands are verified and quarantined. Running it again replaces each log's hands, so a parser fix reaches every hand already stored. The hand store holds only hands parsed from logs still in the log store: the hands of a log that has left it are dropped. A missing or empty log store would drop every hand, so ingest refuses it with an error and changes nothing.
 
 Every ingest also writes an ingest report, in a folder of its own named after the time it ran, under `local/ingest-reports/` (`--reports` picks another folder):
 
-- `report.json`: the logs read and skipped; the hands parsed, verified, quarantined and changed; the IDs of the quarantined hands, by reason code; and how many verified hands have each tag and reach each limit tier.
-- `diff.jsonl`: one line per hand whose answer key, plain values or tags changed since the previous run, by hand ID, with each changed value before and after and the tags added and removed. The previous run is what the hand store held, so the first run's diff is empty, and hands from logs new to the log store are not listed.
+- `report.json`: the logs read and skipped; the hands parsed, verified, quarantined, changed and removed; the IDs of the quarantined hands, by reason code; and how many verified hands have each tag and reach each limit tier.
+- `diff.jsonl`: one line per hand whose answer key, plain values or tags changed since the previous run, by hand ID, with each changed value before and after and the tags added and removed. It also lists each hand removed since the previous run, `{"id": ..., "removed": true}`: a hand its log no longer gives, after a parser or filter change, or whose log has left the log store. The previous run is what the hand store held, so the first run's diff is empty, and hands from logs new to the log store are not listed.
 
 A report shows how often each tag and limit tier occurs. After a parser change, the diff shows which hands it changed and how.
 
-`--high-fu` sets the fewest fu, after rounding, that a hand tagged `high-fu` has (default 50). The threshold is still being tuned against a year of logs: re-running ingest with another value retags every hand, the report counts the hands tagged at that value, and the diff lists the hands that gained or lost the tag.
+`--high-fu` sets the fewest fu, after rounding, that a hand tagged `high-fu` has (default 50). Only hands with 4 han or fewer get the tag: from 5 han a hand is mangan or more whatever its fu. The threshold is still being tuned against a year of logs: re-running ingest with another value retags every hand, the report counts the hands tagged at that value, and the diff lists the hands that gained or lost the tag.
 
 ### Stage 2: export
 
@@ -125,15 +125,15 @@ The catalogue holds every drill in the drill table, each aiming for 500 hands:
 | `payments` | Tsumo hands | |
 | `rare-situations` | Hands with haitei, houtei, rinshan, chankan or double riichi | A fifth for each of the five; ippatsu is left out |
 
-A drill draws on the newest year of logs first and reaches back a year at a time only while it is short. A drill is never shrunk to fit: when every year in the hand store together still leaves it short, export lists it after the summary line, with how many hands it has, how many it is short, and which part of the drill ran out:
+A drill draws on the newest year of logs first and reaches back a year at a time only while it is short. A drill is never shrunk to fit. When every year in the hand store together still leaves one part of a drill short, such as its quota of sanbaiman and above, the drill's other parts make up the difference, newest year first. A drill falls short of its target only when its whole pool does. Export lists each drill with a part that ran out after the summary line, with how many hands the drill has and how many each short part found. For example, on a small hand store:
 
 ```
 Short of hands, even drawing on every year of logs in the hand store:
-  big-hands: 422 of 500 hands, 78 short (limitTier = sanbaiman/kazoe-yakuman/yakuman: 22 of 100)
-  rare-situations: 325 of 500 hands, 175 short (yaku = rinshan: 67 of 100; yaku = chankan: 4 of 100; yaku = double-riichi: 54 of 100)
+  big-hands: 500 of 500 hands, made up from its other parts (limitTier = sanbaiman/kazoe-yakuman/yakuman: 80 of 100)
+  rare-situations: 460 of 500 hands, 40 short (yaku = chankan: 30 of 100; yaku = double-riichi: 90 of 100)
 ```
 
-That is export on the logs of about 3,000 Phoenix games, which hold only 22 hands at sanbaiman or above, 4 with chankan, 54 with double riichi and 67 with rinshan. A year of Phoenix games, about 200,000 of them, should fill both drills.
+The rare drills need the logs of many games: sanbaiman and above, chankan and double riichi are a small share of all hands. A year of Phoenix games, about 200,000 of them, should leave no part of these drills short.
 
 ### Where data lives
 

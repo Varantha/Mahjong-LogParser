@@ -10,6 +10,8 @@ import sqlite3
 from collections.abc import Iterable, Iterator
 from pathlib import Path
 
+from logparser.verification import is_verified
+
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS hands (
     id TEXT PRIMARY KEY,
@@ -43,17 +45,17 @@ class HandStore:
             self._db.execute("DELETE FROM hands WHERE log_id = ?", (log_id,))
             self._db.executemany(
                 "INSERT INTO hands (id, log_id, verified, record) VALUES (?, ?, ?, ?)",
-                [(hand["id"], log_id, not hand["quarantineReasons"], json.dumps(hand)) for hand in hands],
+                [(hand["id"], log_id, is_verified(hand), json.dumps(hand)) for hand in hands],
             )
+
+    def log_ids(self) -> list[str]:
+        """The logs the stored hands came from, in log ID order."""
+        return [log_id for (log_id,) in self._db.execute("SELECT DISTINCT log_id FROM hands ORDER BY log_id")]
 
     def log_hands(self, log_id: str) -> list[dict]:
         """The hands stored from one log, in hand ID order."""
         rows = self._db.execute("SELECT record FROM hands WHERE log_id = ? ORDER BY id", (log_id,))
         return [json.loads(record) for (record,) in rows]
-
-    def hand_ids(self) -> Iterator[str]:
-        for (hand_id,) in self._db.execute("SELECT id FROM hands ORDER BY id"):
-            yield hand_id
 
     def get(self, hand_id: str) -> dict:
         row = self._db.execute("SELECT record FROM hands WHERE id = ?", (hand_id,)).fetchone()

@@ -24,7 +24,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from logparser.log_store import LOG_ID, LogStore
-from logparser.tenhou import NO_OPEN_TANYAO, NO_RED_FIVES, SANMA
+from logparser.tenhou import skip_reason
 
 TENHOU = "https://tenhou.net"
 FILE_INDEXES = (f"{TENHOU}/sc/raw/list.cgi", f"{TENHOU}/sc/raw/list.cgi?old")
@@ -42,7 +42,7 @@ TIMEOUT = 60.0  # seconds to wait for Tenhou to answer
 FILE_INDEX = re.compile(r"\s*list\s*\(\s*(?:\[(.*)\])?\s*\)\s*;\s*", re.DOTALL)
 INDEX_ENTRY = re.compile(r"\{\s*file\s*:\s*'([^']+)'\s*,\s*size\s*:\s*([0-9]+)\s*\}")
 # One finished game per scc line: its start time, then a replay link holding the log ID.
-LISTED_GAME = re.compile(r"^(\d{2}:\d{2}).*?log=([^\"'&>]+)", re.MULTILINE)
+LISTED_GAME = re.compile(r"^\d{2}:\d{2}.*?log=([^\"'&>]+)", re.MULTILINE)
 # What a log Tenhou serves starts with, after an optional XML declaration.
 MJLOG_START = re.compile(r"\A\s*(?:<\?xml\s[\s\S]*?\?>\s*)?<mjloggm(?=[\s/>])")
 
@@ -204,7 +204,7 @@ class Downloader:
             text = gzip.decompress(reply.body).decode("utf-8", "replace")
         except (OSError, EOFError, zlib.error):
             return False
-        log_ids = [log_id for _start, log_id in LISTED_GAME.findall(text) if LOG_ID.fullmatch(log_id)]
+        log_ids = [log_id for log_id in LISTED_GAME.findall(text) if LOG_ID.fullmatch(log_id)]
         with self._db:
             self._db.executemany("INSERT OR IGNORE INTO listed (log_id) VALUES (?)", [(i,) for i in log_ids])
             self._db.execute("INSERT OR REPLACE INTO lists_read (file, size) VALUES (?, ?)", (file, size))
@@ -221,8 +221,7 @@ def _ingest_takes(log_id: str) -> bool:
 
     The game type is the hex field after "gm-" in the log ID, the same value as the log's GO tag.
     """
-    game_type = int(log_id[13:17], 16)
-    return not game_type & (SANMA | NO_RED_FIVES | NO_OPEN_TANYAO)
+    return skip_reason(int(log_id[13:17], 16)) is None
 
 
 def urllib_get(url: str) -> Response:

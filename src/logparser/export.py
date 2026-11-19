@@ -10,17 +10,16 @@ never uses the network.
 import json
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from importlib.metadata import version
 from pathlib import Path
 
 from jsonschema import Draft202012Validator
 
+from logparser.build import generator, timestamp
+from logparser.counts import HandCounts
 from logparser.drills import DrawnDrill, Drill, draw_drills
 from logparser.hand_store import HandStore
-from logparser.plain_values import LIMIT_TIERS
-from logparser.tags import TAGS
 
-SCHEMA_VERSION = "1.0.0"
+SCHEMA_VERSION = "1.1.0"
 SCHEMA_PATH = Path(__file__).parent / "schema" / "trainer-bundle.schema.json"
 DEFAULT_CHUNK_SIZE = 200
 # The parts of a hand-store record the trainer sees. Replay links, quarantine
@@ -34,9 +33,10 @@ class ExportSummary:
     drills: list[DrawnDrill]
 
     @property
-    def short_drills(self) -> list[DrawnDrill]:
-        """The drills that every year of logs in the hand store together could not fill."""
-        return [drill for drill in self.drills if drill.short_by]
+    def drills_with_a_short_part(self) -> list[DrawnDrill]:
+        """The drills with a part that every year of logs in the hand store together could not fill. Such a
+        drill is made up from its other parts, and is short only when the whole pool is."""
+        return [drill for drill in self.drills if drill.shortfalls]
 
 
 def export_bundle(hands: HandStore, folder: Path, catalogue: list[Drill], *,
@@ -53,19 +53,19 @@ def export_bundle(hands: HandStore, folder: Path, catalogue: list[Drill], *,
         f"hands-{number:03d}.json": {"schemaVersion": SCHEMA_VERSION, "hands": bundle_hands[start:start + chunk_size]}
         for number, start in enumerate(range(0, len(bundle_hands), chunk_size))
     }
+    counts = HandCounts(bundle_hands)
     manifest = {
         "schemaVersion": SCHEMA_VERSION,
         "build": {
-            "builtAt": (built_at or datetime.now(timezone.utc)).astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
-            "generator": f"mahjong-logparser {version('mahjong-logparser')}",
+            "builtAt": timestamp(built_at or datetime.now(timezone.utc)),
+            "generator": generator(),
             "seed": seed,
         },
         "counts": {
             "hands": len(bundle_hands),
             "drills": {drill["key"]: len(drill["handIds"]) for drill in drills},
-            "tags": {tag: sum(tag in hand["tags"] for hand in bundle_hands) for tag in TAGS},
-            "limitTiers": {tier: sum(hand["plainValues"]["limitTier"] == tier for hand in bundle_hands)
-                           for tier in LIMIT_TIERS},
+            "tags": counts.tags(),
+            "limitTiers": counts.limit_tiers(),
         },
         "chunks": list(chunks),
         "drills": drills,

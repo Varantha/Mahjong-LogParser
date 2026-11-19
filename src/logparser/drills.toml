@@ -1,8 +1,9 @@
 # The drill catalogue: the drills the trainer bundle holds (see docs/adr/0001).
 #
 # Export builds each drill by searching the whole hand store, newest year of logs
-# first. A drill short of hands draws on older years; if every year together is
-# still short, export says by how much. A drill is never shrunk to fit.
+# first. A drill short of hands draws on older years. A drill is never shrunk to fit:
+# if every year together is still short of hands for one share of it, its other
+# shares make up the difference, and export says which share ran short.
 #
 # Each drill has:
 #   key     stable string key; the trainer translates it into a display name
@@ -31,7 +32,9 @@
 #               of the drill for the pool hands that also meet `where`, so they turn up
 #               more often than in real games. The rest is drawn from the whole pool.
 # Each share (the trap hands, the lookalikes, each quota and the rest) draws on older
-# years on its own, and is not made up from another share when it falls short.
+# years on its own. A share that every year together leaves short is made up from the
+# other shares' pool hands, newest year first; only a drill whose whole pool is short
+# falls short.
 
 # Random hands at their real-game frequency. Skill: general scoring.
 [[drill]]
@@ -44,14 +47,16 @@ key = "fu-rounding-edge"
 target = 500
 pool = { tags = "knife-edge-fu" }
 
-# Hands whose tiles split into sets and a pair in more than one way, at different fu.
+# Hands whose tiles split into sets and a pair in more than one way, at different fu,
+# counting only the splits that have a yaku.
 # Skill: choosing the highest-scoring way to split the tiles.
 [[drill]]
 key = "tricky-waits"
 target = 500
 pool = { tags = "ambiguous-wait" }
 
-# Hands with 50 fu or more, as ingest's high-fu threshold sets it.
+# Hands with 50 fu or more, as ingest's high-fu threshold sets it, and 4 han or fewer,
+# so the fu still decide the points.
 # Skill: large fu from kans and honour triplets.
 [[drill]]
 key = "high-fu"

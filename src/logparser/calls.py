@@ -21,6 +21,7 @@ Tiles are Tenhou tile IDs (see `logparser.tiles`). A kan holds all four copies
 of its kind, so a kan of fives always holds the red five.
 """
 
+from collections.abc import Iterable
 from dataclasses import dataclass
 
 CHI = "chi"
@@ -76,6 +77,6 @@ def _check(readable: bool, code: int) -> None:
         raise ValueError(f"call code {code} is no four-player call")
 
 
-def hand_is_open(calls: list[Call]) -> bool:
-    """A hand is open once it has a call other than a closed kan."""
-    return any(call.type != CLOSED_KAN for call in calls)
+def hand_is_open(call_types: Iterable[str]) -> bool:
+    """A hand is open once it has a call other than a closed kan. `call_types` are the type of each of its calls."""
+    return any(call_type != CLOSED_KAN for call_type in call_types)

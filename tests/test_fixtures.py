@@ -2,8 +2,7 @@
 
 Fixtures are local data and are never committed, because Tenhou forbids
 redistributing its logs. They live in `local/fixtures/` at the repo root,
-which git ignores. Set LOGPARSER_FIXTURES to use another folder, for example
-the main checkout's `local/fixtures` when working in a git worktree.
+which git ignores. Set LOGPARSER_FIXTURES to use another folder.
 
 Each case is a folder named after what it covers:
 
