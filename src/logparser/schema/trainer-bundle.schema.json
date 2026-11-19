@@ -1,0 +1,170 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Trainer bundle",
+  "description": "The contract between LogParser and the Scoring Trainer. A trainer bundle is manifest.json plus hand chunk files; every file in it validates against this schema. A breaking change bumps the major schemaVersion.",
+  "oneOf": [
+    { "$ref": "#/$defs/manifest" },
+    { "$ref": "#/$defs/handChunk" }
+  ],
+  "$defs": {
+    "schemaVersion": { "const": "1.0.0" },
+
+    "manifest": {
+      "description": "manifest.json: what the bundle holds and where its hands are.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schemaVersion", "build", "counts", "chunks", "drills"],
+      "properties": {
+        "schemaVersion": { "$ref": "#/$defs/schemaVersion" },
+        "build": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["builtAt", "generator", "seed"],
+          "properties": {
+            "builtAt": { "type": "string", "format": "date-time" },
+            "generator": { "description": "The LogParser package and version that built the bundle.", "type": "string" },
+            "seed": { "description": "Seed of the random draws, so a build can be repeated.", "type": "integer" }
+          }
+        },
+        "counts": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["hands", "drills"],
+          "properties": {
+            "hands": { "description": "Hands in the bundle, each counted once.", "type": "integer", "minimum": 0 },
+            "drills": {
+              "description": "Hands per drill, by drill key.",
+              "type": "object",
+              "propertyNames": { "$ref": "#/$defs/key" },
+              "additionalProperties": { "type": "integer", "minimum": 0 }
+            }
+          }
+        },
+        "chunks": {
+          "description": "The hand chunk files, relative to manifest.json.",
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "type": "string", "pattern": "^hands-[0-9]{3,}\\.json$" }
+        },
+        "drills": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/drill" }
+        }
+      }
+    },
+
+    "drill": {
+      "description": "A drill's key (the trainer translates it) and the IDs of its hands.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["key", "handIds"],
+      "properties": {
+        "key": { "$ref": "#/$defs/key" },
+        "handIds": { "type": "array", "uniqueItems": true, "items": { "$ref": "#/$defs/handId" } }
+      }
+    },
+
+    "handChunk": {
+      "description": "One hand chunk file. Each hand in the bundle appears in exactly one chunk.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schemaVersion", "hands"],
+      "properties": {
+        "schemaVersion": { "$ref": "#/$defs/schemaVersion" },
+        "hands": { "type": "array", "items": { "$ref": "#/$defs/hand" } }
+      }
+    },
+
+    "hand": {
+      "description": "One scorable win: its tiles, its situation and its answer key.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "situation", "tiles", "answerKey"],
+      "properties": {
+        "id": { "$ref": "#/$defs/handId" },
+        "situation": { "$ref": "#/$defs/situation" },
+        "tiles": { "$ref": "#/$defs/tiles" },
+        "answerKey": { "$ref": "#/$defs/answerKey" }
+      }
+    },
+
+    "handId": {
+      "description": "<logId>/<roundIndex>/<winIndex>.",
+      "type": "string",
+      "pattern": "^[0-9]{10}gm-[0-9a-f]{4}-[0-9a-f]{4,5}-[0-9a-f]{8}/[0-9]+/[01]$"
+    },
+
+    "situation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["roundWind", "seatWind", "dealer", "honba", "riichiSticks", "tsumo", "riichi"],
+      "properties": {
+        "roundWind": { "$ref": "#/$defs/wind" },
+        "seatWind": { "$ref": "#/$defs/wind" },
+        "dealer": { "type": "boolean" },
+        "honba": { "type": "integer", "minimum": 0 },
+        "riichiSticks": { "description": "Riichi sticks on the table when the hand wins.", "type": "integer", "minimum": 0 },
+        "tsumo": { "description": "True for a win by tsumo, false for ron.", "type": "boolean" },
+        "riichi": { "type": "boolean" }
+      }
+    },
+
+    "wind": { "enum": ["east", "south", "west", "north"] },
+
+    "tiles": {
+      "description": "Tiles in mpsz notation: m, p, s for the suits, z for honours (1z East ... 7z Chun), 0 for a red five.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["concealed", "winningTile", "doraIndicators", "uraDoraIndicators"],
+      "properties": {
+        "concealed": { "description": "The tiles not part of any call, winning tile included.", "$ref": "#/$defs/tileGroup" },
+        "winningTile": { "type": "string", "pattern": "^([0-9][mps]|[1-7]z)$" },
+        "doraIndicators": { "$ref": "#/$defs/tileGroup" },
+        "uraDoraIndicators": { "description": "Empty unless the hand won with riichi.", "type": "string", "pattern": "^([0-9]+[mps]|[1-7]+z)*$" }
+      }
+    },
+
+    "tileGroup": { "type": "string", "pattern": "^([0-9]+[mps]|[1-7]+z)+$" },
+
+    "answerKey": {
+      "description": "The result Tenhou recorded for the hand, under Tenhou rules.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["yaku", "han", "fu", "points"],
+      "properties": {
+        "yaku": {
+          "description": "Each yaku with its han. Every yakuman counts 13 han.",
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["key", "han"],
+            "properties": {
+              "key": { "$ref": "#/$defs/yakuKey" },
+              "han": { "type": "integer", "minimum": 1 }
+            }
+          }
+        },
+        "han": { "type": "integer", "minimum": 1 },
+        "fu": { "type": "integer", "minimum": 0 },
+        "points": { "description": "What the winner receives, before honba and riichi sticks.", "type": "integer", "minimum": 1000 }
+      }
+    },
+
+    "key": { "type": "string", "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$" },
+
+    "yakuKey": {
+      "enum": [
+        "menzen-tsumo", "riichi", "ippatsu", "chankan", "rinshan", "haitei", "houtei", "pinfu", "tanyao", "iipeikou",
+        "seat-wind-east", "seat-wind-south", "seat-wind-west", "seat-wind-north",
+        "round-wind-east", "round-wind-south", "round-wind-west", "round-wind-north",
+        "haku", "hatsu", "chun", "double-riichi", "chiitoitsu", "chanta", "ittsu", "sanshoku-doujun", "sanshoku-doukou",
+        "sankantsu", "toitoi", "sanankou", "shousangen", "honroutou", "ryanpeikou", "junchan", "honitsu", "chinitsu",
+        "tenhou", "chiihou", "daisangen", "suuankou", "suuankou-tanki", "tsuuiisou", "ryuuiisou", "chinroutou",
+        "chuuren-poutou", "junsei-chuuren-poutou", "kokushi-musou", "kokushi-musou-13-wait", "daisuushii", "shousuushii",
+        "suukantsu", "dora", "ura-dora", "aka-dora"
+      ]
+    }
+  }
+}
