@@ -39,6 +39,7 @@ DEFAULT_INTERVAL = 2.0
 # Tenhou: refresh the FileIndex no more often than every 20 minutes.
 INDEX_REFRESH = 20 * 60.0
 TIMEOUT = 60.0  # seconds to wait for Tenhou to answer
+PROGRESS_EVERY = 500  # logs between two progress lines
 # Tenhou answers Python's default client with an empty body, so name this one.
 USER_AGENT = "Mahjong-LogParser/2"
 
@@ -93,8 +94,11 @@ class DownloadSummary:
 class Downloader:
     def __init__(self, log_store: LogStore, state: Path, *, http_get: HttpGet | None = None,
                  interval: float = DEFAULT_INTERVAL, clock: Callable[[], float] = time.time,
-                 sleep: Callable[[float], None] = time.sleep):
+                 sleep: Callable[[float], None] = time.sleep, progress: Callable[[str], None] | None = None,
+                 progress_every: int = PROGRESS_EVERY):
         self._log_store = log_store
+        self._progress = progress
+        self._progress_every = progress_every
         self._http_get = http_get or urllib_get
         self._interval = interval
         self._clock = clock
@@ -165,7 +169,9 @@ class Downloader:
     def _fetch_logs(self, to_fetch: list[str], max_logs: int | None, summary: DownloadSummary) -> None:
         """Fetches each log in turn, up to max_logs of them, recording those Tenhou cannot give as failed."""
         summary.remaining = len(to_fetch)
-        for log_id in to_fetch[:max_logs]:
+        batch = to_fetch[:max_logs]
+        self._report(f"{len(batch)} logs to fetch")
+        for done, log_id in enumerate(batch, start=1):
             summary.remaining -= 1
             xml, failure = self._fetch_log(log_id)
             if failure:
@@ -175,6 +181,12 @@ class Downloader:
             else:
                 self._log_store.add(log_id, xml)
                 summary.fetched += 1
+            if done % self._progress_every == 0 or done == len(batch):
+                self._report(f"{done}/{len(batch)} done: {summary.fetched} fetched, {summary.failed} failed")
+
+    def _report(self, line: str) -> None:
+        if self._progress:
+            self._progress(line)
 
     def _get(self, url: str) -> Response:
         """One request to Tenhou, started no sooner than the interval after the previous one."""

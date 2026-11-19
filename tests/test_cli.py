@@ -1,6 +1,7 @@
 """The `logparser` command: add logs, ingest them, export the trainer bundle."""
 
 import json
+import re
 
 import pytest
 
@@ -206,7 +207,10 @@ def test_the_logs_in_an_id_list_are_downloaded_and_lines_that_are_not_log_ids_ar
           "--interval", "0"])
 
     out, err = capsys.readouterr()
-    assert err == f"{ids}:4: not a log ID: 'my game'\n"
+    *progress, not_a_log_id = err.splitlines()
+    assert not_a_log_id == f"{ids}:4: not a log ID: 'my game'"
+    assert all(re.match(r"\d{4}-\d\d-\d\d \d\d:\d\d:\d\d ", line) for line in progress)
+    assert [line[20:] for line in progress] == ["1 logs to fetch", "1/1 done: 1 fetched, 0 failed"]
     assert out == "Fetched 1 logs (0 failed); 1 already stored, 2 skipped: 1 not a log ID, 1 sanma; 0 left to fetch\n"
     assert tenhou.urls() == [tenhou.log_url(LOG_ID)]
 
