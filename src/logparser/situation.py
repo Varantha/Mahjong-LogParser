@@ -21,9 +21,12 @@ next discard, or at any call by anyone, closed kans included. An added kan
 closes it only after the chance to rob the kan has passed.
 """
 
+from dataclasses import dataclass
+
 from logparser.calls import ADDED_KAN, KANS
 
 LIVE_WALL = 70
+DRAW, DISCARD, CALL = "draw", "discard", "call"
 SITUATIONAL_YAKU = frozenset({"double-riichi", "ippatsu", "haitei", "houtei", "rinshan", "chankan", "tenhou", "chiihou"})
 FIRST_DRAW_YAKU = frozenset({"tenhou", "chiihou"})
 
@@ -43,10 +46,22 @@ def situational_yaku(situation: dict) -> set[str]:
     return {key for key, won in won_with.items() if won}
 
 
+@dataclass(frozen=True)
+class Move:
+    """A draw, a discard or a call: one of the moves a round is replayed from."""
+
+    kind: str  # DRAW, DISCARD or CALL
+    seat: int
+    tile: int | None  # the tile drawn or discarded; for a call, the tile an added kan adds, else None
+    call_type: str | None = None  # for a call, its type; None if its code is no four-player call
+
+
 class RoundMoves:
     """What a round's moves have told us so far."""
 
     def __init__(self) -> None:
+        self.unreadable_call = False  # a call code in the moves could not be read, so they can't be replayed
+        self._last_move: Move | None = None
         self._draws = 0  # draws from the live wall
         self._kans = 0
         self._dead_wall_draw_due: int | None = None  # the seat whose next draw is from the dead wall
@@ -58,21 +73,33 @@ class RoundMoves:
         self._double_riichi: set[int] = set()  # seats that declared riichi with their first discard
         self._ippatsu: set[int] = set()  # seats in their ippatsu window
 
-    def draw(self, seat: int) -> None:
+    def play(self, move: Move) -> None:
+        """Replays one more move. A call whose code could not be read can't be replayed: once the
+        round has one, its situation can't be worked out."""
+        self._last_move = move
+        if move.kind == CALL and move.call_type is None:
+            self.unreadable_call = True
+            return
         self._next_move()
+        if move.kind == DRAW:
+            self._draw(move.seat)
+        elif move.kind == DISCARD:
+            self._discard(move.seat)
+        else:
+            self._call(move.seat, move.call_type)
+
+    def _draw(self, seat: int) -> None:
         self._last_draw_from_dead_wall = seat == self._dead_wall_draw_due
         if self._last_draw_from_dead_wall:
             self._dead_wall_draw_due = None
         else:
             self._draws += 1
 
-    def discard(self, seat: int) -> None:
-        self._next_move()
+    def _discard(self, seat: int) -> None:
         self._discarded.add(seat)
         self._ippatsu.discard(seat)
 
-    def call(self, seat: int, call_type: str) -> None:
-        self._next_move()
+    def _call(self, seat: int, call_type: str) -> None:
         self._called = True
         if call_type == ADDED_KAN:
             self._robbable_kan_by = seat
@@ -112,3 +139,19 @@ class RoundMoves:
             "chankan": chankan,
             "firstDraw": tsumo and winner not in self._discarded and not self._called,
         }
+
+    def tile_handed_over(self, *, winner: int, discarder: int) -> int | None:
+        """The tile the last move handed the winner, or None if it handed over none.
+
+        On a tsumo that is the winner's own draw. On a ron it is the discarder's discard, or the
+        tile the discarder added to a kan (robbing a kan). Both wins of a double ron are on the same
+        discard: a win is no move.
+        """
+        move = self._last_move
+        if move is None:
+            return None
+        if winner == discarder:
+            handed_over = move.kind == DRAW and move.seat == winner
+        else:
+            handed_over = move.kind in (DISCARD, CALL) and move.seat == discarder
+        return move.tile if handed_over else None
