@@ -1,6 +1,6 @@
 """Dump import: database dumps that map a log ID to compressed log XML fill the log store.
 
-A dump is V1's SQLite format: a table `logs(log_id, log_content)` holding
+A dump is an SQLite file with a table `logs(log_id, log_content)` holding
 bz2-compressed log XML. Every dump here is built inside the test from
 hand-written logs.
 """
