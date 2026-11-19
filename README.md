@@ -85,6 +85,8 @@ uv run logparser ingest
 
 Parses every log in the log store and prints how many logs were skipped and why, and how many hands are verified and quarantined. Running it again replaces each log's hands, so a parser fix reaches every hand already stored.
 
+`--high-fu` sets the fewest fu, after rounding, that a hand tagged `high-fu` has (default 50). The threshold is still being tuned against a year of logs, so re-running ingest with another value retags every hand.
+
 ### Stage 2: export
 
 ```
