@@ -8,6 +8,8 @@ hand-written logs.
 import bz2
 import sqlite3
 
+import pytest
+
 from logparser.dump_import import import_dump
 from logparser.log_store import LogStore
 from tenhou_xml import closed_win, game, init
@@ -48,3 +50,17 @@ def test_importing_the_same_dump_again_adds_nothing_and_keeps_one_copy_of_each_l
 
     assert ((first.added, first.already_stored), (again.added, again.already_stored), list(store.log_ids())) == (
         (2, 0), (0, 2), [LOG_A, LOG_B])
+
+
+@pytest.mark.parametrize("bad_row, reason", [
+    pytest.param((LOG_B, None), "no content", id="not-downloaded-yet"),
+    pytest.param(("my-game", compressed(game(init()))), "not a log ID", id="not-a-log-id"),
+    pytest.param((LOG_B, game(init()).encode("utf-8")), "unreadable content", id="not-bz2"),
+])
+def test_a_row_that_holds_no_usable_log_is_skipped_with_a_reason(tmp_path, bad_row, reason):
+    dump = make_dump(tmp_path / "dump.db", [bad_row, (LOG_A, compressed(game(init())))])
+    store = LogStore(tmp_path / "log-store")
+
+    summary = import_dump(dump, store)
+
+    assert (summary.added, summary.skipped, list(store.log_ids())) == (1, {reason: 1}, [LOG_A])
