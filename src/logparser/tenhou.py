@@ -11,6 +11,7 @@ Every win (AGARI) in a taken game becomes a hand record, a JSON-ready dict:
     quarantineReasons  one reason code per failed check; empty when verified
 """
 
+import re
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass, field
 
@@ -28,11 +29,26 @@ NO_RED_FIVES = 0x02
 NO_OPEN_TANYAO = 0x04
 SANMA = 0x10
 
+# Move tags: a letter for the seat (0-3), then a tile ID, e.g. <T84/> is seat 0 drawing tile 84.
+DRAW_TAGS = "TUVW"
+DISCARD_TAGS = "DEFG"
+MOVE_TAG = re.compile(r"([TUVWDEFG])(\d+)")  # DORA also starts with D, so the whole tag must match
+DRAW, DISCARD, CALL = "draw", "discard", "call"
+
 
 @dataclass
 class ParsedLog:
     hands: list[dict] = field(default_factory=list)
     skipped: str | None = None  # why the whole game was not taken: "sanma", "ruleset" or "malformed"
+
+
+@dataclass(frozen=True)
+class _Move:
+    """A draw, a discard or a call (an N tag)."""
+
+    kind: str
+    seat: int
+    tile: int | None  # the tile drawn or discarded; for a call, the tile an added kan adds, else None
 
 
 @dataclass
@@ -44,6 +60,7 @@ class _Round:
     dealer: int
     wins: int = 0
     riichi: set[int] = field(default_factory=set)  # seats whose riichi was accepted
+    last_move: _Move | None = None
 
 
 def parse_log(log_id: str, xml_text: str) -> ParsedLog:
@@ -69,7 +86,25 @@ def parse_log(log_id: str, xml_text: str) -> ParsedLog:
         elif event.tag == "AGARI":
             parsed.hands.append(_hand(log_id, round_, event))
             round_.wins += 1
+        elif (move := _move(event)) is not None:
+            round_.last_move = move
     return parsed
+
+
+def _move(event: ET.Element) -> _Move | None:
+    """The move in a draw, discard or call tag; None for any other tag."""
+    if event.tag == "N":
+        try:
+            added_tile = decode_call(int(event.get("m"))).added_tile
+        except ValueError:
+            added_tile = None
+        return _Move(CALL, int(event.get("who")), added_tile)
+    if match := MOVE_TAG.fullmatch(event.tag):
+        letter, tile_id = match[1], int(match[2])
+        if letter in DRAW_TAGS:
+            return _Move(DRAW, DRAW_TAGS.index(letter), tile_id)
+        return _Move(DISCARD, DISCARD_TAGS.index(letter), tile_id)
+    return None
 
 
 def _skip_reason(game_type: int) -> str | None:
@@ -88,6 +123,9 @@ def _hand(log_id: str, round_: _Round, agari: ET.Element) -> dict:
     tsumo = winner == discarder
     concealed = _ints(agari.get("hai"))
     calls = _calls(agari)
+    winning_tile = int(agari.get("machi"))
+    dora_indicators = _ints(agari.get("doraHai"))
+    ura_dora_indicators = _ints(agari.get("doraHaiUra", ""))
     yaku = _recorded_yaku(agari)
     # In a double ron Tenhou pays the honba and the riichi sticks to the first winner only. The
     # second winner's `ba` still shows the honba, but its score change leaves them out.
@@ -97,6 +135,10 @@ def _hand(log_id: str, round_: _Round, agari: ET.Element) -> dict:
     reasons = quarantine_reasons(
         concealed=concealed,
         calls=calls,
+        winning_tile=winning_tile,
+        tile_from_moves=_tile_handed_over(round_.last_move, winner=winner, discarder=discarder),
+        dora_indicators=dora_indicators,
+        ura_dora_indicators=ura_dora_indicators,
         unknown_yaku=[tenhou_id for tenhou_id, _ in yaku if tenhou_id not in TENHOU_YAKU_KEYS],
         recorded_score_changes=_recorded_score_changes(agari),
         expected_score_changes=score_changes(answer_key["payments"], winner=winner, discarder=discarder,
@@ -117,13 +159,29 @@ def _hand(log_id: str, round_: _Round, agari: ET.Element) -> dict:
         "tiles": {
             "concealed": mpsz(concealed),
             "calls": [_call_record(call) for call in calls or []],
-            "winningTile": tile(int(agari.get("machi"))),
-            "doraIndicators": mpsz(_ints(agari.get("doraHai"))),
-            "uraDoraIndicators": mpsz(_ints(agari.get("doraHaiUra", ""))),
+            "winningTile": tile(winning_tile),
+            "doraIndicators": mpsz(dora_indicators),
+            "uraDoraIndicators": mpsz(ura_dora_indicators),
         },
         "answerKey": answer_key,
         "quarantineReasons": reasons,
     }
+
+
+def _tile_handed_over(move: _Move | None, *, winner: int, discarder: int) -> int | None:
+    """The tile the round's last move handed the winner, or None if it handed over none.
+
+    On a tsumo that is the winner's own draw. On a ron it is the discarder's discard, or the
+    tile the discarder added to a kan (robbing a kan). Both wins of a double ron are on the same
+    discard: a win is no move.
+    """
+    if move is None:
+        return None
+    if winner == discarder:
+        handed_over = move.kind == DRAW and move.seat == winner
+    else:
+        handed_over = move.kind in (DISCARD, CALL) and move.seat == discarder
+    return move.tile if handed_over else None
 
 
 def _calls(agari: ET.Element) -> list[Call] | None:

@@ -297,7 +297,8 @@ def test_red_fives_are_written_as_zero():
 def test_winning_tile_is_read_from_machi_not_from_the_previous_move():
     # The last move before the win is a discard of 9p (68) by seat 0, but
     # Tenhou's machi says the winning tile was 4s (84).
-    xml = game(init(), "<T120/><D68/>", agari(who=1, from_who=0, hai=CLOSED_HAND, machi=84, ten="40,1300,0", yaku="1,1,53,0", ura="40"))
+    xml = game(init(), "<T120/><D68/>", agari(who=1, from_who=0, hai=CLOSED_HAND, machi=84, ten="40,1300,0",
+                                              yaku="1,1,53,0", ura="40", winning_move=False))
 
     hand = only_hand(xml)
 
