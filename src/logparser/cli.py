@@ -92,12 +92,14 @@ def _add_logs(args) -> None:
 
 def _import_dump(args) -> None:
     summary = import_dump(args.dump, LogStore(args.log_store))
-    skipped = sum(summary.skipped.values())
-    reasons = ", ".join(f"{count} {reason}" for reason, count in sorted(summary.skipped.items()))
-    print(
-        f"Added {summary.added} logs to {args.log_store} "
-        f"({summary.already_stored} already stored, {skipped} skipped{': ' + reasons if reasons else ''})"
-    )
+    print(f"Added {summary.added} logs to {args.log_store} "
+          f"({summary.already_stored} already stored, {_skipped(summary.skipped)})")
+
+
+def _skipped(skipped: dict[str, int]) -> str:
+    """How many were skipped and why, e.g. `3 skipped: 1 malformed, 2 sanma`."""
+    reasons = ", ".join(f"{count} {reason}" for reason, count in sorted(skipped.items()))
+    return f"{sum(skipped.values())} skipped" + (f": {reasons}" if reasons else "")
 
 
 def _download(args) -> None:
@@ -120,12 +122,8 @@ def _seconds(value: str) -> float:
 def _ingest(args) -> None:
     with HandStore(args.hand_store) as hands:
         result = ingest(LogStore(args.log_store), hands, args.reports, tag_settings=TagSettings(high_fu=args.high_fu))
-    skipped = sum(result.skipped.values())
-    reasons = ", ".join(f"{count} {reason}" for reason, count in sorted(result.skipped.items()))
-    print(
-        f"{result.logs} logs ({skipped} skipped{': ' + reasons if reasons else ''}), "
-        f"{result.hands} hands ({result.hands - result.quarantined} verified, {result.quarantined} quarantined)"
-    )
+    print(f"{result.logs} logs ({_skipped(result.skipped)}), "
+          f"{result.hands} hands ({result.hands - result.quarantined} verified, {result.quarantined} quarantined)")
     print(f"Wrote the ingest report to {result.report_folder} "
           f"({result.changed} hands changed and {result.removed} removed since the previous run)")
 
