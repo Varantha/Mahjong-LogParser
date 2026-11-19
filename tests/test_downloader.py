@@ -220,3 +220,34 @@ def test_a_run_can_be_limited_to_a_number_of_logs_and_says_how_many_are_left(ten
     summary = download(max_logs=2)
 
     assert (summary.fetched, summary.remaining, list(log_store.log_ids())) == (2, 1, [GAME_A, GAME_B])
+
+
+@pytest.mark.parametrize("reply", [(404, b"Not Found"), (200, b"<html>maintenance</html>")])
+def test_a_file_index_tenhou_cannot_give_stops_the_run_and_is_read_again_next_time(tenhou, download, reply):
+    tenhou.add_list("scc2026110604.html.gz", GAME_A)
+    tenhou.add_log(GAME_A, log(1))
+    tenhou.reply(FILE_INDEXES[1], *reply)
+    with pytest.raises(DownloadStopped, match="FileIndex"):
+        download()
+    tenhou.requests.clear()
+    tenhou.reply(FILE_INDEXES[1], 200, b"list([\r\n]);\r\n")
+
+    download()
+
+    assert tenhou.urls() == [*FILE_INDEXES, tenhou.list_url("scc2026110604.html.gz"), tenhou.log_url(GAME_A)]
+
+
+@pytest.mark.parametrize("reply", [(404, b"Not Found"), (200, b"not gzip")])
+def test_an_scc_list_tenhou_cannot_give_is_skipped_and_read_again_next_time(tenhou, clock, log_store, download, reply):
+    tenhou.add_list("scc2026110604.html.gz", GAME_A)
+    tenhou.add_list("scc2026110605.html.gz", GAME_C)
+    tenhou.add_log(GAME_A, log(1))
+    tenhou.add_log(GAME_C, log(3))
+    tenhou.reply(tenhou.list_url("scc2026110604.html.gz"), *reply)
+
+    first = download()
+    tenhou.replies_reset()
+    clock.advance(1 * MINUTE)
+    download()
+
+    assert (first.fetched, list(log_store.log_ids())) == (1, [GAME_A, GAME_C])

@@ -57,6 +57,10 @@ class FakeTenhou:
         """Answers this URL with a fixed reply instead of what Tenhou would serve."""
         self._replies[url] = Response(status, body, headers or {})
 
+    def replies_reset(self) -> None:
+        """Serves what Tenhou would serve again, wherever a fixed reply was set."""
+        self._replies.clear()
+
     def urls(self) -> list[str]:
         return [url for _, url in self.requests]
 

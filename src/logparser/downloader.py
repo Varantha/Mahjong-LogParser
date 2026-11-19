@@ -12,6 +12,7 @@ import sqlite3
 import time
 import urllib.error
 import urllib.request
+import zlib
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -30,7 +31,8 @@ DEFAULT_INTERVAL = 2.0
 # Tenhou: refresh the FileIndex no more often than every 20 minutes.
 INDEX_REFRESH = 20 * 60.0
 
-# FileIndex entries, e.g. {file:'scc2026110604.html.gz',size:735}
+# The FileIndex is a JavaScript call, list([...]);, holding entries such as {file:'scc2026110604.html.gz',size:735}.
+FILE_INDEX = re.compile(r"\s*list\s*\(\s*(?:\[(.*)\])?\s*\)\s*;\s*", re.DOTALL)
 INDEX_ENTRY = re.compile(r"\{\s*file\s*:\s*'([^']+)'\s*,\s*size\s*:\s*([0-9]+)\s*\}")
 # One finished game per scc line: its start time, then a replay link holding the log ID.
 LISTED_GAME = re.compile(r"^(\d{2}:\d{2}).*?log=([^\"'&>]+)", re.MULTILINE)
@@ -111,8 +113,7 @@ class Downloader:
         lists_read = dict(self._db.execute("SELECT file, size FROM lists_read"))
         for file, size in self._file_index():
             if lists_read.get(file) != size:  # Tenhou adds late-finishing games to a list after it first appears
-                self._read_list(file, size)
-                summary.lists_read += 1
+                summary.lists_read += self._read_list(file, size)
         listed = self._db.execute(
             "SELECT log_id FROM listed WHERE log_id NOT IN (SELECT log_id FROM failed) ORDER BY log_id").fetchall()
         to_fetch = [log_id for (log_id,) in listed if _ingest_takes(log_id) and log_id not in self._log_store]
@@ -166,7 +167,11 @@ class Downloader:
             read_at = self._clock()
             index = []
             for url in FILE_INDEXES:
-                for file, size in INDEX_ENTRY.findall(self._get(url).body.decode("ascii")):
+                reply = self._get(url)
+                entries = FILE_INDEX.fullmatch(reply.body.decode("utf-8", "replace")) if reply.status == 200 else None
+                if entries is None:
+                    raise DownloadStopped(f"Tenhou's FileIndex at {url} could not be read (HTTP {reply.status})")
+                for file, size in INDEX_ENTRY.findall(entries[1] or ""):
                     if _is_phoenix_list(file):
                         index.append((file, int(size)))
             with self._db:
@@ -175,13 +180,20 @@ class Downloader:
                 self._db.execute("INSERT OR REPLACE INTO state (key, value) VALUES ('index_read_at', ?)", (read_at,))
         return self._db.execute("SELECT file, size FROM file_index ORDER BY rowid").fetchall()
 
-    def _read_list(self, file: str, size: int) -> None:
-        body = self._get(LIST_URL.format(file=file)).body
-        text = gzip.decompress(body).decode("utf-8")
+    def _read_list(self, file: str, size: int) -> bool:
+        """Keeps the log IDs an scc list names. A list that cannot be read is left for the next run."""
+        reply = self._get(LIST_URL.format(file=file))
+        if reply.status != 200:
+            return False
+        try:
+            text = gzip.decompress(reply.body).decode("utf-8", "replace")
+        except (OSError, EOFError, zlib.error):
+            return False
         log_ids = [log_id for _start, log_id in LISTED_GAME.findall(text) if LOG_ID.fullmatch(log_id)]
         with self._db:
             self._db.executemany("INSERT OR IGNORE INTO listed (log_id) VALUES (?)", [(i,) for i in log_ids])
             self._db.execute("INSERT OR REPLACE INTO lists_read (file, size) VALUES (?, ?)", (file, size))
+        return True
 
 
 def _is_phoenix_list(file: str) -> bool:
