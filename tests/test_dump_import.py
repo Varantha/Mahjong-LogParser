@@ -64,3 +64,10 @@ def test_a_row_that_holds_no_usable_log_is_skipped_with_a_reason(tmp_path, bad_r
     summary = import_dump(dump, store)
 
     assert (summary.added, summary.skipped, list(store.log_ids())) == (1, {reason: 1}, [LOG_A])
+
+
+def test_a_dump_that_does_not_exist_is_refused_and_not_created(tmp_path):
+    with pytest.raises(FileNotFoundError, match="missing.db"):
+        import_dump(tmp_path / "missing.db", LogStore(tmp_path / "log-store"))
+
+    assert not (tmp_path / "missing.db").exists()

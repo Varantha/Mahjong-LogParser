@@ -26,9 +26,12 @@ class ImportSummary:
 
 
 def import_dump(dump: Path, store: LogStore) -> ImportSummary:
+    dump = Path(dump)
+    if not dump.is_file():
+        raise FileNotFoundError(f"no dump at {dump}")
     summary = ImportSummary()
     skipped = Counter()
-    connection = sqlite3.connect(Path(dump).resolve().as_uri() + "?mode=ro", uri=True)
+    connection = sqlite3.connect(dump.resolve().as_uri() + "?mode=ro", uri=True)
     try:
         for log_id, content in connection.execute("SELECT log_id, log_content FROM logs"):
             if not (isinstance(log_id, str) and LOG_ID.fullmatch(log_id)):
