@@ -6,6 +6,8 @@ Haku, Hatsu, Chun = 1z-7z). The first copy of each five (16, 52, 88) is the
 red five, written `0`.
 """
 
+import re
+
 SUITS = "mpsz"
 RED_FIVES = frozenset({16, 52, 88})
 
@@ -20,6 +22,11 @@ def rank(tile_id: int) -> int:
     if tile_id in RED_FIVES:
         return 0
     return tile_id // 4 % 9 + 1
+
+
+def kinds(tiles: str) -> list[str]:
+    """Each tile in an mpsz string as its kind, e.g. `340m` gives `3m`, `4m`, `5m` (a red five is a five)."""
+    return [f"{int(r) or 5}{suit}" for ranks, suit in re.findall(r"([0-9]+)([mpsz])", tiles) for r in ranks]
 
 
 def mpsz(tile_ids) -> str:

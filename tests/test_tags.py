@@ -69,3 +69,56 @@ HANDS_WITHOUT_KUISAGARI = {
 @pytest.mark.parametrize("xml", HANDS_WITHOUT_KUISAGARI.values(), ids=HANDS_WITHOUT_KUISAGARI.keys())
 def test_a_hand_that_is_closed_or_loses_no_han_by_being_open_has_no_kuisagari(xml):
     assert "kuisagari" not in only_hand(xml)["tags"]
+
+
+# Chiitoitsu, ron on the Haku: 11m 99m 11p 22p 11s 11z 5z+5z. Under each indicator below that
+# names a pair as dora it is 4 han 25 fu.
+SEVEN_PAIRS = ids(0, 1, 32, 33, 36, 37, 40, 41, 72, 73, 108, 109, 124, 125)
+
+
+def seven_pairs(dora: str, ura: str | None = None, yaku: str = "22,2,52,2", ten: str = "25,6400,0") -> str:
+    return ron(hai=SEVEN_PAIRS, machi=125, ten=ten, yaku=yaku, dora=dora, ura=ura)
+
+
+HANDS_WITH_WRAPAROUND_DORA = {
+    "9m-makes-1m-dora": seven_pairs(dora=ids(34)),
+    "9p-makes-1p-dora": seven_pairs(dora=ids(70)),
+    "9s-makes-1s-dora": seven_pairs(dora=ids(106)),
+    "north-makes-east-dora": seven_pairs(dora=ids(120)),
+    "chun-makes-haku-dora": seven_pairs(dora=ids(132)),
+    # The Hatsu is the first indicator; the 9m is turned over after a kan.
+    "kan-dora-indicator": seven_pairs(dora=ids(128, 34)),
+    # A pon of East with the North as indicator; 123m 456p 99p 23s+4s: round wind and dora 3, 4 han 30 fu.
+    "dora-in-a-call": ron(calls=m(pon((108, 109, 110), called=109, from_seat=TOIMEN)),
+                          hai=ids(0, 4, 8, 48, 53, 56, 68, 69, 76, 80, 84), machi=84, ten="30,7700,0",
+                          yaku="14,1,52,3", dora=ids(120)),
+}
+
+
+@pytest.mark.parametrize("xml", HANDS_WITH_WRAPAROUND_DORA.values(), ids=HANDS_WITH_WRAPAROUND_DORA.keys())
+def test_a_hand_holding_the_dora_of_an_indicator_that_wraps_round_has_wraparound_dora(xml):
+    assert "wraparound-dora" in only_hand(xml)["tags"]
+
+
+HANDS_WITHOUT_WRAPAROUND_DORA = {
+    # The 8m names the 9m pair as dora without wrapping round.
+    "indicator-does-not-wrap": seven_pairs(dora=ids(28)),
+    # The 9p wraps round to the 1p, which the hand does not hold: 123m 456p 99p 23s+4s 789s, pinfu only.
+    "dora-not-held": ron(hai=ids(0, 4, 8, 48, 53, 56, 68, 69, 76, 80, 84, 96, 100, 104), machi=84,
+                         ten="30,1000,0", yaku="7,1", dora=ids(70)),
+    # Only the ura dora indicator wraps round: riichi, chiitoitsu and ura dora 2 make a mangan.
+    "only-ura-dora-wraps": seven_pairs(dora=ids(128), ura=ids(34), yaku="1,1,22,2,53,2", ten="25,8000,1"),
+}
+
+
+@pytest.mark.parametrize("xml", HANDS_WITHOUT_WRAPAROUND_DORA.values(), ids=HANDS_WITHOUT_WRAPAROUND_DORA.keys())
+def test_a_hand_without_the_dora_of_a_dora_indicator_that_wraps_round_has_no_wraparound_dora(xml):
+    assert "wraparound-dora" not in only_hand(xml)["tags"]
+
+
+def test_a_hand_lists_its_tags_once_each_in_a_fixed_order():
+    # Chi 123m with the 9m as indicator; 567m 78m+9m 444z 33z: honitsu 2 and dora 1, 3 han 30 fu.
+    xml = ron(calls=m(chi((0, 4, 8), called=0)), hai=ids(17, 20, 24, 25, 28, 32, 116, 117, 120, 121, 122),
+              machi=32, ten="30,3900,0", yaku="34,2,52,1", dora=ids(35))
+
+    assert only_hand(xml)["tags"] == ["kuisagari", "wraparound-dora"]
