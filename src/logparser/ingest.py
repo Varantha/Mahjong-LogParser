@@ -38,14 +38,14 @@ from collections import Counter, defaultdict
 from contextlib import nullcontext
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from importlib.metadata import version
 from itertools import count
 from pathlib import Path
 
+from logparser.build import generator, timestamp
+from logparser.counts import HandCounts
 from logparser.hand_store import HandStore
 from logparser.log_store import LogStore
-from logparser.plain_values import LIMIT_TIERS
-from logparser.tags import TAGS, TagSettings
+from logparser.tags import TagSettings
 from logparser.tenhou import parse_log
 from logparser.verification import is_verified
 
@@ -73,8 +73,7 @@ def ingest(logs: LogStore, hands: HandStore, reports: Path | None = None, *,
     result = IngestResult()
     skipped = Counter()
     quarantined = defaultdict(list)  # hand IDs, by reason code
-    tags = Counter()  # verified hands, by tag
-    limit_tiers = Counter()  # verified hands, by limit tier
+    verified = HandCounts()
     if reports is not None:
         result.report_folder = _new_folder(Path(reports), ingested_at.strftime("%Y%m%dT%H%M%SZ"))
     diff_path = None if result.report_folder is None else result.report_folder / "diff.jsonl"
@@ -101,8 +100,7 @@ def ingest(logs: LogStore, hands: HandStore, reports: Path | None = None, *,
             result.hands += len(parsed.hands)
             for hand in parsed.hands:
                 if is_verified(hand):
-                    tags.update(hand["tags"])
-                    limit_tiers[hand["plainValues"]["limitTier"]] += 1
+                    verified.add(hand)
                 else:
                     result.quarantined += 1
                     for reason in hand["quarantineReasons"]:
@@ -118,14 +116,13 @@ def ingest(logs: LogStore, hands: HandStore, reports: Path | None = None, *,
     result.skipped = dict(skipped)
     if reports is not None:
         report = {
-            "ingestedAt": ingested_at.strftime("%Y-%m-%dT%H:%M:%SZ"),
-            "generator": f"mahjong-logparser {version('mahjong-logparser')}",
+            "ingestedAt": timestamp(ingested_at),
+            "generator": generator(),
             "logs": {"read": result.logs, "skipped": dict(sorted(skipped.items()))},
             "hands": {"parsed": result.hands, "verified": result.hands - result.quarantined,
                       "quarantined": result.quarantined, "changed": result.changed, "removed": result.removed},
             "quarantined": dict(sorted(quarantined.items())),
-            "verified": {"tags": {tag: tags[tag] for tag in TAGS},
-                         "limitTiers": {tier: limit_tiers[tier] for tier in LIMIT_TIERS}},
+            "verified": {"tags": verified.tags(), "limitTiers": verified.limit_tiers()},
         }
         (result.report_folder / "report.json").write_text(json.dumps(report, indent=2), encoding="utf-8")
     return result
