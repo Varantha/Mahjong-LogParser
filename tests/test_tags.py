@@ -132,8 +132,26 @@ def pinfu_or_tanki() -> str:
     return wall_ron(Wall(), concealed="123456789p2344m", winning="4m", ten="30,3900,0", yaku="7,1,24,2")
 
 
+def tanki_or_ryanmen() -> str:
+    # Pon of Chun; 111p 999s 234m 44m, won on 4m: read as 44m waiting on the 4m, a single wait, it has
+    # raw fu 42 and 50 fu; read as 23m waiting on 1m-4m, raw fu 40 and 40 fu. Chun alone, 1 han, so
+    # Tenhou scores the 50 fu. East indicates South as dora.
+    wall = Wall()
+    chuns = wall.take("777z")
+    return wall_ron(wall, calls=(pon(chuns, called=chuns[1], from_seat=TOIMEN),), concealed="2344m111p999s",
+                    winning="4m", ten="50,1600,0", yaku="20,1", dora=ids(108))
+
+
+def triplets_or_runs() -> str:
+    # 111222333m 888m 99m, won on 3m: as four triplets, three of them concealed, it is toitoi, sanankou
+    # and chinitsu, 10 han 50 fu; as 123m three times it is iipeikou and chinitsu, 7 han 40 fu.
+    return wall_ron(Wall(), concealed="1112223388899m", winning="3m", ten="50,16000,3", yaku="28,2,29,2,35,6")
+
+
 HANDS_WITH_AN_AMBIGUOUS_WAIT = {
     "pinfu-or-tanki": pinfu_or_tanki(),
+    "tanki-or-ryanmen": tanki_or_ryanmen(),
+    "triplets-or-runs": triplets_or_runs(),
 }
 
 
@@ -167,6 +185,40 @@ def test_a_hand_whose_splits_into_sets_and_a_pair_all_give_the_same_fu_has_no_am
 
     assert hand["quarantineReasons"] == []
     assert "ambiguous-wait" not in hand["tags"]
+
+
+@pytest.mark.parametrize(
+    ("xml", "fu", "fu_breakdown"),
+    [
+        pytest.param(pinfu_or_tanki(), 30, [{"key": "base", "fu": 20}, {"key": "closed-ron", "fu": 10}],
+                     id="the-lower-fu"),
+        pytest.param(tanki_or_ryanmen(), 50, [
+            {"key": "base", "fu": 20},
+            {"key": "closed-terminal-triplet", "fu": 8},
+            {"key": "closed-terminal-triplet", "fu": 8},
+            {"key": "open-terminal-triplet", "fu": 4},
+            {"key": "tanki-wait", "fu": 2},
+        ], id="the-higher-fu"),
+    ],
+)
+def test_a_hand_with_an_ambiguous_wait_keeps_the_fu_tenhou_gave_the_split_worth_the_most_points(xml, fu, fu_breakdown):
+    hand = only_hand(xml)
+
+    assert hand["quarantineReasons"] == []
+    assert (hand["answerKey"]["fu"], hand["answerKey"]["fuBreakdown"]) == (fu, fu_breakdown)
+
+
+@pytest.mark.parametrize(
+    ("xml", "split_fu"),
+    [
+        pytest.param(pinfu_or_tanki(), [30, 40], id="pinfu-or-tanki"),
+        pytest.param(triplets_or_runs(), [40, 50], id="triplets-or-runs"),
+        pytest.param(ryanmen_or_tanki_at_the_same_fu(), [40, 40], id="several-splits-at-the-same-fu"),
+        pytest.param(ryanpeikou(), [40], id="seven-pairs-is-no-split"),
+    ],
+)
+def test_the_fu_of_every_split_into_sets_and_a_pair_is_worked_out(xml, split_fu):
+    assert only_hand(xml)["splitFu"] == split_fu
 
 
 def test_a_hand_lists_its_tags_once_each_in_a_fixed_order():
