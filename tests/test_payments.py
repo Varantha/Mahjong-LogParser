@@ -3,7 +3,7 @@
 import pytest
 
 from logparser.tenhou import parse_log
-from tenhou_xml import CLOSED_HAND, agari, game, init
+from tenhou_xml import CLOSED_HAND, agari, game, init, turns
 
 LOG_ID = "2024010112gm-00a9-0000-0123abcd"
 
@@ -114,9 +114,10 @@ def ron_8000(sc: str, ba: str = "0,0") -> str:
 
 
 def tsumo(*, who: int, ten: str, sc: str, ba: str = "0,0", yakuman: str | None = None) -> str:
-    """Seat `who` wins by tsumo in East 1 (seat 0 deals), with the given recorded score changes."""
+    """Seat `who` wins by tsumo on its second draw in East 1 (seat 0 deals), with the given recorded
+    score changes."""
     yaku = None if yakuman else "0,1,52,2"
-    return game(init(), agari(who=who, from_who=who, ba=ba, hai=CLOSED_HAND, machi=84, ten=ten,
+    return game(init(), turns(4), agari(who=who, from_who=who, ba=ba, hai=CLOSED_HAND, machi=84, ten=ten,
                               yaku=yaku, yakuman=yakuman, sc=sc))
 
 

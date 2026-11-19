@@ -109,9 +109,20 @@ def _hand(log_id: str, round_: _Round, agari: ET.Element) -> dict:
     first_win = round_.wins == 0
     answer_key = _answer_key(agari, yaku, tsumo=tsumo, dealer=winner == round_.dealer,
                              honba=honba if first_win else 0, riichi_sticks=sticks if first_win else 0)
+    situation = {
+        "roundWind": WINDS[round_.number // 4],
+        "seatWind": WINDS[(winner - round_.dealer) % 4],
+        "dealer": winner == round_.dealer,
+        "honba": honba,
+        "riichiSticks": sticks,
+        "tsumo": tsumo,
+        **round_.moves.situation(winner=winner, tsumo=tsumo),
+    }
     reasons = quarantine_reasons(
         concealed=concealed,
         calls=calls,
+        situation=situation,
+        yaku=[recorded["key"] for recorded in answer_key["yaku"]],
         unknown_yaku=[tenhou_id for tenhou_id, _ in yaku if tenhou_id not in TENHOU_YAKU_KEYS],
         recorded_score_changes=_recorded_score_changes(agari),
         expected_score_changes=score_changes(answer_key["payments"], winner=winner, discarder=discarder,
@@ -120,15 +131,7 @@ def _hand(log_id: str, round_: _Round, agari: ET.Element) -> dict:
     return {
         "id": f"{log_id}/{round_.index}/{round_.wins}",
         "replayUrl": REPLAY_URL.format(log_id=log_id, round_index=round_.index, seat=winner),
-        "situation": {
-            "roundWind": WINDS[round_.number // 4],
-            "seatWind": WINDS[(winner - round_.dealer) % 4],
-            "dealer": winner == round_.dealer,
-            "honba": honba,
-            "riichiSticks": sticks,
-            "tsumo": tsumo,
-            **round_.moves.situation(winner=winner, tsumo=tsumo),
-        },
+        "situation": situation,
         "tiles": {
             "concealed": mpsz(concealed),
             "calls": [_call_record(call) for call in calls or []],

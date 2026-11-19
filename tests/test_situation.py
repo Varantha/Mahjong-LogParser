@@ -352,3 +352,78 @@ def test_a_tsumo_on_the_players_first_draw_after_a_call_is_not_on_the_first_draw
     xml = game(init(), moves, win)
 
     assert only_hand(xml)["situation"]["firstDraw"] is False
+
+
+# Check 4: the situation worked out from the moves agrees with the situational yaku Tenhou gave.
+
+AGREEING = {
+    "haitei": game(init(), turns(69), draw(1, 84), tsumo(who=1, yaku="0,1,5,1,7,1")),
+    "houtei": game(init(), turns(69), draw(1, 84), discard(1, 84), ron(who=2, from_who=1, yaku="6,1,7,1")),
+    "rinshan": game(init(), turns(4), draw(0, 108), call(0, EAST_KAN), draw(0, 105),
+                    tsumo_after_east_kan(who=0, yaku="0,1,4,1,10,1,14,1")),
+    "chankan": game(init(), turns(3), four_sou_added_kan(seat=0), ron(who=2, from_who=0, yaku="3,1,7,1")),
+    "double-riichi": game(init(), turns(2), draw(2, 135), riichi(2), turns(4, first_seat=3), draw(3, 84),
+                          discard(3, 84), riichi_ron(who=2, from_who=3, yaku="21,2,7,1")),
+    "ippatsu": game(init(), SEAT_0_RIICHI, turns(3, first_seat=1), draw(0, 84),
+                    riichi_tsumo(who=0, yaku="1,1,2,1,0,1,7,1")),
+    "tenhou": game(init(), draw(0, 84), first_draw_win(who=0, yakuman="37", ten="20,48000,5")),
+    "chiihou": game(init(), turns(2), draw(2, 84), first_draw_win(who=2, yakuman="38", ten="20,32000,5")),
+}
+
+
+@pytest.mark.parametrize("xml", AGREEING.values(), ids=AGREEING.keys())
+def test_a_hand_whose_situational_yaku_agree_with_its_moves_is_verified(xml):
+    assert only_hand(xml)["quarantineReasons"] == []
+
+
+# The moves of AGREEING, but Tenhou leaves the situational yaku out.
+LEFT_OUT = {
+    "haitei": game(init(), turns(69), draw(1, 84), tsumo(who=1, yaku="0,1,7,1", ten="20,1500,0")),
+    "houtei": game(init(), turns(69), draw(1, 84), discard(1, 84),
+                   ron(who=2, from_who=1, yaku="7,1", ten="30,1000,0")),
+    "rinshan": game(init(), turns(4), draw(0, 108), call(0, EAST_KAN), draw(0, 105),
+                    tsumo_after_east_kan(who=0, yaku="0,1,10,1,14,1", ten="60,7800,0")),
+    "chankan": game(init(), turns(3), four_sou_added_kan(seat=0), ron(who=2, from_who=0, yaku="7,1", ten="30,1000,0")),
+    "double-riichi": game(init(), turns(2), draw(2, 135), riichi(2), turns(4, first_seat=3), draw(3, 84),
+                          discard(3, 84), riichi_ron(who=2, from_who=3, yaku="1,1,7,1", ten="30,2000,0")),
+    "ippatsu": game(init(), SEAT_0_RIICHI, turns(3, first_seat=1), draw(0, 84),
+                    riichi_tsumo(who=0, yaku="1,1,0,1,7,1", ten="20,3900,0")),
+    "tenhou": game(init(), draw(0, 84), tsumo(who=0, yaku="0,1,7,1", ten="20,2100,0")),
+    # Tenhou lists another yakuman (suuankou) but not chiihou.
+    "chiihou": game(init(), turns(2), draw(2, 84), first_draw_win(who=2, yakuman="40", ten="20,32000,5")),
+}
+
+
+@pytest.mark.parametrize("xml", LEFT_OUT.values(), ids=LEFT_OUT.keys())
+def test_a_hand_whose_moves_give_a_situational_yaku_tenhou_left_out_is_quarantined(xml):
+    assert only_hand(xml)["quarantineReasons"] == ["situation"]
+
+
+# Plain moves, with no riichi, no kan, and no first or last draw, yet Tenhou gives a situational yaku.
+NOT_FROM_THE_MOVES = {
+    "haitei": game(init(), turns(5), draw(1, 84), tsumo(who=1, yaku="0,1,5,1,7,1")),
+    "houtei": game(init(), turns(5), draw(1, 84), discard(1, 84), ron(who=2, from_who=1, yaku="6,1,7,1")),
+    "rinshan": game(init(), turns(5), draw(1, 84), tsumo(who=1, yaku="0,1,4,1,7,1")),
+    "chankan": game(init(), turns(5), draw(1, 84), discard(1, 84), ron(who=2, from_who=1, yaku="3,1,7,1")),
+    "double-riichi": game(init(), turns(5), draw(1, 84), discard(1, 84),
+                          riichi_ron(who=2, from_who=1, yaku="21,2,7,1")),
+    "ippatsu": game(init(), turns(5), draw(1, 84), discard(1, 84),
+                    riichi_ron(who=2, from_who=1, yaku="1,1,2,1,7,1", ten="30,3900,0")),
+    "tenhou": game(init(), turns(4), draw(0, 84), first_draw_win(who=0, yakuman="37", ten="20,48000,5")),
+    "chiihou": game(init(), turns(6), draw(2, 84), first_draw_win(who=2, yakuman="38", ten="20,32000,5")),
+}
+
+
+@pytest.mark.parametrize("xml", NOT_FROM_THE_MOVES.values(), ids=NOT_FROM_THE_MOVES.keys())
+def test_a_hand_given_a_situational_yaku_its_moves_dont_give_is_quarantined(xml):
+    assert only_hand(xml)["quarantineReasons"] == ["situation"]
+
+
+def test_a_yakuman_win_is_checked_only_for_tenhou_and_chiihou_because_tenhou_lists_nothing_else():
+    # Seat 1 wins in its ippatsu window on the last tile, but Tenhou lists only the yakuman (suuankou).
+    xml = game(init(), turns(65), draw(1, 135), riichi(1), turns(3, first_seat=2), draw(1, 84),
+               agari(who=1, from_who=1, hai=CLOSED_HAND, machi=84, ten="40,32000,5", yakuman="40", ura="40"))
+
+    hand = only_hand(xml)
+    assert (hand["situation"]["ippatsu"], hand["situation"]["lastTile"]) == (True, True)
+    assert hand["quarantineReasons"] == []

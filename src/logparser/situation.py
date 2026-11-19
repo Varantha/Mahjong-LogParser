@@ -24,6 +24,23 @@ closes it only after the chance to rob the kan has passed.
 from logparser.calls import ADDED_KAN, KANS
 
 LIVE_WALL = 70
+SITUATIONAL_YAKU = frozenset({"double-riichi", "ippatsu", "haitei", "houtei", "rinshan", "chankan", "tenhou", "chiihou"})
+FIRST_DRAW_YAKU = frozenset({"tenhou", "chiihou"})
+
+
+def situational_yaku(situation: dict) -> set[str]:
+    """The situational yaku, as contract keys, that a hand in `situation` wins with."""
+    won_with = {
+        "double-riichi": situation["doubleRiichi"],
+        "ippatsu": situation["ippatsu"],
+        "haitei": situation["lastTile"] and situation["tsumo"],
+        "houtei": situation["lastTile"] and not situation["tsumo"],
+        "rinshan": situation["rinshan"],
+        "chankan": situation["chankan"],
+        "tenhou": situation["firstDraw"] and situation["dealer"],
+        "chiihou": situation["firstDraw"] and not situation["dealer"],
+    }
+    return {key for key, won in won_with.items() if won}
 
 
 class RoundMoves:
