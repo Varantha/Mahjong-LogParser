@@ -11,6 +11,7 @@ from logparser.tenhou import parse_log
 from tenhou_xml import (
     CLOSED_HAND,
     KAMICHA,
+    TOIMEN,
     added_kan,
     agari,
     call,
@@ -23,6 +24,7 @@ from tenhou_xml import (
     m,
     open_kan,
     pon,
+    riichi,
     turns,
 )
 
@@ -171,3 +173,45 @@ def test_a_ron_robbing_a_kan_is_not_on_the_last_tile_even_when_the_kan_empties_t
     xml = game(init(), turns(64), four_sou_added_kan(seat=1), ron(who=3, from_who=1, yaku="3,1,7,1"))
 
     assert only_hand(xml)["situation"]["lastTile"] is False
+
+
+def riichi_ron(who: int, from_who: int, yaku: str, ten: str = "30,3900,0") -> str:
+    """CLOSED_HAND won in riichi by `who` on a discard of 4s (84) by `from_who`, without ura dora."""
+    return agari(who=who, from_who=from_who, hai=CLOSED_HAND, machi=84, ten=ten, yaku=yaku + ",53,0", ura="40")
+
+
+def test_a_riichi_declared_with_the_players_first_discard_is_a_double_riichi():
+    # Seat 2 declares riichi with its first discard, then wins on seat 3's 4s a turn later: double riichi, pinfu.
+    xml = game(init(), turns(2), draw(2, 135), riichi(2), turns(4, first_seat=3), draw(3, 84), discard(3, 84),
+               riichi_ron(who=2, from_who=3, yaku="21,2,7,1"))
+
+    situation = only_hand(xml)["situation"]
+    assert (situation["riichi"], situation["doubleRiichi"]) == (True, True)
+
+
+def test_a_riichi_declared_after_the_players_first_discard_is_not_a_double_riichi():
+    xml = game(init(), turns(6), draw(2, 135), riichi(2), turns(4, first_seat=3), draw(3, 84), discard(3, 84),
+               riichi_ron(who=2, from_who=3, yaku="1,1,7,1", ten="30,2000,0"))
+
+    situation = only_hand(xml)["situation"]
+    assert (situation["riichi"], situation["doubleRiichi"]) == (True, False)
+
+
+@pytest.mark.parametrize(
+    ("first_turn", "seat"),
+    [
+        # Seat 2 calls a pon of seat 0's East, so seat 3 is next.
+        (draw(0, 109) + discard(0, 109) + call(2, pon((109, 110, 111), called=109, from_seat=TOIMEN))
+         + discard(2, 135), 3),
+        (draw(0, 108) + call(0, EAST_KAN) + draw(0, 130) + discard(0, 130), 1),
+    ],
+    ids=["pon", "closed-kan"],
+)
+def test_a_riichi_declared_with_the_players_first_discard_after_a_call_is_not_a_double_riichi(first_turn, seat):
+    # `seat` declares riichi with its first discard, but a call has been made before it.
+    after = (seat + 1) % 4
+    xml = game(init(), first_turn, draw(seat, 135), riichi(seat), turns(4, first_seat=after), draw(after, 84),
+               discard(after, 84), riichi_ron(who=seat, from_who=after, yaku="1,1,7,1", ten="30,2000,0"))
+
+    situation = only_hand(xml)["situation"]
+    assert (situation["riichi"], situation["doubleRiichi"]) == (True, False)

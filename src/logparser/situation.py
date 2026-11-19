@@ -7,6 +7,11 @@ The live wall holds 70 tiles once the hands are dealt. Each kan moves one more
 of them to the dead wall, and the player who made the kan draws their next tile
 from the dead wall. Before that draw, the tile added to an added kan can be won
 on, which robs the kan (chankan).
+
+Tenhou logs a riichi in two steps: the declaration, before its discard, and
+the acceptance once nobody wins on that discard. A riichi that is declared
+with the player's first discard of the round, before any call (closed kans
+included), is a double riichi.
 """
 
 from logparser.calls import ADDED_KAN, KANS
@@ -23,6 +28,10 @@ class RoundMoves:
         self._dead_wall_draw_due: int | None = None  # the seat whose next draw is from the dead wall
         self._last_draw_from_dead_wall = False
         self._added_kan_robbable = False  # the last move added a tile to a kan
+        self._called = False  # a call has been made this round, closed kans included
+        self._discarded: set[int] = set()  # seats that have discarded this round
+        self._riichi: set[int] = set()  # seats whose riichi was accepted
+        self._double_riichi: set[int] = set()  # seats that declared riichi with their first discard
 
     def draw(self, seat: int) -> None:
         self._added_kan_robbable = False
@@ -34,18 +43,30 @@ class RoundMoves:
 
     def discard(self, seat: int) -> None:
         self._added_kan_robbable = False
+        self._discarded.add(seat)
 
     def call(self, seat: int, call_type: str) -> None:
         self._added_kan_robbable = call_type == ADDED_KAN
+        self._called = True
         if call_type in KANS:
             self._kans += 1
             self._dead_wall_draw_due = seat
+
+    def declare_riichi(self, seat: int) -> None:
+        if seat not in self._discarded and not self._called:
+            self._double_riichi.add(seat)
+
+    def accept_riichi(self, seat: int) -> None:
+        self._riichi.add(seat)
 
     def situation(self, *, winner: int, tsumo: bool) -> dict:
         """The situation flags of a win by `winner` now."""
         rinshan = tsumo and self._last_draw_from_dead_wall
         chankan = not tsumo and self._added_kan_robbable
+        riichi = winner in self._riichi
         return {
+            "riichi": riichi,
+            "doubleRiichi": riichi and winner in self._double_riichi,
             # The last tile is a draw from the live wall, or the discard after it.
             "lastTile": self._draws + self._kans == LIVE_WALL and not (rinshan or chankan),
             "rinshan": rinshan,

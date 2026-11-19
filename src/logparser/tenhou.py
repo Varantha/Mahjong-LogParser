@@ -49,7 +49,6 @@ class _Round:
     number: int  # Tenhou's seed[0]: round wind * 4 + hand number - 1
     dealer: int
     wins: int = 0
-    riichi: set[int] = field(default_factory=set)  # seats whose riichi was accepted
     moves: RoundMoves = field(default_factory=RoundMoves)
 
 
@@ -71,8 +70,11 @@ def parse_log(log_id: str, xml_text: str) -> ParsedLog:
                 number=_ints(event.get("seed"))[0],
                 dealer=int(event.get("oya")),
             )
-        elif event.tag == "REACH" and event.get("step") == "2":
-            round_.riichi.add(int(event.get("who")))
+        elif event.tag == "REACH":
+            if event.get("step") == "1":
+                round_.moves.declare_riichi(int(event.get("who")))
+            elif event.get("step") == "2":
+                round_.moves.accept_riichi(int(event.get("who")))
         elif drawn := DRAW.fullmatch(event.tag):
             round_.moves.draw("TUVW".index(drawn[1]))
         elif discarded := DISCARD.fullmatch(event.tag):
@@ -125,7 +127,6 @@ def _hand(log_id: str, round_: _Round, agari: ET.Element) -> dict:
             "honba": honba,
             "riichiSticks": sticks,
             "tsumo": tsumo,
-            "riichi": winner in round_.riichi,
             **round_.moves.situation(winner=winner, tsumo=tsumo),
         },
         "tiles": {

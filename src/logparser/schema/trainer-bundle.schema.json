@@ -97,7 +97,7 @@
     "situation": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["roundWind", "seatWind", "dealer", "honba", "riichiSticks", "tsumo", "riichi", "lastTile", "rinshan", "chankan"],
+      "required": ["roundWind", "seatWind", "dealer", "honba", "riichiSticks", "tsumo", "riichi", "doubleRiichi", "lastTile", "rinshan", "chankan"],
       "properties": {
         "roundWind": { "$ref": "#/$defs/wind" },
         "seatWind": { "$ref": "#/$defs/wind" },
@@ -105,7 +105,11 @@
         "honba": { "type": "integer", "minimum": 0 },
         "riichiSticks": { "description": "Riichi sticks on the table when the hand wins.", "type": "integer", "minimum": 0 },
         "tsumo": { "description": "True for a win by tsumo, false for ron.", "type": "boolean" },
-        "riichi": { "type": "boolean" },
+        "riichi": { "description": "True when the hand wins in riichi, double riichi included.", "type": "boolean" },
+        "doubleRiichi": {
+          "description": "True when the hand's riichi was declared with its first discard of the round, before any call (closed kans included).",
+          "type": "boolean"
+        },
         "lastTile": {
           "description": "True when the hand wins on the live wall's last tile: its draw by tsumo (haitei) or the discard after it by ron (houtei). A draw from the dead wall after a kan and a robbed kan are never the last tile.",
           "type": "boolean"
