@@ -12,8 +12,16 @@ payments, in points.
 
 
 def payments(points: int, *, tsumo: bool, dealer: bool, honba: int, riichi_sticks: int) -> dict:
+    if not tsumo:
+        base = {"fromDiscarder": points}
+    elif dealer:
+        base = {"fromEachPlayer": points // 3}
+    else:
+        # Each non-dealer pays a quarter of the points rounded up to 100; the dealer pays the rest.
+        each_non_dealer = -(-points // 400) * 100
+        base = {"fromDealer": points - 2 * each_non_dealer, "fromEachNonDealer": each_non_dealer}
     return {
-        "base": {"fromDiscarder": points},
+        "base": base,
         "honbaBonus": 0,
         "riichiSticksCollected": 0,
     }
