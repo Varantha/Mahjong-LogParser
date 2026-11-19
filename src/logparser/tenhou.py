@@ -25,7 +25,7 @@ import re
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass, field
 
-from logparser.calls import Call, decode_call
+from logparser.calls import ADDED_KAN, CLOSED_KAN, Call, decode_call
 from logparser.payments import payments, score_changes
 from logparser.plain_values import plain_values
 from logparser.situation import CALL, DISCARD, DRAW, Move, RoundMoves
@@ -108,14 +108,24 @@ def _move(event: ET.Element) -> Move | None:
         try:
             call = decode_call(int(event.get("m")))
         except ValueError:
-            return Move(CALL, seat, None)
-        return Move(CALL, seat, call.added_tile, call.type)
+            return Move(CALL, seat, ())
+        return Move(CALL, seat, _robbable_tiles(call), call.type)
     if match := MOVE_TAG.fullmatch(event.tag):
         letter, tile_id = match[1], int(match[2])
         if letter in DRAW_TAGS:
-            return Move(DRAW, DRAW_TAGS.index(letter), tile_id)
-        return Move(DISCARD, DISCARD_TAGS.index(letter), tile_id)
+            return Move(DRAW, DRAW_TAGS.index(letter), (tile_id,))
+        return Move(DISCARD, DISCARD_TAGS.index(letter), (tile_id,))
     return None
+
+
+def _robbable_tiles(call: Call) -> tuple[int, ...]:
+    """The tiles of a call that another player can rob: the tile an added kan adds, or any tile of a closed
+    kan (kokushi musou only)."""
+    if call.type == ADDED_KAN:
+        return (call.added_tile,)
+    if call.type == CLOSED_KAN:
+        return call.tiles
+    return ()
 
 
 def _skip_reason(game_type: int) -> str | None:
@@ -145,7 +155,7 @@ def _hand(log_id: str, round_: _Round, agari: ET.Element, tag_settings: TagSetti
     verification = verify(
         winning_hand,
         unreadable_call_in_moves=round_.moves.unreadable_call,
-        tile_from_moves=round_.moves.tile_handed_over(winner=winner, discarder=discarder),
+        tiles_from_moves=round_.moves.tiles_handed_over(winner=winner, discarder=discarder),
         answer_key=answer_key,
         unknown_yaku=[tenhou_id for tenhou_id, _ in yaku if tenhou_id not in TENHOU_YAKU_KEYS],
         recorded_score_changes=_recorded_score_changes(agari),

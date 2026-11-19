@@ -38,8 +38,8 @@ class Verification:
     recalculation: Recalculation | None  # the cross-check's recalculation, only when it matched the answer key
 
 
-def verify(hand: WinningHand, *, unreadable_call_in_moves: bool, tile_from_moves: int | None, answer_key: dict,
-           unknown_yaku: list[int], recorded_score_changes: list[int],
+def verify(hand: WinningHand, *, unreadable_call_in_moves: bool, tiles_from_moves: tuple[int, ...],
+           answer_key: dict, unknown_yaku: list[int], recorded_score_changes: list[int],
            expected_score_changes: list[int] | None) -> Verification:
     """Checks a hand read from its log against its answer key.
 
@@ -48,8 +48,9 @@ def verify(hand: WinningHand, *, unreadable_call_in_moves: bool, tile_from_moves
     hide a fifth copy but never make one up. `unreadable_call_in_moves` says a call code in the
     round's moves could not be read, so the situation can't be worked out.
 
-    `tile_from_moves` is the tile the game's moves handed the winner: drawn on a tsumo; discarded,
-    or added to a kan, on a ron. It is None if the last move handed over none.
+    `tiles_from_moves` are the tiles the game's moves handed the winner, any one of which it may win
+    on: the tile drawn on a tsumo; on a ron, the tile discarded or added to a kan, or any tile of a
+    closed kan robbed by kokushi musou. It is empty if the last move handed over none.
 
     `answer_key` is Tenhou's recorded result, with the yaku Tenhou gave under their contract keys.
     """
@@ -62,7 +63,7 @@ def verify(hand: WinningHand, *, unreadable_call_in_moves: bool, tile_from_moves
     if not _within_tile_limits([*hand.concealed, *(tile for call in hand.calls or [] for tile in call.tiles),
                                 *hand.dora_indicators, *hand.ura_dora_indicators]):
         reasons.append(TILE_LIMITS)
-    if hand.winning_tile not in hand.concealed or hand.winning_tile != tile_from_moves:
+    if hand.winning_tile not in hand.concealed or hand.winning_tile not in tiles_from_moves:
         # Check 3: the winning tile is among the concealed tiles, and it is the tile the moves handed over.
         reasons.append(WINNING_TILE)
     if not unreadable_call_in_moves and not _situation_agrees(hand.situation, yaku):
