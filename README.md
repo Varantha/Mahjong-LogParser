@@ -85,6 +85,13 @@ uv run logparser ingest
 
 Parses every log in the log store and prints how many logs were skipped and why, and how many hands are verified and quarantined. Running it again replaces each log's hands, so a parser fix reaches every hand already stored.
 
+Every ingest also writes an ingest report, in a folder of its own named after the time it ran, under `local/ingest-reports/` (`--reports` picks another folder):
+
+- `report.json`: the logs read and skipped; the hands parsed, verified, quarantined and changed; the IDs of the quarantined hands, by reason code; and how many verified hands have each tag and reach each limit tier.
+- `diff.jsonl`: one line per hand whose answer key, plain values or tags changed since the previous run, by hand ID, with each changed value before and after and the tags added and removed. The previous run is what the hand store held, so the first run's diff is empty, and hands from logs new to the log store are not listed.
+
+A report shows how often each tag and limit tier occurs. After a parser change, the diff shows which hands it changed and how.
+
 ### Stage 2: export
 
 ```
@@ -102,6 +109,7 @@ By default everything lives under `local/` in the current folder, which git igno
 | Log store | `local/log-store/` | `--log-store` |
 | Downloader state | `local/downloader.sqlite` | `--state` |
 | Hand store | `local/hand-store.sqlite` | `--hand-store` |
+| Ingest reports | `local/ingest-reports/` | `--reports` |
 | Trainer bundle | `local/bundle/` | `--bundle` |
 
 ## Tests
