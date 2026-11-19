@@ -39,6 +39,39 @@ def test_every_location_can_be_given_on_the_command_line(tmp_path, no_network):
     assert (manifest["chunks"], manifest["build"]["seed"]) == (["hands-000.json"], 3)
 
 
+def test_export_says_which_drills_fall_short_by_how_much_and_which_part_of_a_drill_ran_out(tmp_path, capsys):
+    # One verified hand: a closed pinfu ron, so a lookalike in the drill below but not a trap hand.
+    (tmp_path / f"{LOG_ID}.xml").write_text(game(init(), closed_win()))
+    logs, hands, catalogue = tmp_path / "logs", tmp_path / "hands.sqlite", tmp_path / "drills.toml"
+    catalogue.write_text("""
+        [[drill]]
+        key = "everything"
+        target = 1
+
+        [[drill]]
+        key = "payments"
+        target = 3
+        pool = { tsumo = true }
+
+        [[drill]]
+        key = "open-pinfu"
+        target = 4
+        pool = { yaku = "pinfu" }
+        trap = { open = true }
+    """)
+    main(["add-logs", "--log-store", str(logs), str(tmp_path / f"{LOG_ID}.xml")])
+    main(["ingest", "--log-store", str(logs), "--hand-store", str(hands)])
+
+    main(["export", "--hand-store", str(hands), "--bundle", str(tmp_path / "out"), "--catalogue", str(catalogue)])
+
+    assert capsys.readouterr().out.splitlines()[-4:] == [
+        f"Wrote 1 hands in 1 chunks to {tmp_path / 'out'} (everything 1, payments 0, open-pinfu 1)",
+        "Short of hands, even drawing on every year of logs in the hand store:",
+        "  payments: 0 of 3 hands, 3 short",
+        "  open-pinfu: 1 of 4 hands, 3 short (trap hands: 0 of 2; lookalikes: 1 of 2)",
+    ]
+
+
 def test_ingest_reports_what_it_did(tmp_path, capsys):
     (tmp_path / f"{LOG_ID}.xml").write_text(game(init(round_number=0), closed_win(who=1), init(round_number=1), short_win(who=2)))
     logs, hands = tmp_path / "logs", tmp_path / "hands.sqlite"

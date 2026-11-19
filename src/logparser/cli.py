@@ -123,7 +123,16 @@ def _ingest(args) -> None:
 
 def _export(args) -> None:
     with HandStore(args.hand_store) as hands:
-        manifest = export_bundle(hands, args.bundle, load_catalogue(args.catalogue),
-                                 chunk_size=args.chunk_size, seed=args.seed).manifest
+        summary = export_bundle(hands, args.bundle, load_catalogue(args.catalogue),
+                                chunk_size=args.chunk_size, seed=args.seed)
+    manifest = summary.manifest
     drills = ", ".join(f"{key} {count}" for key, count in manifest["counts"]["drills"].items())
     print(f"Wrote {manifest['counts']['hands']} hands in {len(manifest['chunks'])} chunks to {args.bundle} ({drills})")
+    if summary.short_drills:
+        print("Short of hands, even drawing on every year of logs in the hand store:")
+    for drill in summary.short_drills:
+        # A drill drawn in one part is short by that part alone; otherwise name the parts that ran out.
+        parts = "; ".join(f"{short.part}: {short.found} of {short.wanted}"
+                          for short in drill.shortfalls if short.wanted != drill.target)
+        print(f"  {drill.key}: {len(drill.hand_ids)} of {drill.target} hands, {drill.short_by} short"
+              + (f" ({parts})" if parts else ""))
