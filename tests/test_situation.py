@@ -5,8 +5,26 @@ more tile into the dead wall, so the last tile is the live wall's 70th draw,
 less one per kan. Draws after a kan come from the dead wall and don't count.
 """
 
+import pytest
+
 from logparser.tenhou import parse_log
-from tenhou_xml import CLOSED_HAND, agari, call, closed_kan, discard, draw, game, ids, init, m, turns
+from tenhou_xml import (
+    CLOSED_HAND,
+    KAMICHA,
+    added_kan,
+    agari,
+    call,
+    closed_kan,
+    discard,
+    draw,
+    game,
+    ids,
+    init,
+    m,
+    open_kan,
+    pon,
+    turns,
+)
 
 LOG_ID = "2024010112gm-00a9-0000-0123abcd"
 
@@ -81,3 +99,42 @@ def test_a_tsumo_on_the_draw_after_a_kan_is_not_on_the_last_tile_even_when_the_k
                tsumo_after_east_kan(who=0, yaku="0,1,4,1,10,1,14,1"))
 
     assert only_hand(xml)["situation"]["lastTile"] is False
+
+
+EAST_PON = pon((109, 110, 111), called=109, from_seat=KAMICHA)
+EAST_ADDED_KAN = added_kan((109, 110, 111), called=109, from_seat=KAMICHA)
+EAST_OPEN_KAN = open_kan(108, from_seat=KAMICHA)
+
+
+@pytest.mark.parametrize(
+    ("moves", "code", "yaku"),
+    [
+        # Seat 0 draws the fourth East and makes a closed kan: menzen tsumo, rinshan, seat and round wind.
+        (turns(1, first_seat=3) + draw(0, 108) + call(0, EAST_KAN), EAST_KAN, "0,1,4,1,10,1,14,1"),
+        # Seat 3 discards an East and seat 0 makes an open kan of it: rinshan, seat and round wind.
+        (draw(3, 108) + discard(3, 108) + call(0, EAST_OPEN_KAN), EAST_OPEN_KAN, "4,1,10,1,14,1"),
+        # Seat 0 called a pon of East from seat 3 and adds the fourth East it draws: as above.
+        (draw(3, 109) + discard(3, 109) + call(0, EAST_PON) + discard(0, 135) + turns(3, first_seat=1)
+         + draw(0, 108) + call(0, EAST_ADDED_KAN), EAST_ADDED_KAN, "4,1,10,1,14,1"),
+    ],
+    ids=["closed-kan", "open-kan", "added-kan"],
+)
+def test_a_tsumo_on_the_draw_after_the_winners_own_kan_is_drawn_after_a_kan(moves, code, yaku):
+    win = agari(who=0, from_who=0, hai=BESIDE_EAST_KAN, m=m(code), machi=105, ten="60,12000,1", yaku=yaku)
+    xml = game(init(), turns(3), moves, draw(0, 105), win)
+
+    assert only_hand(xml)["situation"]["rinshan"] is True
+
+
+def test_a_tsumo_on_the_kan_makers_next_draw_from_the_live_wall_is_not_drawn_after_a_kan():
+    xml = game(init(), draw(0, 108), call(0, EAST_KAN), draw(0, 130), discard(0, 130), turns(3, first_seat=1),
+               draw(0, 105), tsumo_after_east_kan(who=0, yaku="0,1,10,1,14,1", ten="50,9600,0"))
+
+    assert only_hand(xml)["situation"]["rinshan"] is False
+
+
+def test_a_tsumo_after_another_players_kan_is_not_drawn_after_a_kan():
+    kan_turn = draw(2, 108) + call(2, EAST_KAN) + draw(2, 130) + discard(2, 130)
+    xml = game(init(), turns(2), kan_turn, draw(3, 84), tsumo(who=3, yaku="0,1,7,1"))
+
+    assert only_hand(xml)["situation"]["rinshan"] is False

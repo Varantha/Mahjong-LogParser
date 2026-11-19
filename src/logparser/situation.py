@@ -36,7 +36,8 @@ class RoundMoves:
 
     def situation(self, *, winner: int, tsumo: bool) -> dict:
         """The situation flags of a win by `winner` now."""
-        live_wall_empty = self._draws + self._kans == LIVE_WALL
+        rinshan = tsumo and self._last_draw_from_dead_wall
         return {
-            "lastTile": live_wall_empty and not (tsumo and self._last_draw_from_dead_wall),
+            "lastTile": self._draws + self._kans == LIVE_WALL and not rinshan,
+            "rinshan": rinshan,
         }

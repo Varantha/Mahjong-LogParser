@@ -97,7 +97,7 @@
     "situation": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["roundWind", "seatWind", "dealer", "honba", "riichiSticks", "tsumo", "riichi", "lastTile"],
+      "required": ["roundWind", "seatWind", "dealer", "honba", "riichiSticks", "tsumo", "riichi", "lastTile", "rinshan"],
       "properties": {
         "roundWind": { "$ref": "#/$defs/wind" },
         "seatWind": { "$ref": "#/$defs/wind" },
@@ -108,6 +108,10 @@
         "riichi": { "type": "boolean" },
         "lastTile": {
           "description": "True when the hand wins on the live wall's last tile: its draw by tsumo (haitei) or the discard after it by ron (houtei). A draw after a kan is never the last tile.",
+          "type": "boolean"
+        },
+        "rinshan": {
+          "description": "True when the hand wins by tsumo on the tile drawn from the dead wall after its own kan.",
           "type": "boolean"
         }
       }

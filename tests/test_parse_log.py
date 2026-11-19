@@ -93,6 +93,7 @@ def test_situation_of_a_non_dealer_ron():
         "tsumo": False,
         "riichi": True,
         "lastTile": False,
+        "rinshan": False,
     }
 
 
@@ -115,6 +116,7 @@ def test_situation_of_a_dealer_tsumo_without_riichi():
         "tsumo": True,
         "riichi": False,
         "lastTile": False,
+        "rinshan": False,
     }
 
 
