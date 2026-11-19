@@ -6,6 +6,7 @@ Seat 0 deals in East 1. Unless a test says otherwise, seat 1 (South) wins by ron
 
 import pytest
 
+from logparser.plain_values import PLAIN_VALUE_NAMES
 from logparser.tenhou import parse_log
 from tenhou_xml import (CALLED_HAND, CALLED_HAND_CALLS, KAMICHA, Wall, added_kan, agari, called_win, closed_kan,
                         closed_win, game, ids, init, m, riichi, turns, win)
@@ -106,6 +107,12 @@ def test_a_hand_carries_its_plain_values():
         "riichiSticks": 1,
         "callTypes": ["chi", "pon"],
     }
+
+
+def test_the_plain_value_names_drills_can_filter_on_are_the_ones_each_hand_carries():
+    hand = only_hand(game(init(), closed_win(who=1)))
+
+    assert tuple(hand["plainValues"]) == PLAIN_VALUE_NAMES
 
 
 def test_the_dora_count_adds_up_the_dora_aka_dora_and_ura_dora_tenhou_recorded():

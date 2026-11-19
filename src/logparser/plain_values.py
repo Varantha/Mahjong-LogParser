@@ -23,6 +23,10 @@ LIMIT_TIERS = ("none", "mangan", "haneman", "baiman", "sanbaiman", "kazoe-yakuma
 
 DORA_YAKU = frozenset({"dora", "aka-dora", "ura-dora"})
 
+# The name of each plain value, in the order a hand lists them. Drills filter on these names.
+PLAIN_VALUE_NAMES = ("han", "fu", "rawFu", "limitTier", "dealer", "tsumo", "open", "yaku", "doraCount", "honba",
+                     "riichiSticks", "callTypes")
+
 
 def plain_values(hand: dict) -> dict:
     """The plain values of a hand record."""

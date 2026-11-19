@@ -37,7 +37,7 @@ Every hand then goes through these checks:
 
 A hand that fails any check is quarantined: it stays in the hand store with a reason code per failed check and never reaches the trainer bundle.
 
-**Stage 2: export** builds the trainer bundle from the verified hands. Each drill in the drill catalogue ([`src/logparser/drills.toml`](src/logparser/drills.toml)) draws its hands from the hand store, and the bundle stores every hand once: a `manifest.json` plus chunk files of hands. The bundle's contract is the JSON Schema in [`src/logparser/schema/trainer-bundle.schema.json`](src/logparser/schema/trainer-bundle.schema.json). It never holds player names, replay links or quarantined hands.
+**Stage 2: export** builds the trainer bundle from the verified hands. Each drill in the drill catalogue ([`src/logparser/drills.toml`](src/logparser/drills.toml)) draws its hands by searching the whole hand store, and the bundle stores every hand once, even when it is in several drills: a `manifest.json` plus chunk files of hands. The manifest lists each drill's key with the IDs of its hands, and counts hands per drill, tag and limit tier. The bundle's contract is the JSON Schema in [`src/logparser/schema/trainer-bundle.schema.json`](src/logparser/schema/trainer-bundle.schema.json). It never holds player names, replay links or quarantined hands.
 
 Only `download` uses the network. Ingest and export read and write local files only.
 
@@ -101,6 +101,22 @@ uv run logparser export
 ```
 
 Writes the trainer bundle, replacing any bundle already in its folder. `--catalogue` uses another drill catalogue, `--chunk-size` sets how many hands go in each chunk file, and `--seed` changes how hands are drawn at random.
+
+The drill catalogue is configuration: adding or retuning a drill means editing [`drills.toml`](src/logparser/drills.toml) and exporting again, with no code changes. Its format is described at the top of that file. Each drill names:
+
+- its **pool**, the hands it may take, as conditions on plain values and tags (`pool = { tsumo = true }`, `pool = { limitTier = ["sanbaiman", "yakuman"] }`, `pool = { tags = "kuisagari" }`). With no pool it takes any hand, at real-game frequency.
+- its **target**, how many hands it aims for.
+- optionally a **trap**, with a share of **lookalikes** (about half unless set): pool hands without the trap, so the drill doesn't give the answer away.
+- or optionally **quotas**, shares of the drill kept for rarer pool hands so they appear more often than in real games.
+
+The catalogue holds `everything`, `open-hand-han`, `big-hands`, `payments` and `rare-situations`, each aiming for 500 hands. A drill draws on the newest year of logs first and reaches back a year at a time only while it is short. A drill is never shrunk to fit: when every year in the hand store together still leaves it short, export lists it after the summary line, with how many hands it has, how many it is short, and which part of the drill ran out:
+
+```
+Short of hands, even drawing on every year of logs in the hand store:
+  big-hands: 422 of 500 hands, 78 short (limitTier = sanbaiman/kazoe-yakuman/yakuman: 22 of 100)
+```
+
+One year of logs holds only about 22 hands at sanbaiman or above, so `big-hands` needs several years.
 
 ### Where data lives
 

@@ -15,8 +15,9 @@ import argparse
 from pathlib import Path
 
 from logparser.downloader import DEFAULT_INTERVAL, Downloader, DownloadStopped
+from logparser.drills import CATALOGUE_PATH, load_catalogue
 from logparser.dump_import import import_dump
-from logparser.export import CATALOGUE_PATH, DEFAULT_CHUNK_SIZE, export_bundle, load_catalogue
+from logparser.export import DEFAULT_CHUNK_SIZE, export_bundle
 from logparser.hand_store import HandStore
 from logparser.ingest import ingest
 from logparser.log_store import LogStore
@@ -129,7 +130,16 @@ def _ingest(args) -> None:
 
 def _export(args) -> None:
     with HandStore(args.hand_store) as hands:
-        manifest = export_bundle(hands, args.bundle, load_catalogue(args.catalogue),
-                                 chunk_size=args.chunk_size, seed=args.seed)
+        summary = export_bundle(hands, args.bundle, load_catalogue(args.catalogue),
+                                chunk_size=args.chunk_size, seed=args.seed)
+    manifest = summary.manifest
     drills = ", ".join(f"{key} {count}" for key, count in manifest["counts"]["drills"].items())
     print(f"Wrote {manifest['counts']['hands']} hands in {len(manifest['chunks'])} chunks to {args.bundle} ({drills})")
+    if summary.short_drills:
+        print("Short of hands, even drawing on every year of logs in the hand store:")
+    for drill in summary.short_drills:
+        # A drill drawn in one part is short by that part alone; otherwise name the parts that ran out.
+        parts = "; ".join(f"{short.part}: {short.found} of {short.wanted}"
+                          for short in drill.shortfalls if short.wanted != drill.target)
+        print(f"  {drill.key}: {len(drill.hand_ids)} of {drill.target} hands, {drill.short_by} short"
+              + (f" ({parts})" if parts else ""))

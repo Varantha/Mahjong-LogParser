@@ -1,13 +1,69 @@
 # The drill catalogue: the drills the trainer bundle holds (see docs/adr/0001).
 #
+# Export builds each drill by searching the whole hand store, newest year of logs
+# first. A drill short of hands draws on older years; if every year together is
+# still short, export says by how much. A drill is never shrunk to fit.
+#
 # Each drill has:
 #   key     stable string key; the trainer translates it into a display name
-#   pool    where its hands come from:
-#             "all"  every verified hand, drawn at random, so each kind of hand
-#                    turns up at its real-game frequency
 #   target  how many hands the drill aims for
+#   pool    the hands it may take, as conditions on plain values and tags (below).
+#           Without a pool it may take any verified hand, drawn at random, so each
+#           kind of hand turns up at its real-game frequency.
+#
+# A condition names a plain value (han, fu, rawFu, limitTier, dealer, tsumo, open,
+# yaku, doraCount, honba, riichiSticks, callTypes) or `tags`, and gives one value or
+# a list of them. A hand meets it when its value is one of them; for yaku, callTypes
+# and tags, when it holds any of them. A hand must meet every condition.
+#
+#   pool = { tsumo = true, dealer = true }
+#   pool = { limitTier = ["sanbaiman", "yakuman"] }
+#   pool = { tags = "kuisagari" }
+#
+# A drill may also mix its pool in one of two ways:
+#   trap        conditions for the pool hands with the trap. A share of the drill
+#   lookalikes  goes to lookalikes, pool hands without the trap, so the drill doesn't
+#               give the answer away: 0.5 (about half) unless `lookalikes` says
+#               otherwise.
+#   quotas      a list of { share = ..., where = { conditions } }: each keeps its share
+#               of the drill for the pool hands that also meet `where`, so they turn up
+#               more often than in real games. The rest is drawn from the whole pool.
+# Each share (the trap hands, the lookalikes, each quota and the rest) draws on older
+# years on its own, and is not made up from another share when it falls short.
 
+# Random hands at their real-game frequency. Skill: general scoring.
 [[drill]]
 key = "everything"
-pool = "all"
 target = 500
+
+# Hands with a yaku worth 1 han less when open; the closed ones are the lookalikes.
+# Skill: the han lost when the hand is open.
+[[drill]]
+key = "open-hand-han"
+target = 500
+pool = { yaku = ["sanshoku-doujun", "ittsu", "chanta", "junchan", "honitsu", "chinitsu"] }
+trap = { open = true }
+lookalikes = 0.5
+
+# Haneman and above. Sanbaiman, kazoe yakuman and yakuman are about 1 in 100 of these
+# hands in real games; here they make up a fifth of the drill. One year of logs holds
+# only about 22 of them, so this drill draws on several years.
+# Skill: han counting for big hands, limit tiers.
+[[drill]]
+key = "big-hands"
+target = 500
+pool = { limitTier = ["haneman", "baiman", "sanbaiman", "kazoe-yakuman", "yakuman"] }
+quotas = [{ share = 0.2, where = { limitTier = ["sanbaiman", "kazoe-yakuman", "yakuman"] } }]
+
+# Tsumo hands, dealer and non-dealer, at their real-game frequency: about 3 in 10 are
+# the dealer's and about a third have honba. Skill: payment splits.
+[[drill]]
+key = "payments"
+target = 500
+pool = { tsumo = true }
+
+# Hands with a situational yaku. Skill: situational yaku.
+[[drill]]
+key = "rare-situations"
+target = 500
+pool = { yaku = ["ippatsu", "haitei", "houtei", "rinshan", "chankan", "double-riichi"] }
