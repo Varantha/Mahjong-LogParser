@@ -3,7 +3,7 @@
     logparser add-logs FILE...   add <logId>.xml files to the log store
     logparser import-dump DUMP   add the logs in a database dump to the log store
     logparser download           fetch Phoenix-room logs from Tenhou into the log store
-    logparser ingest             stage 1: log store -> hand store
+    logparser ingest             stage 1: log store -> hand store, plus an ingest report
     logparser export             stage 2: hand store -> trainer bundle
 
 Local data lives under `local/` in the current folder by default (git ignores
@@ -24,6 +24,7 @@ from logparser.log_store import LogStore
 LOCAL = Path("local")
 LOG_STORE = LOCAL / "log-store"
 HAND_STORE = LOCAL / "hand-store.sqlite"
+INGEST_REPORTS = LOCAL / "ingest-reports"
 BUNDLE = LOCAL / "bundle"
 DOWNLOADER_STATE = LOCAL / "downloader.sqlite"
 
@@ -63,6 +64,8 @@ def _parser() -> argparse.ArgumentParser:
     ingest_ = commands.add_parser("ingest", help="parse every win in the log store into the hand store")
     ingest_.add_argument("--log-store", type=Path, default=LOG_STORE)
     ingest_.add_argument("--hand-store", type=Path, default=HAND_STORE)
+    ingest_.add_argument("--reports", type=Path, default=INGEST_REPORTS,
+                         help="folder each ingest writes its report and diff into, in a folder named after the time it ran")
     ingest_.set_defaults(run=_ingest)
 
     export = commands.add_parser("export", help="build the trainer bundle from the verified hands")
@@ -111,13 +114,14 @@ def _seconds(value: str) -> float:
 
 def _ingest(args) -> None:
     with HandStore(args.hand_store) as hands:
-        summary = ingest(LogStore(args.log_store), hands)
+        summary = ingest(LogStore(args.log_store), hands, args.reports)
     skipped = sum(summary.skipped.values())
     reasons = ", ".join(f"{count} {reason}" for reason, count in sorted(summary.skipped.items()))
     print(
         f"{summary.logs} logs ({skipped} skipped{': ' + reasons if reasons else ''}), "
         f"{summary.hands} hands ({summary.hands - summary.quarantined} verified, {summary.quarantined} quarantined)"
     )
+    print(f"Wrote the ingest report to {summary.report_folder} ({summary.changed} hands changed since the previous run)")
 
 
 def _export(args) -> None:
