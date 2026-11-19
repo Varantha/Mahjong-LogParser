@@ -14,6 +14,7 @@ from collections import Counter, defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from importlib.metadata import version
+from itertools import count
 from pathlib import Path
 
 from logparser.hand_store import HandStore
@@ -58,8 +59,7 @@ def ingest(logs: LogStore, hands: HandStore, reports: Path | None = None, *,
                 limit_tiers[hand["plainValues"]["limitTier"]] += 1
     summary.skipped = dict(skipped)
     if reports is not None:
-        summary.report_folder = Path(reports) / ingested_at.strftime("%Y%m%dT%H%M%SZ")
-        summary.report_folder.mkdir(parents=True)
+        summary.report_folder = _new_folder(Path(reports), ingested_at.strftime("%Y%m%dT%H%M%SZ"))
         report = {
             "ingestedAt": ingested_at.strftime("%Y-%m-%dT%H:%M:%SZ"),
             "generator": f"mahjong-logparser {version('mahjong-logparser')}",
@@ -71,4 +71,17 @@ def ingest(logs: LogStore, hands: HandStore, reports: Path | None = None, *,
                          "limitTiers": {tier: limit_tiers[tier] for tier in LIMIT_TIERS}},
         }
         (summary.report_folder / "report.json").write_text(json.dumps(report, indent=2), encoding="utf-8")
+        (summary.report_folder / "diff.jsonl").write_text("", encoding="utf-8")
     return summary
+
+
+def _new_folder(parent: Path, name: str) -> Path:
+    """Makes a folder `name` in `parent`, or `name-2`, `name-3`... if a run in the same second took it."""
+    parent.mkdir(parents=True, exist_ok=True)
+    for number in count(1):
+        folder = parent / (name if number == 1 else f"{name}-{number}")
+        try:
+            folder.mkdir()
+        except FileExistsError:
+            continue
+        return folder

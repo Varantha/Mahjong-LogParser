@@ -1,6 +1,7 @@
 """Stage 1: ingest parses every win in the log store into the hand store."""
 
 import json
+from datetime import datetime, timezone
 
 from logparser.hand_store import HandStore
 from logparser.ingest import IngestSummary, ingest
@@ -116,3 +117,33 @@ def test_the_report_counts_the_verified_hands_at_each_limit_tier(tmp_path):
 
     assert report(summary)["verified"]["limitTiers"] == {
         "none": 1, "mangan": 1, "haneman": 0, "baiman": 0, "sanbaiman": 0, "kazoe-yakuman": 0, "yakuman": 0}
+
+
+def diff(summary: IngestSummary) -> list[dict]:
+    lines = (summary.report_folder / "diff.jsonl").read_text(encoding="utf-8").splitlines()
+    return [json.loads(line) for line in lines]
+
+
+def test_the_first_run_writes_a_report_and_an_empty_diff(tmp_path):
+    logs = LogStore(tmp_path / "log-store")
+    logs.add(PHOENIX_LOG, game(init(round_number=0), closed_win(), init(round_number=1, oya=0), short_win()))
+
+    with HandStore(tmp_path / "hand-store.sqlite") as hands:
+        summary = ingest(logs, hands, tmp_path / "reports")
+
+    assert report(summary)["hands"]["parsed"] == 2
+    assert diff(summary) == []
+
+
+def test_each_run_writes_its_report_into_a_folder_of_its_own_named_after_the_time_it_ran(tmp_path):
+    logs = LogStore(tmp_path / "log-store")
+    logs.add(PHOENIX_LOG, game(init(), closed_win()))
+    noon = datetime(2024, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
+
+    with HandStore(tmp_path / "hand-store.sqlite") as hands:
+        first = ingest(logs, hands, tmp_path / "reports", ingested_at=noon)
+        second = ingest(logs, hands, tmp_path / "reports", ingested_at=noon)
+
+    assert (first.report_folder.parent, first.report_folder.name) == (tmp_path / "reports", "20240101T120000Z")
+    assert second.report_folder.name.startswith("20240101T120000Z") and second.report_folder != first.report_folder
+    assert report(first)["ingestedAt"] == report(second)["ingestedAt"] == "2024-01-01T12:00:00Z"
