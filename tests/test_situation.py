@@ -138,3 +138,36 @@ def test_a_tsumo_after_another_players_kan_is_not_drawn_after_a_kan():
     xml = game(init(), turns(2), kan_turn, draw(3, 84), tsumo(who=3, yaku="0,1,7,1"))
 
     assert only_hand(xml)["situation"]["rinshan"] is False
+
+
+def four_sou_added_kan(seat: int) -> str:
+    """`seat` calls a pon of 4s from the player before, then draws the fourth 4s (84) and adds it to the
+    pon. Five draws from the live wall."""
+    pon_tiles = (85, 86, 87)
+    before = (seat - 1) % 4
+    return (draw(before, 85) + discard(before, 85) + call(seat, pon(pon_tiles, called=85, from_seat=KAMICHA))
+            + discard(seat, 135) + turns(3, first_seat=(seat + 1) % 4) + draw(seat, 84)
+            + call(seat, added_kan(pon_tiles, called=85, from_seat=KAMICHA)))
+
+
+def test_a_ron_on_the_tile_added_to_a_kan_robs_a_kan():
+    # Seat 2 wins on the 4s seat 0 adds to its kan: chankan, pinfu.
+    xml = game(init(), turns(3), four_sou_added_kan(seat=0), ron(who=2, from_who=0, yaku="3,1,7,1"))
+
+    assert only_hand(xml)["situation"]["chankan"] is True
+
+
+def test_a_ron_on_the_discard_after_an_added_kan_does_not_rob_a_kan():
+    # Seat 0 draws from the dead wall after its kan and discards a 4s, which seat 2 wins on: pinfu.
+    xml = game(init(), turns(3), four_sou_added_kan(seat=0), draw(0, 130), discard(0, 84),
+               ron(who=2, from_who=0, yaku="7,1", ten="30,1000,0"))
+
+    assert only_hand(xml)["situation"]["chankan"] is False
+
+
+def test_a_ron_robbing_a_kan_is_not_on_the_last_tile_even_when_the_kan_empties_the_live_wall():
+    # After 69 draws seat 1's added kan moves the live wall's last tile to the dead wall.
+    # Seat 3 robs the kan: chankan, pinfu.
+    xml = game(init(), turns(64), four_sou_added_kan(seat=1), ron(who=3, from_who=1, yaku="3,1,7,1"))
+
+    assert only_hand(xml)["situation"]["lastTile"] is False

@@ -30,8 +30,9 @@ NO_RED_FIVES = 0x02
 NO_OPEN_TANYAO = 0x04
 SANMA = 0x10
 
-# Draws are tagged T, U, V and W for seats 0-3, followed by the tile drawn.
+# Draws are tagged T, U, V and W for seats 0-3, and discards D, E, F and G, followed by the tile.
 DRAW = re.compile(r"([TUVW])\d+")
+DISCARD = re.compile(r"([DEFG])\d+")
 
 
 @dataclass
@@ -74,6 +75,8 @@ def parse_log(log_id: str, xml_text: str) -> ParsedLog:
             round_.riichi.add(int(event.get("who")))
         elif drawn := DRAW.fullmatch(event.tag):
             round_.moves.draw("TUVW".index(drawn[1]))
+        elif discarded := DISCARD.fullmatch(event.tag):
+            round_.moves.discard("DEFG".index(discarded[1]))
         elif event.tag == "N":
             round_.moves.call(int(event.get("who")), decode_call(int(event.get("m"))).type)
         elif event.tag == "AGARI":

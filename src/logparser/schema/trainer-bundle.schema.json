@@ -97,7 +97,7 @@
     "situation": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["roundWind", "seatWind", "dealer", "honba", "riichiSticks", "tsumo", "riichi", "lastTile", "rinshan"],
+      "required": ["roundWind", "seatWind", "dealer", "honba", "riichiSticks", "tsumo", "riichi", "lastTile", "rinshan", "chankan"],
       "properties": {
         "roundWind": { "$ref": "#/$defs/wind" },
         "seatWind": { "$ref": "#/$defs/wind" },
@@ -107,11 +107,15 @@
         "tsumo": { "description": "True for a win by tsumo, false for ron.", "type": "boolean" },
         "riichi": { "type": "boolean" },
         "lastTile": {
-          "description": "True when the hand wins on the live wall's last tile: its draw by tsumo (haitei) or the discard after it by ron (houtei). A draw after a kan is never the last tile.",
+          "description": "True when the hand wins on the live wall's last tile: its draw by tsumo (haitei) or the discard after it by ron (houtei). A draw from the dead wall after a kan and a robbed kan are never the last tile.",
           "type": "boolean"
         },
         "rinshan": {
           "description": "True when the hand wins by tsumo on the tile drawn from the dead wall after its own kan.",
+          "type": "boolean"
+        },
+        "chankan": {
+          "description": "True when the hand wins by ron on the tile another player adds to an added kan, robbing the kan.",
           "type": "boolean"
         }
       }
