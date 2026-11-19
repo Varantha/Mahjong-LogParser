@@ -7,7 +7,8 @@ from pathlib import Path
 import pytest
 from jsonschema import Draft202012Validator
 
-from logparser.export import Drill, export_bundle, load_catalogue
+from logparser.drills import Drill, Filter
+from logparser.export import export_bundle
 from logparser.hand_store import HandStore
 from logparser.ingest import ingest
 from logparser.log_store import LogStore
@@ -20,7 +21,7 @@ from tenhou_xml import (CLOSED_HAND, KAMICHA, Wall, added_kan, agari, called_win
 SCHEMA_PATH = Path(__file__).parents[1] / "src" / "logparser" / "schema" / "trainer-bundle.schema.json"
 LOG_ID = "2024010112gm-00a9-0000-0123abcd"
 BUILT_AT = datetime(2026, 1, 2, 3, 4, 5, tzinfo=timezone.utc)
-EVERYTHING = [Drill(key="everything", pool="all", target=500)]
+EVERYTHING = [Drill(key="everything", target=500)]
 
 
 @pytest.fixture
@@ -70,7 +71,7 @@ def test_the_manifest_lists_each_drill_with_the_ids_of_its_hands_and_counts_them
 
 
 def test_each_hand_appears_once_with_its_id_situation_tiles_answer_key_plain_values_and_tags(hand_store, tmp_path):
-    drills = [Drill(key="everything", pool="all", target=500), Drill(key="everything-again", pool="all", target=500)]
+    drills = [Drill(key="everything", target=500), Drill(key="everything-again", target=500)]
 
     export_bundle(hand_store, tmp_path / "bundle", drills, built_at=BUILT_AT)
 
@@ -128,7 +129,9 @@ def test_each_hand_appears_once_with_its_id_situation_tiles_answer_key_plain_val
     }
 
 
-def test_the_bundle_carries_each_kind_of_payment_with_the_honba_and_riichi_sticks_apart(tmp_path):
+@pytest.fixture
+def payments_hand_store(tmp_path):
+    """Three verified hands: a dealer tsumo, a non-dealer tsumo with honba and riichi sticks, and a ron."""
     logs = LogStore(tmp_path / "log-store")
     logs.add(LOG_ID, game(
         # Dealer tsumo on its second draw: menzen tsumo and pinfu, 2 han 20 fu, 700 all.
@@ -144,7 +147,11 @@ def test_the_bundle_carries_each_kind_of_payment_with_the_honba_and_riichi_stick
     ))
     with HandStore(tmp_path / "hand-store.sqlite") as hands:
         ingest(logs, hands)
-        export_bundle(hands, tmp_path / "bundle", EVERYTHING, built_at=BUILT_AT)
+        yield hands
+
+
+def test_the_bundle_carries_each_kind_of_payment_with_the_honba_and_riichi_sticks_apart(payments_hand_store, tmp_path):
+    export_bundle(payments_hand_store, tmp_path / "bundle", EVERYTHING, built_at=BUILT_AT)
 
     payments = {hand["id"]: hand["answerKey"]["payments"] for hand in bundle_hands(tmp_path / "bundle")}
 
@@ -212,13 +219,13 @@ def test_each_hand_in_the_bundle_carries_its_tags(tagged_hand_store, tmp_path):
 
 
 def test_the_manifest_counts_the_hands_with_each_tag(tagged_hand_store, tmp_path):
-    manifest = export_bundle(tagged_hand_store, tmp_path / "bundle", EVERYTHING, built_at=BUILT_AT)
+    manifest = export_bundle(tagged_hand_store, tmp_path / "bundle", EVERYTHING, built_at=BUILT_AT).manifest
 
     assert manifest["counts"]["tags"] == {"kuisagari": 1, "wraparound-dora": 1, "ambiguous-wait": 0}
 
 
 def test_the_manifest_counts_a_tag_no_bundle_hand_has_as_0(hand_store, tmp_path):
-    manifest = export_bundle(hand_store, tmp_path / "bundle", EVERYTHING, built_at=BUILT_AT)
+    manifest = export_bundle(hand_store, tmp_path / "bundle", EVERYTHING, built_at=BUILT_AT).manifest
 
     tag_counts = manifest["counts"]["tags"]
     assert (set(tag_counts), tag_counts["kuisagari"], tag_counts["wraparound-dora"]) == (set(TAGS), 0, 0)
@@ -238,7 +245,7 @@ def test_the_manifest_counts_the_hands_at_each_limit_tier_listing_every_tier(tmp
     ))
     with HandStore(tmp_path / "hand-store.sqlite") as hands:
         ingest(logs, hands)
-        manifest = export_bundle(hands, tmp_path / "bundle", EVERYTHING, built_at=BUILT_AT)
+        manifest = export_bundle(hands, tmp_path / "bundle", EVERYTHING, built_at=BUILT_AT).manifest
 
     assert manifest["counts"]["limitTiers"] == {
         "none": 1, "mangan": 1, "haneman": 0, "baiman": 0, "sanbaiman": 0, "kazoe-yakuman": 0, "yakuman": 1}
@@ -266,8 +273,30 @@ def test_quarantined_hands_player_names_and_replay_links_never_reach_the_bundle(
     assert not any(name in text for name in ("Alice", "Bob", "Carol", "Dave"))
 
 
+def test_export_builds_each_drill_in_the_catalogue_from_the_hand_store_storing_a_hand_in_several_drills_once(
+        payments_hand_store, tmp_path):
+    drills = [Drill(key="everything", target=500), Drill(key="payments", target=500, pool=Filter({"tsumo": True}))]
+
+    manifest = export_bundle(payments_hand_store, tmp_path / "bundle", drills, built_at=BUILT_AT).manifest
+
+    assert manifest["drills"] == [
+        {"key": "everything", "handIds": [f"{LOG_ID}/0/0", f"{LOG_ID}/1/0", f"{LOG_ID}/2/0"]},
+        {"key": "payments", "handIds": [f"{LOG_ID}/0/0", f"{LOG_ID}/1/0"]},
+    ]
+    assert (manifest["counts"]["hands"], manifest["counts"]["drills"]) == (3, {"everything": 3, "payments": 2})
+    assert [hand["id"] for hand in bundle_hands(tmp_path / "bundle")] == [f"{LOG_ID}/0/0", f"{LOG_ID}/1/0", f"{LOG_ID}/2/0"]
+
+
+def test_export_says_which_drills_the_hand_store_leaves_short_and_by_how_much(payments_hand_store, tmp_path):
+    drills = [Drill(key="everything", target=2), Drill(key="payments", target=500, pool=Filter({"tsumo": True}))]
+
+    export = export_bundle(payments_hand_store, tmp_path / "bundle", drills, built_at=BUILT_AT)
+
+    assert [(drill.key, drill.target, drill.short_by) for drill in export.short_drills] == [("payments", 500, 498)]
+
+
 def test_a_drill_takes_no_more_hands_than_it_aims_for(hand_store, tmp_path):
-    export_bundle(hand_store, tmp_path / "bundle", [Drill(key="everything", pool="all", target=2)], built_at=BUILT_AT)
+    export_bundle(hand_store, tmp_path / "bundle", [Drill(key="everything", target=2)], built_at=BUILT_AT)
 
     manifest = json.loads((tmp_path / "bundle" / "manifest.json").read_text())
 
@@ -289,9 +318,6 @@ def test_exporting_again_leaves_no_stale_chunk_files(hand_store, tmp_path):
 
     assert sorted(bundle_files(tmp_path / "bundle")) == ["hands-000.json", "hands-001.json", "manifest.json"]
 
-
-def test_the_drill_catalogue_holds_the_everything_drill_aiming_for_500_random_hands():
-    assert load_catalogue() == [Drill(key="everything", pool="all", target=500)]
 
 
 def test_the_schema_knows_every_yaku_key_the_parser_can_write():

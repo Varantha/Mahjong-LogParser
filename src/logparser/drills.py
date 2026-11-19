@@ -186,7 +186,8 @@ def _drill(entry: dict) -> Drill:
 def draw_drills(catalogue: list[Drill], hands: Iterable[dict], *, seed: int = 0) -> list[DrawnDrill]:
     """Draws each part of each drill at random from the hands it may take. Each drill has its own random
     draw, seeded by `seed` and its key, so adding a drill to the catalogue never changes another's hands."""
-    hands = list(hands)
+    # Only a hand's ID, plain values and tags matter to a drill, so whole hand records aren't kept.
+    hands = [{"id": hand["id"], "plainValues": hand["plainValues"], "tags": hand["tags"]} for hand in hands]
     drawn = []
     for drill in catalogue:
         rng = random.Random(f"{seed}/{drill.key}")
