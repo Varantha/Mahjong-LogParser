@@ -15,7 +15,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from logparser.plain_values import PLAIN_VALUE_NAMES
-from logparser.tags import TAGS
+from logparser.tags import TAGS, TAGS_GIVING_THE_ANSWER_AWAY
 
 CATALOGUE_PATH = Path(__file__).with_name("drills.toml")
 # The share of a drill with a trap given to lookalikes, unless the catalogue says otherwise.
@@ -151,12 +151,15 @@ def _drill(entry: dict) -> Drill:
     def refuse(problem: str) -> CatalogueError:
         return CatalogueError(f"drill {key!r}: {problem}")
 
-    def conditions(where: dict) -> Filter:
+    def conditions(where: dict, *, trap: bool = False) -> Filter:
         for name, wanted in where.items():
             if name not in PLAIN_VALUE_NAMES and name != "tags":
                 raise refuse(f"{name} is neither a plain value nor tags")
             if name == "tags" and (unknown := [tag for tag in _listed(wanted) if tag not in TAGS]):
                 raise refuse(f"no tag is called {', '.join(unknown)}")
+            if name == "tags" and not (trap and lookalikes > 0) and (
+                    giveaways := [tag for tag in _listed(wanted) if tag in TAGS_GIVING_THE_ANSWER_AWAY]):
+                raise refuse(f"{giveaways[0]} gives the answer away, so it can only be a trap, with lookalikes")
         return Filter(where)
 
     if unknown := sorted(set(entry) - DRILL_FIELDS):
@@ -179,7 +182,7 @@ def _drill(entry: dict) -> Drill:
         key=key,
         target=entry["target"],
         pool=conditions(entry.get("pool", {})),
-        trap=conditions(entry["trap"]) if "trap" in entry else None,
+        trap=conditions(entry["trap"], trap=True) if "trap" in entry else None,
         lookalikes=lookalikes,
         quotas=tuple(quotas),
     )
