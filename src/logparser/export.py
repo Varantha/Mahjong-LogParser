@@ -17,6 +17,7 @@ from pathlib import Path
 from jsonschema import Draft202012Validator
 
 from logparser.hand_store import HandStore
+from logparser.plain_values import LIMIT_TIERS
 from logparser.tags import TAGS
 
 SCHEMA_VERSION = "1.0.0"
@@ -25,7 +26,7 @@ CATALOGUE_PATH = Path(__file__).with_name("drills.toml")
 DEFAULT_CHUNK_SIZE = 200
 # The parts of a hand-store record the trainer sees. Replay links, quarantine
 # reasons and anything else stay in the hand store.
-BUNDLE_FIELDS = ("id", "situation", "tiles", "answerKey", "tags")
+BUNDLE_FIELDS = ("id", "situation", "tiles", "answerKey", "plainValues", "tags")
 
 
 @dataclass(frozen=True)
@@ -64,6 +65,8 @@ def export_bundle(hands: HandStore, folder: Path, catalogue: list[Drill], *,
             "hands": len(bundle_hands),
             "drills": {drill["key"]: len(drill["handIds"]) for drill in drills},
             "tags": {tag: sum(tag in hand["tags"] for hand in bundle_hands) for tag in TAGS},
+            "limitTiers": {tier: sum(hand["plainValues"]["limitTier"] == tier for hand in bundle_hands)
+                           for tier in LIMIT_TIERS},
         },
         "chunks": list(chunks),
         "drills": drills,

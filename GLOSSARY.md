@@ -41,8 +41,16 @@ One way of reading a hand's tiles as four sets and a pair, its calls kept as the
 _Avoid_: decomposition, interpretation, hand division (the `mahjong` library's terms)
 
 **Limit tier**:
-The named payment cap a hand reaches: none, mangan, haneman, baiman, sanbaiman, kazoe yakuman or yakuman.
+The named payment cap a hand reaches: none, mangan, haneman, baiman, sanbaiman, kazoe yakuman or yakuman. A kazoe yakuman reaches the yakuman's cap with 13 han or more and no yakuman.
 _Avoid_: limit, limit hand level
+
+**Plain value**:
+A fact about a hand that drills filter on directly: han, fu, raw fu, limit tier, dealer, tsumo or ron, open or closed, yaku, dora count, honba, riichi sticks and call types. Plain values are never tags.
+_Avoid_: attribute, filter, feature
+
+**Dora count**:
+The han a hand gets from dora, aka dora and ura dora, as Tenhou recorded them. A yakuman has none, because Tenhou records no dora with it.
+_Avoid_: dora (for the count), number of dora
 
 **Tag**:
 A named fact derived from a hand, often a trap a player could fall into. Players never see it before answering. Plain values such as han, fu or yaku are not tags.

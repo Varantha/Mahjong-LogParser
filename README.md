@@ -21,7 +21,8 @@ Database dumps ───── import-dump ───┼─► Log store ──(s
 - its ID, `<logId>/<roundIndex>/<winIndex>`, which depends only on the source log, so re-running ingest never changes it
 - its tiles and calls, in `mpsz` notation
 - its situation (winds, dealer, honba, riichi sticks, tsumo or ron, riichi, ippatsu, last tile, rinshan, chankan, first draw), worked out from the game's moves
-- its answer key: the yaku, han, fu, points and payments Tenhou recorded, plus the raw fu and the fu breakdown once the cross-check (below) has matched
+- its answer key: the yaku, han, fu, limit tier, points and payments Tenhou recorded, plus the raw fu and the fu breakdown once the cross-check (below) has matched
+- its plain values, the facts drills filter on directly: han, fu, raw fu, limit tier, dealer, tsumo or ron, open or closed, yaku, dora count, honba, riichi sticks and call types
 - its tags, such as `kuisagari`
 - a link to the round in Tenhou's replay viewer, for debugging
 
@@ -32,7 +33,7 @@ Every hand then goes through these checks:
 3. **Winning tile.** The winning tile is the one actually drawn or discarded.
 4. **Situation.** The situation worked out from the moves agrees with the situational yaku Tenhou gave.
 5. **Payments.** The score changes Tenhou recorded match the points, honba and riichi sticks.
-6. **Cross-check.** The [`mahjong`](https://github.com/MahjongRepository/mahjong) library, set to Tenhou rules, recalculates the hand and must match the answer key exactly: yaku, han, fu and points.
+6. **Cross-check.** The [`mahjong`](https://github.com/MahjongRepository/mahjong) library, set to Tenhou rules, recalculates the hand and must match the answer key exactly: yaku, han, fu, limit tier and points.
 
 A hand that fails any check is quarantined: it stays in the hand store with a reason code per failed check and never reaches the trainer bundle.
 
