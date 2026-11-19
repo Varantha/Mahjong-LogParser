@@ -5,6 +5,7 @@ without code changes (see docs/adr/0001). A drill names its pool: the hands it m
 described by their plain values and tags.
 """
 
+import random
 import tomllib
 from collections.abc import Iterable
 from dataclasses import dataclass, field
@@ -58,6 +59,13 @@ def load_catalogue(path: Path = CATALOGUE_PATH) -> list[Drill]:
     return [Drill(key=entry["key"], target=entry["target"], pool=Filter(entry.get("pool", {}))) for entry in entries]
 
 
-def draw_drills(catalogue: list[Drill], hands: Iterable[dict]) -> list[DrawnDrill]:
+def draw_drills(catalogue: list[Drill], hands: Iterable[dict], *, seed: int = 0) -> list[DrawnDrill]:
+    """Draws each drill's hands at random from its pool. Each drill has its own random draw, seeded
+    by `seed` and its key, so adding a drill to the catalogue never changes the hands of another."""
     hands = list(hands)
-    return [DrawnDrill(drill.key, sorted(hand["id"] for hand in hands if drill.pool.matches(hand))) for drill in catalogue]
+    drawn = []
+    for drill in catalogue:
+        pool = sorted(hand["id"] for hand in hands if drill.pool.matches(hand))
+        rng = random.Random(f"{seed}/{drill.key}")
+        drawn.append(DrawnDrill(drill.key, sorted(rng.sample(pool, min(drill.target, len(pool))))))
+    return drawn

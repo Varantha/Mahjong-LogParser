@@ -86,3 +86,17 @@ def test_a_condition_on_yaku_call_types_or_tags_takes_hands_holding_any_of_its_v
 
     assert (drawn_ids(rare), drawn_ids(chi), drawn_ids(kuisagari)) == (
         {haitei["id"], rinshan["id"]}, {chi_kuisagari["id"]}, {chi_kuisagari["id"]})
+
+
+def test_a_drill_with_no_pool_draws_its_target_of_hands_at_random_from_every_hand_repeatably_by_seed(tmp_path):
+    drills = catalogue(tmp_path, """
+        [[drill]]
+        key = "everything"
+        target = 3
+    """)
+    hands = [hand(number) for number in range(10)]
+
+    [first], [same_seed], [other_seed] = (draw_drills(drills, hands, seed=seed) for seed in (1, 1, 2))
+
+    assert len(first.hand_ids) == 3 and drawn_ids(first) <= {hand["id"] for hand in hands}
+    assert (first.hand_ids == same_seed.hand_ids, first.hand_ids == other_seed.hand_ids) == (True, False)
