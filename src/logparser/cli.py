@@ -1,6 +1,7 @@
 """The `logparser` command.
 
     logparser add-logs FILE...   add <logId>.xml files to the log store
+    logparser import-dump DUMP   add the logs in a database dump to the log store
     logparser ingest             stage 1: log store -> hand store
     logparser export             stage 2: hand store -> trainer bundle
 
@@ -11,6 +12,7 @@ it); every location can be overridden on the command line.
 import argparse
 from pathlib import Path
 
+from logparser.dump_import import import_dump
 from logparser.export import CATALOGUE_PATH, DEFAULT_CHUNK_SIZE, export_bundle, load_catalogue
 from logparser.hand_store import HandStore
 from logparser.ingest import ingest
@@ -36,6 +38,12 @@ def _parser() -> argparse.ArgumentParser:
     add_logs.add_argument("--log-store", type=Path, default=LOG_STORE)
     add_logs.set_defaults(run=_add_logs)
 
+    import_dump_ = commands.add_parser(
+        "import-dump", help="add the logs in a database dump (SQLite logs(log_id, log_content), bz2) to the log store")
+    import_dump_.add_argument("dump", type=Path, metavar="DUMP")
+    import_dump_.add_argument("--log-store", type=Path, default=LOG_STORE)
+    import_dump_.set_defaults(run=_import_dump)
+
     ingest_ = commands.add_parser("ingest", help="parse every win in the log store into the hand store")
     ingest_.add_argument("--log-store", type=Path, default=LOG_STORE)
     ingest_.add_argument("--hand-store", type=Path, default=HAND_STORE)
@@ -56,6 +64,16 @@ def _add_logs(args) -> None:
     for path in args.files:
         store.add_file(path)
     print(f"Added {len(args.files)} logs to {args.log_store}")
+
+
+def _import_dump(args) -> None:
+    summary = import_dump(args.dump, LogStore(args.log_store))
+    skipped = sum(summary.skipped.values())
+    reasons = ", ".join(f"{count} {reason}" for reason, count in sorted(summary.skipped.items()))
+    print(
+        f"Added {summary.added} logs to {args.log_store} "
+        f"({summary.already_stored} already stored, {skipped} skipped{': ' + reasons if reasons else ''})"
+    )
 
 
 def _ingest(args) -> None:
