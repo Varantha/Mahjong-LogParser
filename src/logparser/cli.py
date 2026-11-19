@@ -69,7 +69,8 @@ def _parser() -> argparse.ArgumentParser:
     ingest_.add_argument("--reports", type=Path, default=INGEST_REPORTS,
                          help="folder each ingest writes its report and diff into, in a folder named after the time it ran")
     ingest_.add_argument("--high-fu", type=int, default=TagSettings.high_fu, metavar="FU",
-                         help=f"the fewest fu after rounding a hand tagged high-fu has (default {TagSettings.high_fu})")
+                         help=f"the fewest fu after rounding a hand tagged high-fu has, at 4 han or fewer "
+                              f"(default {TagSettings.high_fu})")
     ingest_.set_defaults(run=_ingest)
 
     export = commands.add_parser("export", help="build the trainer bundle from the verified hands")

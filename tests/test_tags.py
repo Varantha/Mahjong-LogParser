@@ -332,11 +332,13 @@ def test_a_hand_below_mangan_or_at_mangan_by_han_alone_has_no_fu_mangan(xml):
 HANDS_WITH_HIGH_FU = {
     "50-fu": tanki_or_ryanmen(),
     "70-fu": honitsu_with_a_closed_kan(),
+    # The 9m names the 1m as dora: 4 han 70 fu, where the fu still decide the points.
+    "70-fu-at-4-han": honitsu_with_a_closed_kan(dora=ids(35), yaku="34,3,52,1"),
 }
 
 
 @pytest.mark.parametrize("xml", HANDS_WITH_HIGH_FU.values(), ids=HANDS_WITH_HIGH_FU.keys())
-def test_a_hand_with_50_fu_or_more_has_high_fu(xml):
+def test_a_hand_with_50_fu_or_more_and_4_han_or_fewer_has_high_fu(xml):
     hand = only_hand(xml)
 
     assert hand["quarantineReasons"] == []
@@ -346,11 +348,15 @@ def test_a_hand_with_50_fu_or_more_has_high_fu(xml):
 HANDS_WITHOUT_HIGH_FU = {
     "40-fu": closed_honitsu(),
     "30-fu": game(init(), closed_win()),
+    # The 9m and 8m name the 1m and 9m as dora: 5 han make it mangan whatever its 70 fu.
+    "70-fu-at-5-han": honitsu_with_a_closed_kan(dora=ids(35, 31), yaku="34,3,52,2"),
+    # Baiman at 10 han, whatever its 50 fu.
+    "50-fu-at-10-han": triplets_or_runs(),
 }
 
 
 @pytest.mark.parametrize("xml", HANDS_WITHOUT_HIGH_FU.values(), ids=HANDS_WITHOUT_HIGH_FU.keys())
-def test_a_hand_with_less_than_50_fu_has_no_high_fu(xml):
+def test_a_hand_with_less_than_50_fu_or_more_than_4_han_has_no_high_fu(xml):
     hand = only_hand(xml)
 
     assert hand["quarantineReasons"] == []

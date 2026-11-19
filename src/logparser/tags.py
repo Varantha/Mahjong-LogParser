@@ -23,6 +23,9 @@ YAKU_LOSING_A_HAN_WHEN_OPEN = frozenset({"sanshoku-doujun", "ittsu", "chanta", "
 # Yaku whose hands always score the same fu, so their fu can't be miscounted (knife-edge-fu).
 FIXED_FU_YAKU = frozenset({"chiitoitsu", "pinfu"})
 
+# At 5 han a hand is mangan or more whatever its fu, so high-fu goes only to hands with this many han or fewer.
+HIGH_FU_MOST_HAN = 4
+
 # A dora indicator names the next tile of its kind as dora. These indicators wrap round to the first.
 WRAPAROUND_DORA = {"9m": "1m", "9p": "1p", "9s": "1s", "4z": "1z", "7z": "5z"}  # North names East, Chun names Haku
 
@@ -31,7 +34,7 @@ WRAPAROUND_DORA = {"9m": "1m", "9p": "1p", "9s": "1s", "4z": "1z", "7z": "5z"}  
 class TagSettings:
     """The thresholds of the tags that can be tuned."""
 
-    high_fu: int = 50  # the fewest fu after rounding a hand with high-fu has
+    high_fu: int = 50  # the fewest fu after rounding a hand with high-fu has (it also has 4 han or fewer)
 
 
 def _kuisagari(hand: dict, settings: TagSettings) -> bool:
@@ -66,8 +69,10 @@ def _fu_mangan(hand: dict, settings: TagSettings) -> bool:
 
 
 def _high_fu(hand: dict, settings: TagSettings) -> bool:
-    """The hand's fu after rounding reach the high-fu threshold."""
-    return hand["plainValues"]["fu"] >= settings.high_fu
+    """The hand's fu after rounding reach the high-fu threshold, and it has 4 han or fewer, so the fu still
+    decide its points."""
+    plain = hand["plainValues"]
+    return plain["fu"] >= settings.high_fu and plain["han"] <= HIGH_FU_MOST_HAN
 
 
 def _knife_edge_fu(hand: dict, settings: TagSettings) -> bool:

@@ -51,7 +51,8 @@ key = "tricky-waits"
 target = 500
 pool = { tags = "ambiguous-wait" }
 
-# Hands with 50 fu or more, as ingest's high-fu threshold sets it.
+# Hands with 50 fu or more, as ingest's high-fu threshold sets it, and 4 han or fewer,
+# so the fu still decide the points.
 # Skill: large fu from kans and honour triplets.
 [[drill]]
 key = "high-fu"
