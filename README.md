@@ -14,7 +14,7 @@ Database dumps ───── import-dump ───┼─► Log store ──(s
 <logId>.xml files ── add-logs ──────┘
 ```
 
-**Log store.** The unparsed Tenhou logs, one `<logId>.xml` file per game, exactly as Tenhou serves it. A log ID such as `2012060420gm-0009-10011-acfd4b57` names one game, and Tenhou's replay viewer plays it at `https://tenhou.net/0/?log=<logId>`. That ID is the example game in Tenhou's manual; its [replay link](https://tenhou.net/0/?log=2012060420gm-0009-10011-acfd4b57) has not been checked to still play. Three commands fill the log store: `download` fetches Phoenix-room games from Tenhou, `import-dump` reads an existing database dump, and `add-logs` adds log files you already have.
+**Log store.** The unparsed Tenhou logs, one `<logId>.xml` file per game, exactly as Tenhou serves it. A log ID such as `2012060420gm-0009-10011-acfd4b57` names one game, and Tenhou's replay viewer plays it at `https://tenhou.net/0/?log=<logId>`. That ID is the example game in Tenhou's manual, and its [replay link](https://tenhou.net/0/?log=2012060420gm-0009-10011-acfd4b57) still plays. Three commands fill the log store: `download` fetches Phoenix-room games from Tenhou, `import-dump` reads an existing database dump, and `add-logs` adds log files you already have.
 
 **Stage 1: ingest** parses every win in the log store into a hand and keeps it in the hand store. Only 4-player games with open tanyao and red fives are taken; sanma and other rulesets are skipped. Each hand records:
 
