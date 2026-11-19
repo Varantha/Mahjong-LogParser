@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 from jsonschema import Draft202012Validator
 
-from logparser.drills import Drill, Filter
+from logparser.drills import Conditions, Drill
 from logparser.export import export_bundle
 from logparser.hand_store import HandStore
 from logparser.ingest import ingest
@@ -279,7 +279,7 @@ def test_quarantined_hands_player_names_and_replay_links_never_reach_the_bundle(
 
 def test_export_builds_each_drill_in_the_catalogue_from_the_hand_store_storing_a_hand_in_several_drills_once(
         payments_hand_store, tmp_path):
-    drills = [Drill(key="everything", target=500), Drill(key="payments", target=500, pool=Filter({"tsumo": True}))]
+    drills = [Drill(key="everything", target=500), Drill(key="payments", target=500, pool=Conditions({"tsumo": True}))]
 
     manifest = export_bundle(payments_hand_store, tmp_path / "bundle", drills, built_at=BUILT_AT).manifest
 
@@ -292,10 +292,10 @@ def test_export_builds_each_drill_in_the_catalogue_from_the_hand_store_storing_a
 
 
 def test_export_says_which_drills_the_hand_store_leaves_short_and_by_how_much(payments_hand_store, tmp_path):
-    drills = [Drill(key="everything", target=2), Drill(key="payments", target=500, pool=Filter({"tsumo": True}))]
+    drills = [Drill(key="everything", target=2), Drill(key="payments", target=500, pool=Conditions({"tsumo": True}))]
 
     # No hand has 5 honba, so the trap part of this drill is made up from the rest of its pool.
-    made_up = Drill(key="made-up", target=1, trap=Filter({"honba": 5}), lookalikes=0.0)
+    made_up = Drill(key="made-up", target=1, trap=Conditions({"honba": 5}), lookalikes=0.0)
 
     export = export_bundle(payments_hand_store, tmp_path / "bundle", [*drills, made_up], built_at=BUILT_AT)
 

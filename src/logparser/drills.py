@@ -31,21 +31,21 @@ class CatalogueError(ValueError):
 
 
 @dataclass(frozen=True)
-class Filter:
-    """Hands whose plain values and tags meet every condition.
+class Conditions:
+    """Conditions on a hand's plain values and tags. A hand meets them when it meets every one.
 
     A condition names a plain value, or `tags`, and gives one value or a list of them. A hand
     meets it when its value is one of them; for yaku, call types and tags, which hold several
     values, when it holds any of them.
     """
 
-    conditions: dict = field(default_factory=dict)
+    wanted: dict = field(default_factory=dict)  # by plain value name or `tags`: the value or values wanted
 
-    def matches(self, hand: dict) -> bool:
-        return all(_holds(_value(hand, name), wanted) for name, wanted in self.conditions.items())
+    def met_by(self, hand: dict) -> bool:
+        return all(_holds(_value(hand, name), wanted) for name, wanted in self.wanted.items())
 
     def __str__(self) -> str:
-        return ", ".join(f"{name} = {'/'.join(map(str, _listed(wanted)))}" for name, wanted in self.conditions.items())
+        return ", ".join(f"{name} = {'/'.join(map(str, _listed(wanted)))}" for name, wanted in self.wanted.items())
 
 
 def _listed(wanted) -> list:
@@ -78,7 +78,7 @@ class Quota:
     than in real games."""
 
     share: float
-    where: Filter
+    where: Conditions
 
 
 @dataclass(frozen=True)
@@ -92,8 +92,8 @@ class Drill:
 
     key: str
     target: int
-    pool: Filter = Filter()
-    trap: Filter | None = None
+    pool: Conditions = Conditions()
+    trap: Conditions | None = None
     lookalikes: float = DEFAULT_LOOKALIKE_SHARE
     quotas: tuple[Quota, ...] = ()
 
@@ -101,13 +101,13 @@ class Drill:
         pool, trap = self.pool, self.trap
         if trap is None:
             quotas = [Part(str(quota.where), round(self.target * quota.share),
-                           lambda hand, where=quota.where: pool.matches(hand) and where.matches(hand))
+                           lambda hand, where=quota.where: pool.met_by(hand) and where.met_by(hand))
                       for quota in self.quotas]
-            return [*quotas, Part("pool", self.target - sum(quota.wanted for quota in quotas), pool.matches)]
+            return [*quotas, Part("pool", self.target - sum(quota.wanted for quota in quotas), pool.met_by)]
         lookalikes = round(self.target * self.lookalikes)
         return [
-            Part("trap hands", self.target - lookalikes, lambda hand: pool.matches(hand) and trap.matches(hand)),
-            Part("lookalikes", lookalikes, lambda hand: pool.matches(hand) and not trap.matches(hand)),
+            Part("trap hands", self.target - lookalikes, lambda hand: pool.met_by(hand) and trap.met_by(hand)),
+            Part("lookalikes", lookalikes, lambda hand: pool.met_by(hand) and not trap.met_by(hand)),
         ]
 
 
@@ -154,7 +154,7 @@ def _drill(entry: dict) -> Drill:
     def refuse(problem: str) -> CatalogueError:
         return CatalogueError(f"drill {key!r}: {problem}")
 
-    def conditions(where: dict, *, trap: bool = False) -> Filter:
+    def conditions(where: dict, *, trap: bool = False) -> Conditions:
         for name, wanted in where.items():
             if name not in PLAIN_VALUE_NAMES and name != "tags":
                 raise refuse(f"{name} is neither a plain value nor tags")
@@ -163,7 +163,7 @@ def _drill(entry: dict) -> Drill:
             if name == "tags" and not (trap and lookalikes > 0) and (
                     giveaways := [tag for tag in _listed(wanted) if tag in TAGS_GIVING_THE_ANSWER_AWAY]):
                 raise refuse(f"{giveaways[0]} gives the answer away, so it can only be a trap, with lookalikes")
-        return Filter(where)
+        return Conditions(where)
 
     if unknown := sorted(set(entry) - DRILL_FIELDS):
         raise refuse(f"unknown field {', '.join(unknown)}")
@@ -206,7 +206,7 @@ def draw_drills(catalogue: list[Drill], hands: Iterable[dict], *, seed: int = 0)
             if len(taken) < part.wanted:
                 shortfalls.append(Shortfall(part.name, part.wanted, len(taken)))
         # Together the parts take the whole pool, so the pool hands left are the other parts' hands.
-        hand_ids += _take(drill.target - len(hand_ids), drill.pool.matches, hands, hand_ids, rng)
+        hand_ids += _take(drill.target - len(hand_ids), drill.pool.met_by, hands, hand_ids, rng)
         drawn.append(DrawnDrill(drill.key, drill.target, sorted(hand_ids), shortfalls))
     return drawn
 

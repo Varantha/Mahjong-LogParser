@@ -320,7 +320,7 @@ def test_a_tag_that_gives_the_answer_away_can_be_the_trap_of_a_drill_that_mixes_
         lookalikes = 0.3
     """)
 
-    assert (drill.trap.conditions, drill.lookalikes) == ({"tags": "fu-mangan"}, 0.3)
+    assert (drill.trap.wanted, drill.lookalikes) == ({"tags": "fu-mangan"}, 0.3)
 
 
 def test_a_catalogue_with_two_drills_under_one_key_is_refused(tmp_path):
