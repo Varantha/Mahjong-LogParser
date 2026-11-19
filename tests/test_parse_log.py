@@ -1,7 +1,20 @@
 """Reading hands out of a single Tenhou log (stage 1, one log at a time)."""
 
+import pytest
+
 from logparser.tenhou import parse_log
-from tenhou_xml import CLOSED_HAND, agari, game, ids, init
+from tenhou_xml import (
+    CLOSED_HAND,
+    NO_AKA_HANCHAN,
+    NO_KUITAN_HANCHAN,
+    PHOENIX_EAST_ONLY,
+    PHOENIX_HANCHAN,
+    SANMA_HANCHAN,
+    agari,
+    game,
+    ids,
+    init,
+)
 
 LOG_ID = "2024010112gm-00a9-0000-0123abcd"
 
@@ -15,6 +28,24 @@ def only_hand(xml: str) -> dict:
 def win(who: int = 1, from_who: int = 0) -> str:
     """A riichi ron with the shared closed hand."""
     return agari(who=who, from_who=from_who, hai=CLOSED_HAND, machi=84, ten="40,1300,0", yaku="1,1,53,0", ura="40")
+
+
+@pytest.mark.parametrize("game_type", [PHOENIX_HANCHAN, PHOENIX_EAST_ONLY], ids=["hanchan", "east-only"])
+def test_four_player_kuitan_aka_games_are_taken(game_type):
+    parsed = parse_log(LOG_ID, game(init(), win(), game_type=game_type))
+
+    assert (parsed.skipped, len(parsed.hands)) == (None, 1)
+
+
+@pytest.mark.parametrize(
+    ("game_type", "reason"),
+    [(SANMA_HANCHAN, "sanma"), (NO_AKA_HANCHAN, "ruleset"), (NO_KUITAN_HANCHAN, "ruleset")],
+    ids=["sanma", "no-red-fives", "no-open-tanyao"],
+)
+def test_other_games_are_skipped_without_hands(game_type, reason):
+    parsed = parse_log(LOG_ID, game(init(), win(), game_type=game_type))
+
+    assert (parsed.skipped, parsed.hands) == (reason, [])
 
 
 def test_hand_ids_count_rounds_from_zero_and_a_repeated_round_is_a_new_round():
@@ -130,6 +161,34 @@ def test_each_yakuman_in_the_answer_key_counts_13_han():
         "fu": 40,
         "points": 64000,
     }
+
+
+def test_a_hand_that_passes_every_check_is_verified():
+    assert only_hand(game(init(), win()))["quarantineReasons"] == []
+
+
+def test_a_closed_hand_without_14_tiles_is_quarantined_for_its_tile_total():
+    thirteen_tiles = ids(0, 4, 8, 48, 53, 56, 76, 80, 84, 96, 100, 104, 108)
+    xml = game(init(), agari(who=1, from_who=0, hai=thirteen_tiles, machi=84, ten="30,1000,0", yaku="7,1"))
+
+    assert only_hand(xml)["quarantineReasons"] == ["tile-total"]
+
+
+def test_a_hand_with_calls_is_quarantined_until_calls_are_supported():
+    # 123m 456p 11z concealed plus a pon of 7s (m=40426, made up) and a chi.
+    hai = ids(0, 4, 8, 48, 53, 56, 108, 109)
+    xml = game(init(), agari(who=1, from_who=0, hai=hai, m="40426,52279", machi=56, ten="30,1000,0", yaku="8,1"))
+
+    assert only_hand(xml)["quarantineReasons"] == ["calls-not-supported"]
+
+
+def test_a_yaku_without_a_contract_key_quarantines_the_hand():
+    # Tenhou ID 36 (renhou) is not part of Tenhou's rules and has no contract key.
+    xml = game(init(), agari(who=1, from_who=0, hai=CLOSED_HAND, machi=84, ten="30,8000,1", yaku="36,5"))
+
+    hand = only_hand(xml)
+
+    assert (hand["quarantineReasons"], hand["answerKey"]["yaku"]) == (["unknown-yaku"], [])
 
 
 def test_concealed_tiles_are_written_in_mpsz_with_man_first():
