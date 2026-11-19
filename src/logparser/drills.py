@@ -4,7 +4,9 @@ The drill catalogue (drills.toml) is configuration, so drills can be added or re
 without code changes (see docs/adr/0001). A drill names its pool: the hands it may take,
 described by their plain values and tags. It may mix lookalikes in with its trap hands, or
 keep quotas for rarer pool hands. Each part of a drill draws on the newest year of logs
-first and reaches back only while it is short; a drill is never shrunk to fit.
+first and reaches back only while it is short. A drill is never shrunk to fit: a part that
+every year together leaves short is made up from the drill's other parts, so the drill falls
+short only when its whole pool does.
 """
 
 import random
@@ -111,7 +113,8 @@ class Drill:
 
 @dataclass(frozen=True)
 class Shortfall:
-    """A part of a drill that every year of logs together could not fill."""
+    """A part of a drill that every year of logs together could not fill. The drill's other parts made up
+    what they could of the difference."""
 
     part: str
     wanted: int
@@ -121,8 +124,8 @@ class Shortfall:
 @dataclass(frozen=True)
 class DrawnDrill:
     """A drill's hands. A drill is never shrunk to fit the hand store: when every year of logs together
-    still holds too few hands for a part of it, it keeps its target, the other parts don't make up the
-    difference, and it falls short by that much."""
+    still holds too few hands for a part of it, it keeps its target and its other parts make up the
+    difference, newest year first. Only when its whole pool is too small does it fall short, by that much."""
 
     key: str
     target: int
@@ -198,14 +201,24 @@ def draw_drills(catalogue: list[Drill], hands: Iterable[dict], *, seed: int = 0)
         rng = random.Random(f"{seed}/{drill.key}")
         hand_ids, shortfalls = [], []
         for part in drill.parts():
-            taken_already = set(hand_ids)
-            candidates = [hand["id"] for hand in hands if hand["id"] not in taken_already and part.takes(hand)]
-            taken = _newest_first(candidates, part.wanted, rng)
+            taken = _take(part.wanted, part.takes, hands, hand_ids, rng)
             hand_ids += taken
             if len(taken) < part.wanted:
                 shortfalls.append(Shortfall(part.name, part.wanted, len(taken)))
+        # Together the parts take the whole pool, so the pool hands left are the other parts' hands.
+        hand_ids += _take(drill.target - len(hand_ids), drill.pool.matches, hands, hand_ids, rng)
         drawn.append(DrawnDrill(drill.key, drill.target, sorted(hand_ids), shortfalls))
     return drawn
+
+
+def _take(wanted: int, takes: Callable[[dict], bool], hands: list[dict], taken_already: list[str],
+          rng: random.Random) -> list[str]:
+    """Draws up to `wanted` of the hands that `takes` accepts and the drill hasn't taken already."""
+    if wanted <= 0:
+        return []
+    taken_already = set(taken_already)
+    return _newest_first([hand["id"] for hand in hands if hand["id"] not in taken_already and takes(hand)],
+                         wanted, rng)
 
 
 def _newest_first(hand_ids: list[str], wanted: int, rng: random.Random) -> list[str]:

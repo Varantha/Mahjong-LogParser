@@ -125,15 +125,15 @@ The catalogue holds every drill in the drill table, each aiming for 500 hands:
 | `payments` | Tsumo hands | |
 | `rare-situations` | Hands with haitei, houtei, rinshan, chankan or double riichi | A fifth for each of the five; ippatsu is left out |
 
-A drill draws on the newest year of logs first and reaches back a year at a time only while it is short. A drill is never shrunk to fit: when every year in the hand store together still leaves it short, export lists it after the summary line, with how many hands it has, how many it is short, and which part of the drill ran out:
+A drill draws on the newest year of logs first and reaches back a year at a time only while it is short. A drill is never shrunk to fit. When every year in the hand store together still leaves one part of a drill short, such as its quota of sanbaiman and above, the drill's other parts make up the difference, newest year first. A drill falls short of its target only when its whole pool does. Export lists each drill with a part that ran out after the summary line, with how many hands the drill has and how many each short part found. For example, on a small hand store:
 
 ```
 Short of hands, even drawing on every year of logs in the hand store:
-  big-hands: 422 of 500 hands, 78 short (limitTier = sanbaiman/kazoe-yakuman/yakuman: 22 of 100)
-  rare-situations: 325 of 500 hands, 175 short (yaku = rinshan: 67 of 100; yaku = chankan: 4 of 100; yaku = double-riichi: 54 of 100)
+  big-hands: 500 of 500 hands, made up from its other parts (limitTier = sanbaiman/kazoe-yakuman/yakuman: 80 of 100)
+  rare-situations: 460 of 500 hands, 40 short (yaku = chankan: 30 of 100; yaku = double-riichi: 90 of 100)
 ```
 
-That is export on the logs of about 3,000 Phoenix games, which hold only 22 hands at sanbaiman or above, 4 with chankan, 54 with double riichi and 67 with rinshan. A year of Phoenix games, about 200,000 of them, should fill both drills.
+The rare drills need the logs of many games: sanbaiman and above, chankan and double riichi are a small share of all hands. A year of Phoenix games, about 200,000 of them, should leave no part of these drills short.
 
 ### Where data lives
 

@@ -293,9 +293,13 @@ def test_export_builds_each_drill_in_the_catalogue_from_the_hand_store_storing_a
 def test_export_says_which_drills_the_hand_store_leaves_short_and_by_how_much(payments_hand_store, tmp_path):
     drills = [Drill(key="everything", target=2), Drill(key="payments", target=500, pool=Filter({"tsumo": True}))]
 
-    export = export_bundle(payments_hand_store, tmp_path / "bundle", drills, built_at=BUILT_AT)
+    # No hand has 5 honba, so the trap part of this drill is made up from the rest of its pool.
+    made_up = Drill(key="made-up", target=1, trap=Filter({"honba": 5}), lookalikes=0.0)
 
-    assert [(drill.key, drill.target, drill.short_by) for drill in export.short_drills] == [("payments", 500, 498)]
+    export = export_bundle(payments_hand_store, tmp_path / "bundle", [*drills, made_up], built_at=BUILT_AT)
+
+    assert [(drill.key, drill.target, drill.short_by) for drill in export.drills_with_a_short_part] == [
+        ("payments", 500, 498), ("made-up", 1, 0)]
 
 
 def test_a_drill_takes_no_more_hands_than_it_aims_for(hand_store, tmp_path):

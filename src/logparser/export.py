@@ -34,9 +34,10 @@ class ExportSummary:
     drills: list[DrawnDrill]
 
     @property
-    def short_drills(self) -> list[DrawnDrill]:
-        """The drills that every year of logs in the hand store together could not fill."""
-        return [drill for drill in self.drills if drill.short_by]
+    def drills_with_a_short_part(self) -> list[DrawnDrill]:
+        """The drills with a part that every year of logs in the hand store together could not fill. Such a
+        drill is made up from its other parts, and is short only when the whole pool is."""
+        return [drill for drill in self.drills if drill.shortfalls]
 
 
 def export_bundle(hands: HandStore, folder: Path, catalogue: list[Drill], *,

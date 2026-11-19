@@ -136,11 +136,12 @@ def _export(args) -> None:
     manifest = summary.manifest
     drills = ", ".join(f"{key} {count}" for key, count in manifest["counts"]["drills"].items())
     print(f"Wrote {manifest['counts']['hands']} hands in {len(manifest['chunks'])} chunks to {args.bundle} ({drills})")
-    if summary.short_drills:
+    if summary.drills_with_a_short_part:
         print("Short of hands, even drawing on every year of logs in the hand store:")
-    for drill in summary.short_drills:
-        # A drill drawn in one part is short by that part alone; otherwise name the parts that ran out.
+    for drill in summary.drills_with_a_short_part:
+        # A short drill drawn in one part is short by that part alone; otherwise name the parts that ran out.
         parts = "; ".join(f"{short.part}: {short.found} of {short.wanted}"
-                          for short in drill.shortfalls if short.wanted != drill.target)
-        print(f"  {drill.key}: {len(drill.hand_ids)} of {drill.target} hands, {drill.short_by} short"
+                          for short in drill.shortfalls if not (drill.short_by and short.wanted == drill.target))
+        how_short = f"{drill.short_by} short" if drill.short_by else "made up from its other parts"
+        print(f"  {drill.key}: {len(drill.hand_ids)} of {drill.target} hands, {how_short}"
               + (f" ({parts})" if parts else ""))
