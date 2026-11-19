@@ -1,0 +1,29 @@
+[project]
+name = "mahjong-logparser"
+version = "2.0.0.dev0"
+description = "Turns Tenhou game logs into verified hands and builds the Scoring Trainer's trainer bundle."
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "jsonschema>=4.23",
+    "mahjong==2.2.0",
+]
+
+[project.scripts]
+logparser = "logparser.cli:main"
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3",
+]
+
+[build-system]
+requires = ["uv_build>=0.11,<0.12"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-name = "logparser"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra"

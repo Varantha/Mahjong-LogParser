@@ -1,0 +1,138 @@
+# The drill catalogue: the drills the trainer bundle holds (see docs/adr/0001).
+#
+# Export builds each drill by searching the whole hand store, newest year of logs
+# first. A drill short of hands draws on older years. A drill is never shrunk to fit:
+# if every year together is still short of hands for one share of it, its other
+# shares make up the difference, and export says which share ran short.
+#
+# Each drill has:
+#   key     stable string key; the trainer translates it into a display name
+#   target  how many hands the drill aims for
+#   pool    the hands it may take, as conditions on plain values and tags (below).
+#           Without a pool it may take any verified hand, drawn at random, so each
+#           kind of hand turns up at its real-game frequency.
+#
+# A condition names a plain value (han, fu, rawFu, limitTier, dealer, tsumo, open,
+# yaku, doraCount, honba, riichiSticks, callTypes) or `tags`, and gives one value or
+# a list of them. A hand meets it when its value is one of them; for yaku, callTypes
+# and tags, when it holds any of them. A hand must meet every condition.
+#
+#   pool = { tsumo = true, dealer = true }
+#   pool = { limitTier = ["sanbaiman", "yakuman"] }
+#   pool = { tags = "kuisagari" }
+#
+# A drill may also mix its pool in one of two ways:
+#   trap        conditions for the pool hands with the trap. A share of the drill
+#   lookalikes  goes to lookalikes, pool hands without the trap, so the drill doesn't
+#               give the answer away: 0.5 (about half) unless `lookalikes` says
+#               otherwise. A tag that gives the answer away (open-pinfu-shape,
+#               fu-mangan) never gets a drill of its own: it can only be a trap, and
+#               its drill mixes in lookalikes.
+#   quotas      a list of { share = ..., where = { conditions } }: each keeps its share
+#               of the drill for the pool hands that also meet `where`, so they turn up
+#               more often than in real games. The rest is drawn from the whole pool.
+# Each share (the trap hands, the lookalikes, each quota and the rest) draws on older
+# years on its own. A share that every year together leaves short is made up from the
+# other shares' pool hands, newest year first; only a drill whose whole pool is short
+# falls short.
+
+# Random hands at their real-game frequency. Skill: general scoring.
+[[drill]]
+key = "everything"
+target = 500
+
+# Hands whose points change with raw fu 2 higher or lower. Skill: careful fu counting.
+[[drill]]
+key = "fu-rounding-edge"
+target = 500
+pool = { tags = "knife-edge-fu" }
+
+# Hands whose tiles split into sets and a pair in more than one way, at different fu,
+# counting only the splits that have a yaku.
+# Skill: choosing the highest-scoring way to split the tiles.
+[[drill]]
+key = "tricky-waits"
+target = 500
+pool = { tags = "ambiguous-wait" }
+
+# Hands with 50 fu or more, as ingest's high-fu threshold sets it, and 4 han or fewer,
+# so the fu still decide the points.
+# Skill: large fu from kans and honour triplets.
+[[drill]]
+key = "high-fu"
+target = 500
+pool = { tags = "high-fu" }
+
+# Open hands with 4 han or fewer. About half have the open pinfu shape: raw fu 20, scored
+# as 30. That tag gives the fu away, so the rest are open lookalikes with other raw fu.
+# Skill: open hands with 20 fu round up to 30.
+[[drill]]
+key = "open-hand-fu"
+target = 500
+pool = { open = true, han = [1, 2, 3, 4] }
+trap = { tags = "open-pinfu-shape" }
+lookalikes = 0.5
+
+# Hands with 3 or 4 han. About half reach mangan because of their fu (3 han with 70 fu or
+# more, 4 han with 40 or more). That tag gives the points away, so the rest are lookalikes
+# that stay below mangan. Skill: when fu push 3-4 han to mangan.
+[[drill]]
+key = "mangan-or-not"
+target = 500
+pool = { han = [3, 4] }
+trap = { tags = "fu-mangan" }
+lookalikes = 0.5
+
+# Hands with a yaku worth 1 han less when open; the closed ones are the lookalikes.
+# Skill: the han lost when the hand is open.
+[[drill]]
+key = "open-hand-han"
+target = 500
+pool = { yaku = ["sanshoku-doujun", "ittsu", "chanta", "junchan", "honitsu", "chinitsu"] }
+trap = { open = true }
+lookalikes = 0.5
+
+# Hands holding dora that the dora indicators (kan dora included) name; a hand whose only
+# dora are red fives or ura dora isn't taken. About half hold the dora of an indicator that
+# wraps round (9 names 1, North names East, Chun names Haku); the rest are lookalikes.
+# Skill: reading dora indicators.
+[[drill]]
+key = "hidden-dora"
+target = 500
+pool = { yaku = "dora" }
+trap = { tags = "wraparound-dora" }
+lookalikes = 0.5
+
+# Haneman and above. Sanbaiman, kazoe yakuman and yakuman are about 1 in 100 of these
+# hands in real games; here they make up a fifth of the drill. They are about 1 in 1,200
+# of all hands, so this drill needs the logs of many more games than most.
+# Skill: han counting for big hands, limit tiers.
+[[drill]]
+key = "big-hands"
+target = 500
+pool = { limitTier = ["haneman", "baiman", "sanbaiman", "kazoe-yakuman", "yakuman"] }
+quotas = [{ share = 0.2, where = { limitTier = ["sanbaiman", "kazoe-yakuman", "yakuman"] } }]
+
+# Tsumo hands, dealer and non-dealer, at their real-game frequency: about 3 in 10 are
+# the dealer's and about a third have honba. Skill: payment splits.
+[[drill]]
+key = "payments"
+target = 500
+pool = { tsumo = true }
+
+# Hands with haitei, houtei, rinshan, chankan or double riichi, a fifth of the drill each
+# rather than at their real-game frequency. Chankan is the rarest by far, about 1 in 7,000
+# hands, so this drill needs the logs of many more games than most. Ippatsu is left out:
+# it is common and dull, and its hands still turn up in other drills with the situation
+# shown. Skill: situational yaku.
+[[drill]]
+key = "rare-situations"
+target = 500
+pool = { yaku = ["haitei", "houtei", "rinshan", "chankan", "double-riichi"] }
+quotas = [
+    { share = 0.2, where = { yaku = "haitei" } },
+    { share = 0.2, where = { yaku = "houtei" } },
+    { share = 0.2, where = { yaku = "rinshan" } },
+    { share = 0.2, where = { yaku = "chankan" } },
+    { share = 0.2, where = { yaku = "double-riichi" } },
+]

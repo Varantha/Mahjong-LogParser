@@ -3,3 +3,11 @@ output
 input
 
 *.db
+.scratch/
+local/
+.venv/
+.pytest_cache/
+
+# Local agent-skill configuration
+CLAUDE.md
+docs/agents/

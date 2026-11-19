@@ -1,0 +1,379 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Trainer bundle",
+  "description": "The contract between LogParser and the Scoring Trainer. A trainer bundle is manifest.json plus hand chunk files; every file in it validates against this schema. A breaking change bumps the major schemaVersion; an additive one, such as a new field, bumps the minor.",
+  "oneOf": [
+    { "$ref": "#/$defs/manifest" },
+    { "$ref": "#/$defs/handChunk" }
+  ],
+  "$defs": {
+    "schemaVersion": { "const": "1.1.0" },
+
+    "manifest": {
+      "description": "manifest.json: what the bundle holds and where its hands are.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schemaVersion", "build", "counts", "chunks", "drills"],
+      "properties": {
+        "schemaVersion": { "$ref": "#/$defs/schemaVersion" },
+        "build": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["builtAt", "generator", "seed"],
+          "properties": {
+            "builtAt": { "type": "string", "format": "date-time" },
+            "generator": { "description": "The LogParser package and version that built the bundle.", "type": "string" },
+            "seed": { "description": "Seed of the random draws, so a build can be repeated.", "type": "integer" }
+          }
+        },
+        "counts": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["hands", "drills", "tags", "limitTiers"],
+          "properties": {
+            "hands": { "description": "Hands in the bundle, each counted once.", "type": "integer", "minimum": 0 },
+            "drills": {
+              "description": "Hands per drill, by drill key.",
+              "type": "object",
+              "propertyNames": { "$ref": "#/$defs/key" },
+              "additionalProperties": { "type": "integer", "minimum": 0 }
+            },
+            "tags": {
+              "description": "Hands in the bundle with each tag, by tag key. Every tag is listed, with 0 when no hand has it.",
+              "type": "object",
+              "propertyNames": { "$ref": "#/$defs/tagKey" },
+              "additionalProperties": { "type": "integer", "minimum": 0 }
+            },
+            "limitTiers": {
+              "description": "Hands in the bundle at each limit tier, by limit tier. Every tier is listed, with 0 when no hand reaches it.",
+              "type": "object",
+              "propertyNames": { "$ref": "#/$defs/limitTier" },
+              "additionalProperties": { "type": "integer", "minimum": 0 }
+            }
+          }
+        },
+        "chunks": {
+          "description": "The hand chunk files, relative to manifest.json.",
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "type": "string", "pattern": "^hands-[0-9]{3,}\\.json$" }
+        },
+        "drills": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/drill" }
+        }
+      }
+    },
+
+    "drill": {
+      "description": "A drill's key (the trainer translates it) and the IDs of its hands.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["key", "handIds"],
+      "properties": {
+        "key": { "$ref": "#/$defs/key" },
+        "handIds": { "type": "array", "uniqueItems": true, "items": { "$ref": "#/$defs/handId" } }
+      }
+    },
+
+    "handChunk": {
+      "description": "One hand chunk file. Each hand in the bundle appears in exactly one chunk.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schemaVersion", "hands"],
+      "properties": {
+        "schemaVersion": { "$ref": "#/$defs/schemaVersion" },
+        "hands": { "type": "array", "items": { "$ref": "#/$defs/hand" } }
+      }
+    },
+
+    "hand": {
+      "description": "One scorable win: its tiles, its situation, its answer key, its plain values and its tags.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "situation", "tiles", "answerKey", "plainValues", "tags"],
+      "properties": {
+        "id": { "$ref": "#/$defs/handId" },
+        "situation": { "$ref": "#/$defs/situation" },
+        "tiles": { "$ref": "#/$defs/tiles" },
+        "answerKey": { "$ref": "#/$defs/answerKey" },
+        "plainValues": { "$ref": "#/$defs/plainValues" },
+        "tags": {
+          "description": "The hand's tags; empty when it has none. Players never see them before answering; the trainer may show them afterwards, as the lesson.",
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/tagKey" }
+        }
+      }
+    },
+
+    "handId": {
+      "description": "<logId>/<roundIndex>/<winIndex>.",
+      "type": "string",
+      "pattern": "^[0-9]{10}gm-[0-9a-f]{4}-[0-9a-f]{4,5}-[0-9a-f]{8}/[0-9]+/[01]$"
+    },
+
+    "situation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["roundWind", "seatWind", "dealer", "honba", "riichiSticks", "secondWinner", "tsumo", "riichi", "doubleRiichi", "ippatsu", "lastTile", "rinshan", "chankan", "firstDraw"],
+      "properties": {
+        "roundWind": { "$ref": "#/$defs/wind" },
+        "seatWind": { "$ref": "#/$defs/wind" },
+        "dealer": { "type": "boolean" },
+        "honba": { "type": "integer", "minimum": 0 },
+        "riichiSticks": { "description": "Riichi sticks on the table when the hand wins.", "type": "integer", "minimum": 0 },
+        "secondWinner": {
+          "description": "True when the hand is the second winner of a double ron. The first winner, the next in turn after the discarder, collects the honba and riichi sticks on the table, so this hand's honbaBonus and riichiSticksCollected are 0 even though honba show on the table. Added in 1.1.0.",
+          "type": "boolean"
+        },
+        "tsumo": { "description": "True for a win by tsumo, false for ron.", "type": "boolean" },
+        "riichi": { "description": "True when the hand wins in riichi, double riichi included.", "type": "boolean" },
+        "doubleRiichi": {
+          "description": "True when the hand's riichi was declared with its first discard of the round, before any call (closed kans included).",
+          "type": "boolean"
+        },
+        "ippatsu": {
+          "description": "True when the hand wins in its ippatsu window: after its riichi is accepted, before its next discard and before any call (closed kans included). Robbing an added kan is still in the window.",
+          "type": "boolean"
+        },
+        "lastTile": {
+          "description": "True when the hand wins on the live wall's last tile: its draw by tsumo (haitei) or the discard after it by ron (houtei). A draw from the dead wall after a kan and a robbed kan are never the last tile.",
+          "type": "boolean"
+        },
+        "rinshan": {
+          "description": "True when the hand wins by tsumo on the tile drawn from the dead wall after its own kan.",
+          "type": "boolean"
+        },
+        "chankan": {
+          "description": "True when the hand wins by ron on the tile another player adds to an added kan, robbing the kan.",
+          "type": "boolean"
+        },
+        "firstDraw": {
+          "description": "True when the hand wins by tsumo on its first draw of the round, before any call (closed kans included): tenhou for the dealer, chiihou for the others.",
+          "type": "boolean"
+        }
+      }
+    },
+
+    "wind": { "enum": ["east", "south", "west", "north"] },
+
+    "tiles": {
+      "description": "Tiles in mpsz notation: m, p, s for the suits, z for honours (1z East ... 7z Chun), 0 for a red five.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["concealed", "calls", "winningTile", "doraIndicators", "uraDoraIndicators"],
+      "properties": {
+        "concealed": { "description": "The tiles not part of any call, winning tile included.", "$ref": "#/$defs/tileGroup" },
+        "calls": {
+          "description": "The hand's calls in the order they were made; empty when it has none. Concealed tiles plus call tiles come to 14, plus one per kan.",
+          "type": "array",
+          "maxItems": 4,
+          "items": { "$ref": "#/$defs/call" }
+        },
+        "winningTile": { "$ref": "#/$defs/tile" },
+        "doraIndicators": { "$ref": "#/$defs/tileGroup" },
+        "uraDoraIndicators": { "description": "Empty unless the hand won with riichi.", "type": "string", "pattern": "^([0-9]+[mps]|[1-7]+z)*$" }
+      }
+    },
+
+    "tileGroup": { "type": "string", "pattern": "^([0-9]+[mps]|[1-7]+z)+$" },
+
+    "tile": { "type": "string", "pattern": "^([0-9][mps]|[1-7]z)$" },
+
+    "call": {
+      "description": "One call. A hand whose only calls are closed kans is closed. Drawing the turned tile is the trainer's job.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "tiles", "calledTile", "calledFrom"],
+      "properties": {
+        "type": { "enum": ["chi", "pon", "open-kan", "closed-kan", "added-kan"] },
+        "tiles": {
+          "description": "All the call's tiles, 3 or 4 of one suit, called and added tiles included. A red five is 0.",
+          "type": "string",
+          "pattern": "^([0-9]{3,4}[mps]|[1-7]{3,4}z)$"
+        },
+        "calledTile": {
+          "description": "The tile taken from another player's discard. For an added kan, the tile its pon called. Null for a closed kan.",
+          "oneOf": [{ "$ref": "#/$defs/tile" }, { "type": "null" }]
+        },
+        "calledFrom": {
+          "description": "Whose discard the called tile was, seen from the winner: kamicha (the player before, on the left), toimen (across) or shimocha (the player after, on the right). A chi is always from kamicha. Null for a closed kan.",
+          "enum": ["kamicha", "toimen", "shimocha", null]
+        }
+      },
+      "if": { "properties": { "type": { "const": "closed-kan" } } },
+      "then": { "properties": { "calledTile": { "type": "null" }, "calledFrom": { "type": "null" } } },
+      "else": { "properties": { "calledTile": { "type": "string" }, "calledFrom": { "type": "string" } } }
+    },
+
+    "answerKey": {
+      "description": "The result Tenhou recorded for the hand, under Tenhou rules.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["yaku", "han", "fu", "rawFu", "fuBreakdown", "limitTier", "points", "payments"],
+      "properties": {
+        "yaku": {
+          "description": "Each yaku with its han. Every yakuman counts 13 han.",
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["key", "han"],
+            "properties": {
+              "key": { "$ref": "#/$defs/yakuKey" },
+              "han": { "type": "integer", "minimum": 1 }
+            }
+          }
+        },
+        "han": { "type": "integer", "minimum": 1 },
+        "fu": { "description": "Fu after rounding, as Tenhou scored it. 0 for kokushi musou.", "type": "integer", "minimum": 0 },
+        "rawFu": {
+          "description": "Fu before rounding: the sum of the fu breakdown. Fu is raw fu rounded up to the next 10, except that chiitoitsu stays at 25 and an open hand with raw fu 20 (the open pinfu shape) scores 30.",
+          "type": "integer",
+          "minimum": 0
+        },
+        "fuBreakdown": {
+          "description": "Where the raw fu come from, one entry per source; a key appears once for each set, pair or wait that earns it. Empty for kokushi musou, which has no fu.",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["key", "fu"],
+            "properties": {
+              "key": { "$ref": "#/$defs/fuKey" },
+              "fu": { "type": "integer", "minimum": 2 }
+            }
+          }
+        },
+        "limitTier": { "$ref": "#/$defs/limitTier" },
+        "points": { "description": "What the winner receives, before honba and riichi sticks.", "type": "integer", "minimum": 1000 },
+        "payments": { "$ref": "#/$defs/payments" }
+      }
+    },
+
+    "limitTier": {
+      "description": "The named payment cap the hand reaches, as Tenhou recorded it, lowest first: none below mangan. A kazoe yakuman has 13 han or more and no yakuman; a hand with one or more yakuman is a yakuman.",
+      "enum": ["none", "mangan", "haneman", "baiman", "sanbaiman", "kazoe-yakuman", "yakuman"]
+    },
+
+    "payments": {
+      "description": "Who pays the winner what, in points, as Tenhou recorded it. The base payments add up to the points; the honba bonus and the riichi sticks collected are kept apart from them.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["base", "honbaBonus", "riichiSticksCollected"],
+      "properties": {
+        "base": {
+          "description": "The base payments, split the way the trainer asks for them.",
+          "oneOf": [
+            {
+              "description": "Ron: one amount from the discarder.",
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["fromDiscarder"],
+              "properties": { "fromDiscarder": { "$ref": "#/$defs/payment" } }
+            },
+            {
+              "description": "Dealer tsumo: one amount from each player.",
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["fromEachPlayer"],
+              "properties": { "fromEachPlayer": { "$ref": "#/$defs/payment" } }
+            },
+            {
+              "description": "Non-dealer tsumo: one amount from the dealer and one from each non-dealer.",
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["fromDealer", "fromEachNonDealer"],
+              "properties": {
+                "fromDealer": { "$ref": "#/$defs/payment" },
+                "fromEachNonDealer": { "$ref": "#/$defs/payment" }
+              }
+            }
+          ]
+        },
+        "honbaBonus": {
+          "description": "The honba bonus the winner collects on top of the base payments: 300 per honba, paid by the discarder on a ron or 100 per honba by each player on a tsumo. In a double ron only the first winner collects it, so the second winner's (situation.secondWinner) is 0 even though honba are on the table.",
+          "type": "integer",
+          "minimum": 0,
+          "multipleOf": 300
+        },
+        "riichiSticksCollected": {
+          "description": "Points from the riichi sticks the winner collects, 1000 per stick. In a double ron only the first winner collects them, so the second winner's (situation.secondWinner) is 0.",
+          "type": "integer",
+          "minimum": 0,
+          "multipleOf": 1000
+        }
+      }
+    },
+
+    "payment": { "type": "integer", "minimum": 100, "multipleOf": 100 },
+
+    "plainValues": {
+      "description": "The facts drills filter on directly, gathered in one place. Each one repeats a value found elsewhere in the hand or follows from one. Plain values are never tags.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["han", "fu", "rawFu", "limitTier", "dealer", "tsumo", "open", "yaku", "doraCount", "honba", "riichiSticks", "callTypes"],
+      "properties": {
+        "han": { "description": "The answer key's han.", "type": "integer", "minimum": 1 },
+        "fu": { "description": "The answer key's fu.", "type": "integer", "minimum": 0 },
+        "rawFu": { "description": "The answer key's raw fu.", "type": "integer", "minimum": 0 },
+        "limitTier": { "$ref": "#/$defs/limitTier" },
+        "dealer": { "description": "True when the winner is the dealer.", "type": "boolean" },
+        "tsumo": { "description": "True for a win by tsumo, false for ron.", "type": "boolean" },
+        "open": { "description": "True once the hand has a call other than a closed kan.", "type": "boolean" },
+        "yaku": {
+          "description": "The keys of the answer key's yaku, in its order.",
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/yakuKey" }
+        },
+        "doraCount": {
+          "description": "The han of the dora, aka dora and ura dora Tenhou recorded. Tenhou records no dora with a yakuman, so a yakuman counts 0.",
+          "type": "integer",
+          "minimum": 0
+        },
+        "honba": { "description": "Honba on the table when the hand wins.", "type": "integer", "minimum": 0 },
+        "riichiSticks": { "description": "Riichi sticks on the table when the hand wins.", "type": "integer", "minimum": 0 },
+        "callTypes": {
+          "description": "The type of each call, in the order made; empty when the hand has none.",
+          "type": "array",
+          "maxItems": 4,
+          "items": { "enum": ["chi", "pon", "open-kan", "closed-kan", "added-kan"] }
+        }
+      }
+    },
+
+    "key": { "type": "string", "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$" },
+
+    "yakuKey": {
+      "enum": [
+        "menzen-tsumo", "riichi", "ippatsu", "chankan", "rinshan", "haitei", "houtei", "pinfu", "tanyao", "iipeikou",
+        "seat-wind-east", "seat-wind-south", "seat-wind-west", "seat-wind-north",
+        "round-wind-east", "round-wind-south", "round-wind-west", "round-wind-north",
+        "haku", "hatsu", "chun", "double-riichi", "chiitoitsu", "chanta", "ittsu", "sanshoku-doujun", "sanshoku-doukou",
+        "sankantsu", "toitoi", "sanankou", "shousangen", "honroutou", "ryanpeikou", "junchan", "honitsu", "chinitsu",
+        "tenhou", "chiihou", "daisangen", "suuankou", "suuankou-tanki", "tsuuiisou", "ryuuiisou", "chinroutou",
+        "chuuren-poutou", "junsei-chuuren-poutou", "kokushi-musou", "kokushi-musou-13-wait", "daisuushii", "shousuushii",
+        "suukantsu", "dora", "ura-dora", "aka-dora"
+      ]
+    },
+
+    "fuKey": {
+      "description": "A source of fu; the trainer turns the key into display text. base: 20 for every hand except chiitoitsu. closed-ron: 10 for winning a closed hand by ron. chiitoitsu: 25, the whole of a chiitoitsu's fu. tsumo: 2 for winning by tsumo, but not with pinfu. Kans and triplets are open or closed (a triplet completed by ron is open) and of simples (2-8) or terminals (1, 9 and honours). double-wind-pair: 4 for a pair of the wind that is both the seat and round wind. yakuhai-pair: 2 for a pair of dragons or of the seat or round wind. tanki-wait, kanchan-wait, penchan-wait: 2 for winning on a single wait, a closed wait or an edge wait.",
+      "enum": [
+        "base", "closed-ron", "chiitoitsu", "tsumo",
+        "closed-terminal-kan", "open-terminal-kan", "closed-simple-kan", "open-simple-kan",
+        "closed-terminal-triplet", "open-terminal-triplet", "closed-simple-triplet", "open-simple-triplet",
+        "double-wind-pair", "yakuhai-pair", "tanki-wait", "kanchan-wait", "penchan-wait"
+      ]
+    },
+
+    "tagKey": {
+      "description": "A tag's key. A tag is a named fact derived from a hand, often a trap a player could fall into; the trainer turns the key into display text. Plain values such as han, fu or yaku are never tags.",
+      "enum": ["kuisagari", "wraparound-dora", "ambiguous-wait", "open-pinfu-shape", "fu-mangan", "high-fu", "knife-edge-fu"]
+    }
+  }
+}
