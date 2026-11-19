@@ -12,9 +12,18 @@ from collections.abc import Callable, Iterable
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from logparser.plain_values import PLAIN_VALUE_NAMES
+from logparser.tags import TAGS
+
 CATALOGUE_PATH = Path(__file__).with_name("drills.toml")
 # The share of a drill with a trap given to lookalikes, unless the catalogue says otherwise.
 DEFAULT_LOOKALIKE_SHARE = 0.5
+DRILL_FIELDS = frozenset({"key", "target", "pool", "trap", "lookalikes", "quotas"})
+QUOTA_FIELDS = frozenset({"share", "where"})
+
+
+class CatalogueError(ValueError):
+    """The drill catalogue asks for something the drill engine cannot follow."""
 
 
 @dataclass(frozen=True)
@@ -124,19 +133,53 @@ class DrawnDrill:
 
 
 def load_catalogue(path: Path = CATALOGUE_PATH) -> list[Drill]:
+    """Reads the drill catalogue, refusing any drill the engine could not follow as written."""
     with open(path, "rb") as file:
-        entries = tomllib.load(file)["drill"]
-    return [_drill(entry) for entry in entries]
+        drills = [_drill(entry) for entry in tomllib.load(file)["drill"]]
+    keys = [drill.key for drill in drills]
+    for key in keys:
+        if keys.count(key) > 1:
+            raise CatalogueError(f"drill {key!r}: more than one drill has this key")
+    return drills
 
 
 def _drill(entry: dict) -> Drill:
+    key = entry["key"]
+
+    def refuse(problem: str) -> CatalogueError:
+        return CatalogueError(f"drill {key!r}: {problem}")
+
+    def conditions(where: dict) -> Filter:
+        for name, wanted in where.items():
+            if name not in PLAIN_VALUE_NAMES and name != "tags":
+                raise refuse(f"{name} is neither a plain value nor tags")
+            if name == "tags" and (unknown := [tag for tag in _listed(wanted) if tag not in TAGS]):
+                raise refuse(f"no tag is called {', '.join(unknown)}")
+        return Filter(where)
+
+    if unknown := sorted(set(entry) - DRILL_FIELDS):
+        raise refuse(f"unknown field {', '.join(unknown)}")
+    if "lookalikes" in entry and "trap" not in entry:
+        raise refuse("lookalikes are only mixed into a drill with a trap")
+    if "trap" in entry and "quotas" in entry:
+        raise refuse("a drill with a trap shares itself with lookalikes, so it cannot have quotas")
+    lookalikes = entry.get("lookalikes", DEFAULT_LOOKALIKE_SHARE)
+    if not 0 <= lookalikes <= 1:
+        raise refuse("lookalikes must be a share of the drill, from 0 to 1")
+    quotas = []
+    for quota in entry.get("quotas", []):
+        if unknown := sorted(set(quota) - QUOTA_FIELDS):
+            raise refuse(f"unknown quota field {', '.join(unknown)}")
+        quotas.append(Quota(quota["share"], conditions(quota["where"])))
+    if not all(0 <= quota.share for quota in quotas) or sum(quota.share for quota in quotas) > 1:
+        raise refuse("the shares of the quotas must add up to no more than the whole drill")
     return Drill(
-        key=entry["key"],
+        key=key,
         target=entry["target"],
-        pool=Filter(entry.get("pool", {})),
-        trap=Filter(entry["trap"]) if "trap" in entry else None,
-        lookalikes=entry.get("lookalikes", DEFAULT_LOOKALIKE_SHARE),
-        quotas=tuple(Quota(quota["share"], Filter(quota["where"])) for quota in entry.get("quotas", [])),
+        pool=conditions(entry.get("pool", {})),
+        trap=conditions(entry["trap"]) if "trap" in entry else None,
+        lookalikes=lookalikes,
+        quotas=tuple(quotas),
     )
 
 

@@ -6,7 +6,7 @@ of a hand a drill filters on.
 
 import pytest
 
-from logparser.drills import Shortfall, draw_drills, load_catalogue
+from logparser.drills import CatalogueError, Shortfall, draw_drills, load_catalogue
 
 
 def hand(number: int, *, year: int = 2024, tags: tuple[str, ...] = (), **plain_values) -> dict:
@@ -253,3 +253,24 @@ def test_a_quota_the_hand_store_cannot_fill_is_not_made_up_from_the_rest_of_the_
 
     assert (len(big_hands.hand_ids), yakuman["id"] in big_hands.hand_ids) == (3, True)
     assert big_hands.shortfalls == [Shortfall(part="limitTier = yakuman", wanted=2, found=1)]
+
+
+@pytest.mark.parametrize("entry, problem", [
+    ('pool = { limittier = "yakuman" }', "limittier"),
+    ('quotas = [{ share = 0.5, where = { dealr = true } }]', "dealr"),
+    ('trap = { tags = "no-such-tag" }', "no-such-tag"),
+    ('pool = { open = true }\nlookalike = 0.3', "lookalike"),
+    ('quotas = [{ share = 0.5, were = { dealer = true } }]', "were"),
+    ('trap = { open = true }\nlookalikes = 1.5', "lookalikes"),
+    ('lookalikes = 0.5', "lookalikes"),
+    ('quotas = [{ share = 0.6, where = { dealer = true } }, { share = 0.6, where = { honba = 1 } }]', "quotas"),
+    ('trap = { open = true }\nquotas = [{ share = 0.5, where = { dealer = true } }]', "quotas"),
+])
+def test_a_drill_the_engine_cannot_follow_is_refused_naming_the_drill_and_the_problem(tmp_path, entry, problem):
+    with pytest.raises(CatalogueError, match=f"'payments'.*{problem}"):
+        catalogue(tmp_path, f'[[drill]]\nkey = "payments"\ntarget = 500\n{entry}\n')
+
+
+def test_a_catalogue_with_two_drills_under_one_key_is_refused(tmp_path):
+    with pytest.raises(CatalogueError, match="'payments'"):
+        catalogue(tmp_path, '[[drill]]\nkey = "payments"\ntarget = 500\n\n[[drill]]\nkey = "payments"\ntarget = 50\n')
