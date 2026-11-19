@@ -83,7 +83,7 @@ def test_situation_of_a_non_dealer_ron():
         turns(5, first_seat=1),
         '<V30/><REACH who="2" step="1"/><F30/><REACH who="2" step="2" ten="250,250,240,250"/>',
         turns(5, first_seat=3),
-        "<T84/><D84/>",
+        "<T84/>",
         agari(who=2, from_who=0, ba="2,2", hai=CLOSED_HAND, machi=84, ten="40,1300,0", yaku="1,1,53,0", ura="40"),
     )
 
@@ -114,7 +114,6 @@ def test_situation_of_a_dealer_tsumo_without_riichi():
         turns(2, first_seat=1),
         '<W30/><REACH who="3" step="1"/><G30/><REACH who="3" step="2" ten="250,250,250,240"/>',
         turns(1),
-        "<U84/>",
         agari(who=1, from_who=1, ba="0,1", hai=CLOSED_HAND, machi=84, ten="30,1500,0", yaku="0,1,7,1", dealer=1),
     )
 
@@ -318,7 +317,8 @@ def test_red_fives_are_written_as_zero():
 def test_winning_tile_is_read_from_machi_not_from_the_previous_move():
     # The last move before the win is a discard of 9p (68) by seat 0, but
     # Tenhou's machi says the winning tile was 4s (84).
-    xml = game(init(), "<T120/><D68/>", agari(who=1, from_who=0, hai=CLOSED_HAND, machi=84, ten="40,1300,0", yaku="1,1,53,0", ura="40"))
+    xml = game(init(), "<T120/><D68/>", agari(who=1, from_who=0, hai=CLOSED_HAND, machi=84, ten="40,1300,0",
+                                              yaku="1,1,53,0", ura="40", winning_move=False))
 
     hand = only_hand(xml)
 

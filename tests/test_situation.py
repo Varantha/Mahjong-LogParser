@@ -1,5 +1,8 @@
 """A hand's situation worked out from the game's moves, and check 4 (stage 1, one log at a time).
 
+Every test spells out the moves up to its win, the winning draw or discard included, so the
+wins here are built with `winning_move=False`.
+
 Tenhou's live wall holds 70 tiles once the hands are dealt. Each kan moves one
 more tile into the dead wall, so the last tile is the live wall's 70th draw,
 less one per kan. Draws after a kan come from the dead wall and don't count.
@@ -40,12 +43,13 @@ def only_hand(xml: str) -> dict:
 
 def tsumo(who: int, yaku: str, ten: str = "20,2700,0", dealer: int = 0) -> str:
     """CLOSED_HAND won by `who` on a draw of 4s (84)."""
-    return agari(who=who, from_who=who, hai=CLOSED_HAND, machi=84, ten=ten, yaku=yaku, dealer=dealer)
+    return agari(who=who, from_who=who, hai=CLOSED_HAND, machi=84, ten=ten, yaku=yaku, dealer=dealer,
+                 winning_move=False)
 
 
 def ron(who: int, from_who: int, yaku: str, ten: str = "30,2000,0") -> str:
     """CLOSED_HAND won by `who` on a discard of 4s (84) by `from_who`."""
-    return agari(who=who, from_who=from_who, hai=CLOSED_HAND, machi=84, ten=ten, yaku=yaku)
+    return agari(who=who, from_who=from_who, hai=CLOSED_HAND, machi=84, ten=ten, yaku=yaku, winning_move=False)
 
 
 # A closed kan of East beside 123p 789p 123s and a 9s, won on the other 9s (105).
@@ -56,7 +60,7 @@ BESIDE_EAST_KAN = ids(36, 40, 44, 60, 64, 68, 72, 76, 80, 104, 105)
 def tsumo_after_east_kan(who: int, yaku: str, ten: str = "60,12000,1", dealer: int = 0) -> str:
     """A hand with EAST_KAN won by `who` on a draw of 9s (105)."""
     return agari(who=who, from_who=who, hai=BESIDE_EAST_KAN, m=m(EAST_KAN), machi=105, ten=ten, yaku=yaku,
-                 dealer=dealer)
+                 dealer=dealer, winning_move=False)
 
 
 def test_a_tsumo_on_the_live_walls_last_tile_is_on_the_last_tile():
@@ -123,7 +127,8 @@ EAST_OPEN_KAN = open_kan(108, from_seat=KAMICHA)
     ids=["closed-kan", "open-kan", "added-kan"],
 )
 def test_a_tsumo_on_the_draw_after_the_winners_own_kan_is_drawn_after_a_kan(moves, code, yaku):
-    win = agari(who=0, from_who=0, hai=BESIDE_EAST_KAN, m=m(code), machi=105, ten="60,12000,1", yaku=yaku)
+    win = agari(who=0, from_who=0, hai=BESIDE_EAST_KAN, m=m(code), machi=105, ten="60,12000,1", yaku=yaku,
+                winning_move=False)
     xml = game(init(), turns(3), moves, draw(0, 105), win)
 
     assert only_hand(xml)["situation"]["rinshan"] is True
@@ -168,6 +173,13 @@ def test_a_ron_on_the_discard_after_an_added_kan_does_not_rob_a_kan():
     assert only_hand(xml)["situation"]["chankan"] is False
 
 
+def test_a_ron_from_another_player_than_the_one_adding_to_a_kan_does_not_rob_a_kan():
+    # Seat 0 adds a 4s to its kan, but Tenhou says seat 1 dealt into seat 2.
+    xml = game(init(), turns(3), four_sou_added_kan(seat=0), ron(who=2, from_who=1, yaku="7,1", ten="30,1000,0"))
+
+    assert only_hand(xml)["situation"]["chankan"] is False
+
+
 def test_a_ron_robbing_a_kan_is_not_on_the_last_tile_even_when_the_kan_empties_the_live_wall():
     # After 69 draws seat 1's added kan moves the live wall's last tile to the dead wall.
     # Seat 3 robs the kan: chankan, pinfu.
@@ -178,7 +190,8 @@ def test_a_ron_robbing_a_kan_is_not_on_the_last_tile_even_when_the_kan_empties_t
 
 def riichi_ron(who: int, from_who: int, yaku: str, ten: str = "30,3900,0") -> str:
     """CLOSED_HAND won in riichi by `who` on a discard of 4s (84) by `from_who`, without ura dora."""
-    return agari(who=who, from_who=from_who, hai=CLOSED_HAND, machi=84, ten=ten, yaku=yaku + ",53,0", ura="40")
+    return agari(who=who, from_who=from_who, hai=CLOSED_HAND, machi=84, ten=ten, yaku=yaku + ",53,0", ura="40",
+                 winning_move=False)
 
 
 def test_a_riichi_declared_with_the_players_first_discard_is_a_double_riichi():
@@ -220,7 +233,8 @@ def test_a_riichi_declared_with_the_players_first_discard_after_a_call_is_not_a_
 
 def riichi_tsumo(who: int, yaku: str, ten: str = "20,7800,0") -> str:
     """CLOSED_HAND won in riichi by `who` on a draw of 4s (84), without ura dora."""
-    return agari(who=who, from_who=who, hai=CLOSED_HAND, machi=84, ten=ten, yaku=yaku + ",53,0", ura="40")
+    return agari(who=who, from_who=who, hai=CLOSED_HAND, machi=84, ten=ten, yaku=yaku + ",53,0", ura="40",
+                 winning_move=False)
 
 
 # Seat 0 declares riichi on its second turn; the riichi is accepted before seat 1's turn.
@@ -276,7 +290,7 @@ def test_the_winners_own_closed_kan_closes_the_ippatsu_window():
     # Seat 0 draws the fourth East after its riichi and makes a closed kan, then wins on its draw
     # from the dead wall: riichi, menzen tsumo, rinshan, seat and round wind East.
     win = agari(who=0, from_who=0, hai=BESIDE_EAST_KAN, m=m(EAST_KAN), machi=105, ten="70,18000,2",
-                yaku="1,1,0,1,4,1,10,1,14,1,53,0", ura="40")
+                yaku="1,1,0,1,4,1,10,1,14,1,53,0", ura="40", winning_move=False)
     xml = game(init(), SEAT_0_RIICHI, turns(3, first_seat=1), draw(0, 108), call(0, EAST_KAN), draw(0, 105), win)
 
     assert only_hand(xml)["situation"]["ippatsu"] is False
@@ -310,7 +324,7 @@ def test_the_draw_after_an_added_kan_closes_the_ippatsu_window():
 
 def first_draw_win(who: int, yakuman: str, ten: str) -> str:
     """CLOSED_HAND won by `who` on a draw of 4s (84), with Tenhou listing only the yakuman."""
-    return agari(who=who, from_who=who, hai=CLOSED_HAND, machi=84, ten=ten, yakuman=yakuman)
+    return agari(who=who, from_who=who, hai=CLOSED_HAND, machi=84, ten=ten, yakuman=yakuman, winning_move=False)
 
 
 @pytest.mark.parametrize(
@@ -422,7 +436,8 @@ def test_a_hand_given_a_situational_yaku_its_moves_dont_give_is_quarantined(xml)
 def test_a_yakuman_win_is_checked_only_for_tenhou_and_chiihou_because_tenhou_lists_nothing_else():
     # Seat 1 wins in its ippatsu window on the last tile, but Tenhou lists only the yakuman (suuankou).
     xml = game(init(), turns(65), draw(1, 135), riichi(1), turns(3, first_seat=2), draw(1, 84),
-               agari(who=1, from_who=1, hai=CLOSED_HAND, machi=84, ten="40,32000,5", yakuman="40", ura="40"))
+               agari(who=1, from_who=1, hai=CLOSED_HAND, machi=84, ten="40,32000,5", yakuman="40", ura="40",
+                     winning_move=False))
 
     hand = only_hand(xml)
     assert (hand["situation"]["ippatsu"], hand["situation"]["lastTile"]) == (True, True)

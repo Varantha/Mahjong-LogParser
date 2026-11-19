@@ -73,14 +73,14 @@ def double_ron(second_sc: str) -> str:
     """East 3 with 1 honba and 1 stick carried in: seat 0 deals into seat 1 (2000) and seat 3 (1000).
 
     The second winner's ba still shows the honba, but Tenhou gives the honba and the stick to the
-    first winner.
+    first winner. Both win on the same discard, so no move comes between the two wins.
     """
     return game(
         init(round_number=2, honba=1, sticks=1),
         agari(who=1, from_who=0, ba="1,1", hai=CLOSED_HAND, machi=84, ten="30,2000,0", yaku="7,1,52,1",
               sc="250,-23,250,33,250,0,240,0"),
         agari(who=3, from_who=0, ba="1,0", hai=CLOSED_HAND, machi=84, ten="30,1000,0", yaku="7,1",
-              sc=second_sc),
+              sc=second_sc, winning_move=False),
     )
 
 

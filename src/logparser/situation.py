@@ -5,8 +5,8 @@ say what situation it won in.
 
 The live wall holds 70 tiles once the hands are dealt. Each kan moves one more
 of them to the dead wall, and the player who made the kan draws their next tile
-from the dead wall. Before that draw, the tile added to an added kan can be won
-on, which robs the kan (chankan).
+from the dead wall. Before that draw, another player can win on the tile added
+to an added kan, which robs the kan (chankan).
 
 Tenhou logs a riichi in two steps: the declaration, before its discard, and
 the acceptance once nobody wins on that discard. A riichi that is declared
@@ -51,7 +51,7 @@ class RoundMoves:
         self._kans = 0
         self._dead_wall_draw_due: int | None = None  # the seat whose next draw is from the dead wall
         self._last_draw_from_dead_wall = False
-        self._added_kan_robbable = False  # the last move added a tile to a kan
+        self._robbable_kan_by: int | None = None  # the seat whose added kan was the last move
         self._called = False  # a call has been made this round, closed kans included
         self._discarded: set[int] = set()  # seats that have discarded this round
         self._riichi: set[int] = set()  # seats whose riichi was accepted
@@ -75,7 +75,7 @@ class RoundMoves:
         self._next_move()
         self._called = True
         if call_type == ADDED_KAN:
-            self._added_kan_robbable = True
+            self._robbable_kan_by = seat
         else:
             self._ippatsu.clear()
         if call_type in KANS:
@@ -92,14 +92,15 @@ class RoundMoves:
 
     def _next_move(self) -> None:
         """Nobody robbed the last added kan, so it closes every ippatsu window now."""
-        if self._added_kan_robbable:
-            self._added_kan_robbable = False
+        if self._robbable_kan_by is not None:
+            self._robbable_kan_by = None
             self._ippatsu.clear()
 
-    def situation(self, *, winner: int, tsumo: bool) -> dict:
-        """The situation flags of a win by `winner` now."""
+    def situation(self, *, winner: int, discarder: int) -> dict:
+        """The situation flags of a win by `winner` now. `discarder` is the winner on a tsumo."""
+        tsumo = winner == discarder
         rinshan = tsumo and self._last_draw_from_dead_wall
-        chankan = not tsumo and self._added_kan_robbable
+        chankan = not tsumo and self._robbable_kan_by == discarder
         riichi = winner in self._riichi
         return {
             "riichi": riichi,

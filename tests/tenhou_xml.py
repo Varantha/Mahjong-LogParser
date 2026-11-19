@@ -43,9 +43,14 @@ def init(round_number: int = 0, honba: int = 0, sticks: int = 0, oya: int | None
 def agari(*, who: int, from_who: int, hai: str, machi: int, ten: str,
           yaku: str | None = None, yakuman: str | None = None, ba: str = "0,0",
           dora: str = "130", ura: str | None = None, m: str | None = None,
-          sc: str | None = None, dealer: int = 0) -> str:
+          sc: str | None = None, dealer: int = 0, winning_move: bool = True) -> str:
     """A win. Unless `sc` is given, the recorded score changes settle `ten` and `ba` in full,
-    with `dealer` dealing (seat 0, as in the first round of `init`)."""
+    with `dealer` dealing (seat 0, as in the first round of `init`).
+
+    Unless `winning_move` is False, the win comes straight after the move that hands over its
+    winning tile: the winner's draw of `machi` on a tsumo, or the discarder's discard of it on a ron.
+    """
+    move = (draw(who, machi) if who == from_who else discard(from_who, machi)) if winning_move else ""
     if sc is None:
         sc = settlement(who=who, from_who=from_who, ten=ten, ba=ba, dealer=dealer)
     attrs = [f'ba="{ba}"', f'hai="{hai}"']
@@ -60,7 +65,22 @@ def agari(*, who: int, from_who: int, hai: str, machi: int, ten: str,
     if ura is not None:
         attrs.append(f'doraHaiUra="{ura}"')
     attrs += [f'who="{who}"', f'fromWho="{from_who}"', f'sc="{sc}"']
-    return f"<AGARI {' '.join(attrs)}/>"
+    return f"{move}<AGARI {' '.join(attrs)}/>"
+
+
+def draw(seat: int, tile_id: int) -> str:
+    """A draw: T, U, V or W for seats 0-3, then the tile ID."""
+    return f"<{'TUVW'[seat]}{tile_id}/>"
+
+
+def discard(seat: int, tile_id: int) -> str:
+    """A discard: D, E, F or G for seats 0-3, then the tile ID."""
+    return f"<{'DEFG'[seat]}{tile_id}/>"
+
+
+def call(seat: int, code: int) -> str:
+    """A call by `seat` (an N tag)."""
+    return f'<N who="{seat}" m="{code}"/>'
 
 
 def settlement(*, who: int, from_who: int, ten: str, ba: str, dealer: int) -> str:
@@ -86,24 +106,10 @@ def settlement(*, who: int, from_who: int, ten: str, ba: str, dealer: int) -> st
     return ",".join(f"250,{change // 100}" for change in changes)
 
 
-def draw(seat: int, tile_id: int) -> str:
-    """A draw: Tenhou tags draws T, U, V and W for seats 0-3."""
-    return f"<{'TUVW'[seat]}{tile_id}/>"
-
-
-def discard(seat: int, tile_id: int) -> str:
-    """A discard: Tenhou tags discards D, E, F and G for seats 0-3."""
-    return f"<{'DEFG'[seat]}{tile_id}/>"
-
-
 def turns(count: int, first_seat: int = 0, tile_id: int = 135) -> str:
     """`count` turns in seat order from `first_seat`, each a draw and a discard of the same made-up tile."""
     return "".join(draw(seat, tile_id) + discard(seat, tile_id)
                    for seat in ((first_seat + turn) % 4 for turn in range(count)))
-
-
-def call(seat: int, code: int) -> str:
-    return f'<N who="{seat}" m="{code}"/>'
 
 
 def riichi(seat: int, tile_id: int = 135) -> str:
