@@ -8,7 +8,8 @@ import re
 from collections.abc import Iterator
 from pathlib import Path
 
-# YYYYMMDDHH + "gm" + game type (hex) + lobby + hash, e.g. 2023010102gm-00a9-0000-bc5e3f88.
+# YYYYMMDDHH + "gm" + game type (hex) + lobby + hash, e.g. 2012060420gm-0009-10011-acfd4b57, the example
+# game in Tenhou's manual.
 LOG_ID = re.compile(r"\d{10}gm-[0-9a-f]{4}-[0-9a-f]{4,5}-[0-9a-f]{8}")
 
 
