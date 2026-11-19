@@ -5,30 +5,15 @@ bz2-compressed log XML. Every dump here is built inside the test from
 hand-written logs.
 """
 
-import bz2
-import sqlite3
-
 import pytest
 
+from dumps import compressed, make_dump
 from logparser.dump_import import import_dump
 from logparser.log_store import LogStore
 from tenhou_xml import closed_win, game, init
 
 LOG_A = "2024010112gm-00a9-0000-0123abcd"
 LOG_B = "2024010113gm-00a1-0000-89abcdef"
-
-
-def make_dump(path, rows):
-    """Writes a dump holding `rows` of (log_id, log_content) as given."""
-    with sqlite3.connect(path) as dump:
-        dump.execute("CREATE TABLE logs(log_id TEXT PRIMARY KEY, log_content BLOB)")
-        dump.executemany("INSERT INTO logs VALUES (?, ?)", rows)
-    dump.close()
-    return path
-
-
-def compressed(xml_text):
-    return bz2.compress(xml_text.encode("utf-8"))
 
 
 def test_every_log_in_a_dump_is_kept_in_the_log_store_under_its_log_id(tmp_path):
