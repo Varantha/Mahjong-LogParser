@@ -1,0 +1,37 @@
+"""Tags: named facts derived from a hand, often a trap a player could fall into.
+
+A hand's tags are a list of stable string keys owned by the trainer bundle
+contract. Players never see them before answering; the trainer may show them
+afterwards, as the lesson. Plain values such as han, fu or yaku are never tags:
+drills filter on those directly.
+
+Each tag is worked out from the hand record alone. To add one, write a
+function that takes a hand record and says whether the hand has the tag, list
+it in TAGS under its key, and add the key to the schema's `tagKey` enum.
+"""
+
+from logparser.calls import CLOSED_KAN
+
+# Yaku worth 1 han less when the hand is open (kuisagari).
+YAKU_LOSING_A_HAN_WHEN_OPEN = frozenset({"sanshoku-doujun", "ittsu", "chanta", "junchan", "honitsu", "chinitsu"})
+
+
+def _kuisagari(hand: dict) -> bool:
+    """The hand is open and has a yaku worth 1 han less because it is open."""
+    return _is_open(hand) and any(yaku["key"] in YAKU_LOSING_A_HAN_WHEN_OPEN for yaku in hand["answerKey"]["yaku"])
+
+
+def _is_open(hand: dict) -> bool:
+    """A hand is open once it has a call other than a closed kan."""
+    return any(call["type"] != CLOSED_KAN for call in hand["tiles"]["calls"])
+
+
+# Every tag, by key, in the order a hand lists them.
+TAGS = {
+    "kuisagari": _kuisagari,
+}
+
+
+def hand_tags(hand: dict) -> list[str]:
+    """The keys of the tags the hand record has."""
+    return [key for key, has_tag in TAGS.items() if has_tag(hand)]
