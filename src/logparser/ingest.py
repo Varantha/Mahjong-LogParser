@@ -3,8 +3,22 @@
 Given a reports folder, each ingest also writes its ingest report there, in a
 folder of its own named after the time it ran:
 
-    report.json   the logs read and skipped, the hands parsed, verified and
-                  quarantined, and the quarantined hands' IDs by reason code
+    report.json   the logs read and skipped; the hands parsed, verified,
+                  quarantined and changed; the quarantined hands' IDs by reason
+                  code; and the verified hands with each tag and at each limit tier
+    diff.jsonl    one line per hand whose answer key, plain values or tags
+                  changed since the previous run, by hand ID
+
+The previous run is what the hand store holds: before ingest replaces a log's
+hands, it compares them with the ones stored. A hand new to the hand store is
+not a change, so the first run's diff is empty. A diff line looks like
+
+    {"id": "<logId>/0/0",
+     "answerKey": {"fu": {"before": 40, "after": 30}},
+     "plainValues": {"fu": {"before": 40, "after": 30}},
+     "tags": {"added": ["kuisagari"], "removed": []}}
+
+holding only the parts that changed; a value one side lacks is null there.
 
 Ingest reads only local files: it never uses the network.
 """
@@ -31,6 +45,7 @@ class IngestSummary:
     skipped: dict[str, int] = field(default_factory=dict)  # logs not taken, by reason
     hands: int = 0
     quarantined: int = 0
+    changed: int = 0  # hands whose answer key, plain values or tags changed since the previous run
     report_folder: Path | None = None  # where this run's ingest report is, if it wrote one
 
 
@@ -46,7 +61,8 @@ def ingest(logs: LogStore, hands: HandStore, reports: Path | None = None, *,
     limit_tiers = Counter()  # verified hands, by limit tier
     if reports is not None:
         summary.report_folder = _new_folder(Path(reports), ingested_at.strftime("%Y%m%dT%H%M%SZ"))
-    with (summary.report_folder / "diff.jsonl").open("w", encoding="utf-8") if reports is not None else nullcontext() as diff:
+    diff_path = None if summary.report_folder is None else summary.report_folder / "diff.jsonl"
+    with diff_path.open("w", encoding="utf-8") if diff_path else nullcontext() as diff:
         for log_id in logs.log_ids():
             parsed = parse_log(log_id, logs.read(log_id))
             previous = {hand["id"]: hand for hand in hands.log_hands(log_id)}
@@ -63,8 +79,10 @@ def ingest(logs: LogStore, hands: HandStore, reports: Path | None = None, *,
                     tags.update(hand["tags"])
                     limit_tiers[hand["plainValues"]["limitTier"]] += 1
                 change = _change(previous.get(hand["id"]), hand)
-                if change and diff:
-                    diff.write(json.dumps(change) + "\n")
+                if change:
+                    summary.changed += 1
+                    if diff:
+                        diff.write(json.dumps(change) + "\n")
     summary.skipped = dict(skipped)
     if reports is not None:
         report = {
@@ -72,7 +90,7 @@ def ingest(logs: LogStore, hands: HandStore, reports: Path | None = None, *,
             "generator": f"mahjong-logparser {version('mahjong-logparser')}",
             "logs": {"read": summary.logs, "skipped": dict(sorted(skipped.items()))},
             "hands": {"parsed": summary.hands, "verified": summary.hands - summary.quarantined,
-                      "quarantined": summary.quarantined},
+                      "quarantined": summary.quarantined, "changed": summary.changed},
             "quarantined": dict(sorted(quarantined.items())),
             "verified": {"tags": {tag: tags[tag] for tag in TAGS},
                          "limitTiers": {tier: limit_tiers[tier] for tier in LIMIT_TIERS}},

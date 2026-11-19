@@ -88,7 +88,7 @@ def test_the_report_gives_the_hands_parsed_and_the_quarantined_hands_grouped_by_
         summary = ingest(logs, hands, tmp_path / "reports")
 
     assert report(summary)["logs"] == {"read": 2, "skipped": {"sanma": 1}}
-    assert report(summary)["hands"] == {"parsed": 3, "verified": 1, "quarantined": 2}
+    assert report(summary)["hands"] == {"parsed": 3, "verified": 1, "quarantined": 2, "changed": 0}
     assert report(summary)["quarantined"] == {"payments": [f"{PHOENIX_LOG}/2/0"], "tile-total": [f"{PHOENIX_LOG}/1/0"]}
 
 
@@ -163,6 +163,7 @@ def test_the_diff_lists_by_hand_id_the_hands_that_changed_since_the_previous_run
 
     assert [change["id"] for change in diff(summary)] == [f"{PHOENIX_LOG}/0/0"]
     assert diff(summary)[0]["tags"] == {"added": ["kuisagari"], "removed": []}
+    assert summary.changed == report(summary)["hands"]["changed"] == 1
 
 
 def test_the_diff_gives_each_changed_value_of_the_answer_key_and_plain_values_before_and_after(tmp_path):
