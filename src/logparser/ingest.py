@@ -50,7 +50,10 @@ from logparser.tenhou import parse_log
 
 
 @dataclass
-class IngestSummary:
+class IngestResult:
+    """What one ingest did, counted for the command's output. The ingest report, when written, is in
+    `report_folder`."""
+
     logs: int = 0
     skipped: dict[str, int] = field(default_factory=dict)  # logs not taken, by reason
     hands: int = 0
@@ -61,19 +64,19 @@ class IngestSummary:
 
 
 def ingest(logs: LogStore, hands: HandStore, reports: Path | None = None, *,
-           ingested_at: datetime | None = None, tag_settings: TagSettings = TagSettings()) -> IngestSummary:
+           ingested_at: datetime | None = None, tag_settings: TagSettings = TagSettings()) -> IngestResult:
     """Parses every log in the log store into the hand store, replacing the hands each log gave
     before, and tags each hand under `tag_settings`. Drops the hands of any log no longer in the
     log store. With `reports`, writes this run's ingest report into a new folder there."""
     ingested_at = (ingested_at or datetime.now(timezone.utc)).astimezone(timezone.utc)
-    summary = IngestSummary()
+    result = IngestResult()
     skipped = Counter()
     quarantined = defaultdict(list)  # hand IDs, by reason code
     tags = Counter()  # verified hands, by tag
     limit_tiers = Counter()  # verified hands, by limit tier
     if reports is not None:
-        summary.report_folder = _new_folder(Path(reports), ingested_at.strftime("%Y%m%dT%H%M%SZ"))
-    diff_path = None if summary.report_folder is None else summary.report_folder / "diff.jsonl"
+        result.report_folder = _new_folder(Path(reports), ingested_at.strftime("%Y%m%dT%H%M%SZ"))
+    diff_path = None if result.report_folder is None else result.report_folder / "diff.jsonl"
     with diff_path.open("w", encoding="utf-8") if diff_path else nullcontext() as diff:
 
         def note(line: dict) -> None:
@@ -81,7 +84,7 @@ def ingest(logs: LogStore, hands: HandStore, reports: Path | None = None, *,
                 diff.write(json.dumps(line) + "\n")
 
         def removed(hand_ids: list[str]) -> None:
-            summary.removed += len(hand_ids)
+            result.removed += len(hand_ids)
             for hand_id in hand_ids:
                 note({"id": hand_id, "removed": True})
 
@@ -91,12 +94,12 @@ def ingest(logs: LogStore, hands: HandStore, reports: Path | None = None, *,
             parsed = parse_log(log_id, logs.read(log_id), tag_settings)
             previous = {hand["id"]: hand for hand in hands.log_hands(log_id)}
             hands.replace_log(log_id, parsed.hands)
-            summary.logs += 1
+            result.logs += 1
             if parsed.skipped:
                 skipped[parsed.skipped] += 1
-            summary.hands += len(parsed.hands)
+            result.hands += len(parsed.hands)
             for hand in parsed.hands:
-                summary.quarantined += bool(hand["quarantineReasons"])
+                result.quarantined += bool(hand["quarantineReasons"])
                 for reason in hand["quarantineReasons"]:
                     quarantined[reason].append(hand["id"])
                 if not hand["quarantineReasons"]:
@@ -104,26 +107,26 @@ def ingest(logs: LogStore, hands: HandStore, reports: Path | None = None, *,
                     limit_tiers[hand["plainValues"]["limitTier"]] += 1
                 change = _change(previous.pop(hand["id"], None), hand)
                 if change:
-                    summary.changed += 1
+                    result.changed += 1
                     note(change)
             removed(sorted(previous))  # stored hands the log no longer gives
         for log_id in sorted(gone):
             removed([hand["id"] for hand in hands.log_hands(log_id)])
             hands.replace_log(log_id, [])
-    summary.skipped = dict(skipped)
+    result.skipped = dict(skipped)
     if reports is not None:
         report = {
             "ingestedAt": ingested_at.strftime("%Y-%m-%dT%H:%M:%SZ"),
             "generator": f"mahjong-logparser {version('mahjong-logparser')}",
-            "logs": {"read": summary.logs, "skipped": dict(sorted(skipped.items()))},
-            "hands": {"parsed": summary.hands, "verified": summary.hands - summary.quarantined,
-                      "quarantined": summary.quarantined, "changed": summary.changed, "removed": summary.removed},
+            "logs": {"read": result.logs, "skipped": dict(sorted(skipped.items()))},
+            "hands": {"parsed": result.hands, "verified": result.hands - result.quarantined,
+                      "quarantined": result.quarantined, "changed": result.changed, "removed": result.removed},
             "quarantined": dict(sorted(quarantined.items())),
             "verified": {"tags": {tag: tags[tag] for tag in TAGS},
                          "limitTiers": {tier: limit_tiers[tier] for tier in LIMIT_TIERS}},
         }
-        (summary.report_folder / "report.json").write_text(json.dumps(report, indent=2), encoding="utf-8")
-    return summary
+        (result.report_folder / "report.json").write_text(json.dumps(report, indent=2), encoding="utf-8")
+    return result
 
 
 def _change(previous: dict | None, hand: dict) -> dict | None:

@@ -119,15 +119,15 @@ def _seconds(value: str) -> float:
 
 def _ingest(args) -> None:
     with HandStore(args.hand_store) as hands:
-        summary = ingest(LogStore(args.log_store), hands, args.reports, tag_settings=TagSettings(high_fu=args.high_fu))
-    skipped = sum(summary.skipped.values())
-    reasons = ", ".join(f"{count} {reason}" for reason, count in sorted(summary.skipped.items()))
+        result = ingest(LogStore(args.log_store), hands, args.reports, tag_settings=TagSettings(high_fu=args.high_fu))
+    skipped = sum(result.skipped.values())
+    reasons = ", ".join(f"{count} {reason}" for reason, count in sorted(result.skipped.items()))
     print(
-        f"{summary.logs} logs ({skipped} skipped{': ' + reasons if reasons else ''}), "
-        f"{summary.hands} hands ({summary.hands - summary.quarantined} verified, {summary.quarantined} quarantined)"
+        f"{result.logs} logs ({skipped} skipped{': ' + reasons if reasons else ''}), "
+        f"{result.hands} hands ({result.hands - result.quarantined} verified, {result.quarantined} quarantined)"
     )
-    print(f"Wrote the ingest report to {summary.report_folder} "
-          f"({summary.changed} hands changed and {summary.removed} removed since the previous run)")
+    print(f"Wrote the ingest report to {result.report_folder} "
+          f"({result.changed} hands changed and {result.removed} removed since the previous run)")
 
 
 def _export(args) -> None:
