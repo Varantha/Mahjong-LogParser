@@ -4,7 +4,9 @@ Every win (AGARI) in a taken game becomes a hand record, a JSON-ready dict:
 
     id                 <logId>/<roundIndex>/<winIndex>
     replayUrl          Tenhou replay of the round from the winner's seat (hand store only)
-    situation          winds, dealer, honba, riichi sticks, tsumo, riichi
+    situation          winds, dealer, honba, riichi sticks and tsumo, plus riichi, double riichi,
+                       ippatsu, last tile, rinshan, chankan and first draw, worked out from the
+                       round's moves (see `logparser.situation`)
     tiles              concealed tiles, calls, winning tile and dora indicators, in mpsz.
                        Each call is {type, tiles, calledTile, calledFrom}, in the order made.
     answerKey          Tenhou's recorded yaku (contract keys), han, fu, points and payments
