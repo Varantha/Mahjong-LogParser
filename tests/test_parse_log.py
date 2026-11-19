@@ -12,6 +12,126 @@ def only_hand(xml: str) -> dict:
     return hands[0]
 
 
+def win(who: int = 1, from_who: int = 0) -> str:
+    """A riichi ron with the shared closed hand."""
+    return agari(who=who, from_who=from_who, hai=CLOSED_HAND, machi=84, ten="40,1300,0", yaku="1,1,53,0", ura="40")
+
+
+def test_hand_ids_count_rounds_from_zero_and_a_repeated_round_is_a_new_round():
+    xml = game(
+        init(round_number=0), "<RYUUKYOKU/>",
+        init(round_number=0, honba=1), win(who=2),          # East 1 repeated with 1 honba
+        init(round_number=1), win(who=3), win(who=1),        # double ron
+    )
+
+    hand_ids = [hand["id"] for hand in parse_log(LOG_ID, xml).hands]
+
+    assert hand_ids == [f"{LOG_ID}/1/0", f"{LOG_ID}/2/0", f"{LOG_ID}/2/1"]
+
+
+def test_each_hand_records_a_replay_link_to_its_round_from_the_winners_seat():
+    xml = game(init(round_number=0), "<RYUUKYOKU/>", init(round_number=1), win(who=2))
+
+    hand = only_hand(xml)
+
+    assert hand["replayUrl"] == f"https://tenhou.net/0/?log={LOG_ID}&ts=1&tw=2"
+
+
+def test_situation_of_a_non_dealer_ron():
+    # East 2 (seat 1 deals), 2 honba, 1 stick carried in; seat 2 declares riichi and rons seat 0.
+    xml = game(
+        init(round_number=1, honba=2, sticks=1, oya=1),
+        '<REACH who="2" step="1"/><F30/><REACH who="2" step="2" ten="250,250,240,250"/>',
+        agari(who=2, from_who=0, ba="2,2", hai=CLOSED_HAND, machi=84, ten="40,1300,0", yaku="1,1,53,0", ura="40"),
+    )
+
+    situation = only_hand(xml)["situation"]
+
+    assert situation == {
+        "roundWind": "east",
+        "seatWind": "south",
+        "dealer": False,
+        "honba": 2,
+        "riichiSticks": 2,
+        "tsumo": False,
+        "riichi": True,
+    }
+
+
+def test_situation_of_a_dealer_tsumo_without_riichi():
+    # South 2 (round number 5): seat 1 deals and wins by tsumo; seat 3 is the one in riichi.
+    xml = game(
+        init(round_number=5, oya=1),
+        '<REACH who="3" step="1"/><G30/><REACH who="3" step="2" ten="250,250,250,240"/>',
+        agari(who=1, from_who=1, ba="0,1", hai=CLOSED_HAND, machi=84, ten="30,1500,0", yaku="0,1,7,1"),
+    )
+
+    situation = only_hand(xml)["situation"]
+
+    assert situation == {
+        "roundWind": "south",
+        "seatWind": "east",
+        "dealer": True,
+        "honba": 0,
+        "riichiSticks": 1,
+        "tsumo": True,
+        "riichi": False,
+    }
+
+
+def test_riichi_is_taken_from_the_moves_of_the_winners_own_round():
+    # Seat 1 was in riichi in the first round only; in the second it wins without riichi.
+    xml = game(
+        init(round_number=0), '<REACH who="1" step="1"/><E30/><REACH who="1" step="2"/>', "<RYUUKYOKU/>",
+        init(round_number=0, honba=1), '<REACH who="1" step="1"/>',
+        agari(who=1, from_who=0, hai=CLOSED_HAND, machi=84, ten="30,1000,0", yaku="7,1"),
+    )
+
+    assert only_hand(xml)["situation"]["riichi"] is False
+
+
+def test_answer_key_holds_tenhous_yaku_as_contract_keys_with_han_fu_and_points():
+    # Riichi 1, pinfu 1, dora 2, aka dora 1, and Tenhou's "ura dora 0" entry.
+    xml = game(init(), agari(who=1, from_who=0, hai=CLOSED_HAND, machi=84, ten="30,8000,1",
+                             yaku="1,1,7,1,52,2,54,1,53,0", ura="40"))
+
+    answer_key = only_hand(xml)["answerKey"]
+
+    assert answer_key == {
+        "yaku": [
+            {"key": "riichi", "han": 1},
+            {"key": "pinfu", "han": 1},
+            {"key": "dora", "han": 2},
+            {"key": "aka-dora", "han": 1},
+        ],
+        "han": 5,
+        "fu": 30,
+        "points": 8000,
+    }
+
+
+def test_seat_wind_and_round_wind_yaku_have_their_own_keys():
+    xml = game(init(), agari(who=0, from_who=0, hai=CLOSED_HAND, machi=84, ten="40,3900,0", yaku="0,1,10,1,14,1"))
+
+    yaku = [y["key"] for y in only_hand(xml)["answerKey"]["yaku"]]
+
+    assert yaku == ["menzen-tsumo", "seat-wind-east", "round-wind-east"]
+
+
+def test_each_yakuman_in_the_answer_key_counts_13_han():
+    # Tsuuiisou plus daisangen, a double yakuman: Tenhou lists only the yakuman.
+    xml = game(init(), agari(who=1, from_who=0, hai=CLOSED_HAND, machi=84, ten="40,64000,5", yakuman="42,39"))
+
+    answer_key = only_hand(xml)["answerKey"]
+
+    assert answer_key == {
+        "yaku": [{"key": "tsuuiisou", "han": 13}, {"key": "daisangen", "han": 13}],
+        "han": 26,
+        "fu": 40,
+        "points": 64000,
+    }
+
+
 def test_concealed_tiles_are_written_in_mpsz_with_man_first():
     xml = game(
         init(),
