@@ -76,10 +76,11 @@ class DownloadSummary:
 
 
 class Downloader:
-    def __init__(self, log_store: LogStore, state: Path, *, http_get: HttpGet, interval: float = DEFAULT_INTERVAL,
-                 clock: Callable[[], float] = time.time, sleep: Callable[[float], None] = time.sleep):
+    def __init__(self, log_store: LogStore, state: Path, *, http_get: HttpGet | None = None,
+                 interval: float = DEFAULT_INTERVAL, clock: Callable[[], float] = time.time,
+                 sleep: Callable[[float], None] = time.sleep):
         self._log_store = log_store
-        self._http_get = http_get
+        self._http_get = http_get or urllib_get
         self._interval = interval
         self._clock = clock
         self._sleep = sleep
