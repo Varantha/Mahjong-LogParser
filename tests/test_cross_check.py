@@ -61,6 +61,7 @@ def test_a_hand_the_library_scores_as_tenhou_did_is_verified_with_its_fu_breakdo
         pytest.param("30,2000,0", "7,1,52,1", id="han-and-points"),  # a dora the hand doesn't hold
         pytest.param("40,1300,0", "7,1", id="fu-and-points"),
         pytest.param("30,1500,0", "7,1", id="points"),
+        pytest.param("30,1000,1", "7,1", id="limit-tier"),  # mangan
     ],
 )
 def test_a_hand_the_library_scores_differently_from_tenhou_is_quarantined_without_a_fu_breakdown(ten, yaku):

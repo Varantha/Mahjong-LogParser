@@ -6,8 +6,8 @@ kiriage, and the double forms of yakuman (suuankou tanki, junsei chuuren poutou,
 musou with a 13-sided wait, daisuushii) worth a single yakuman.
 
 The library's own vocabulary stays in this module. Its yaku come out under the contract's yaku
-keys, by way of Tenhou's yaku IDs, and its fu reasons under the contract's fu keys (FU_KEYS).
-Its fu reasons are turned into the fu a player counts:
+keys, by way of Tenhou's yaku IDs, its limits as limit tiers, and its fu reasons under the
+contract's fu keys (FU_KEYS). Its fu reasons are turned into the fu a player counts:
 
     base 30 (closed ron)   base 20 and closed-ron 10
     base 25 (chiitoitsu)   chiitoitsu 25
@@ -89,6 +89,19 @@ _FU_REASON_KEYS = {
 }
 
 
+# The library's names for its limits, by limit tier. Two or more yakuman at once are still the
+# yakuman tier. The library names a kazoe yakuman a yakuman too.
+_LIMIT_TIERS = {
+    "": "none",
+    "mangan": "mangan",
+    "haneman": "haneman",
+    "baiman": "baiman",
+    "sanbaiman": "sanbaiman",
+    "yakuman": "yakuman",
+    **{f"{count}x yakuman": "yakuman" for count in range(2, 7)},
+}
+
+
 @dataclass(frozen=True)
 class Recalculation:
     """The library's score for a hand, in the answer key's terms."""
@@ -96,6 +109,7 @@ class Recalculation:
     yaku: list[dict]  # [{key, han}], every yakuman 13 han
     han: int
     fu: int
+    limit_tier: str | None  # None for a limit no limit tier names
     points: int  # before honba and riichi sticks
     raw_fu: int  # fu before rounding: the fu breakdown's sum
     fu_breakdown: list[dict]  # [{key, fu}] under the contract's fu keys, in FU_KEYS order
@@ -124,6 +138,7 @@ def recalculate(*, concealed: list[int], calls: list[Call], winning_tile: int, d
         yaku=[{"key": _yaku_key(y), "han": _han(y, open_hand=result.is_open_hand)} for y in result.yaku],
         han=result.han,
         fu=result.fu,
+        limit_tier=_limit_tier(result.cost["yaku_level"], yakuman=any(y.is_yakuman for y in result.yaku)),
         points=result.cost["main"] + 2 * result.cost["additional"],
         raw_fu=sum(item["fu"] for item in fu_breakdown),
         fu_breakdown=fu_breakdown,
@@ -155,6 +170,14 @@ def _meld(call: Call) -> Meld:
 def _yaku_key(yaku) -> str | None:
     """The yaku's contract key, by way of its Tenhou ID; None for a yaku Tenhou's rules don't have."""
     return TENHOU_YAKU_KEYS.get(YAKU_ID_TO_TENHOU_ID.get(yaku.yaku_id))
+
+
+def _limit_tier(yaku_level: str, *, yakuman: bool) -> str | None:
+    """The limit tier of the library's limit; a yakuman's limit reached without a yakuman is a kazoe yakuman."""
+    tier = _LIMIT_TIERS.get(yaku_level)
+    if tier == "yakuman" and not yakuman:
+        return "kazoe-yakuman"
+    return tier
 
 
 def _han(yaku, *, open_hand: bool) -> int:

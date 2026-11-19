@@ -112,10 +112,10 @@ def _situation_agrees(situation: dict, yaku: list[str]) -> bool:
 
 
 def _recalculation_matches(recalculation: Recalculation, answer_key: dict) -> bool:
-    """Check 6: the library's yaku, each with its han, and its han, fu and points are the answer key's."""
+    """Check 6: the library's yaku, each with its han, and its han, fu, limit tier and points are the answer key's."""
     return _yaku_with_han(recalculation.yaku) == _yaku_with_han(answer_key["yaku"]) and (
-        (recalculation.han, recalculation.fu, recalculation.points)
-        == (answer_key["han"], answer_key["fu"], answer_key["points"]))
+        (recalculation.han, recalculation.fu, recalculation.limit_tier, recalculation.points)
+        == (answer_key["han"], answer_key["fu"], answer_key["limitTier"], answer_key["points"]))
 
 
 def _yaku_with_han(yaku: list[dict]) -> Counter:
