@@ -20,6 +20,8 @@ from logparser.plain_values import PLAIN_VALUE_NAMES
 from logparser.tags import TAGS, TAGS_GIVING_THE_ANSWER_AWAY
 
 CATALOGUE_PATH = Path(__file__).with_name("drills.toml")
+TAGS_CONDITION = "tags"  # the name of a condition on a hand's tags
+CONDITION_NAMES = frozenset({*PLAIN_VALUE_NAMES, TAGS_CONDITION})
 # The share of a drill with a trap given to lookalikes, unless the catalogue says otherwise.
 DEFAULT_LOOKALIKE_SHARE = 0.5
 DRILL_FIELDS = frozenset({"key", "target", "pool", "trap", "lookalikes", "quotas"})
@@ -41,19 +43,21 @@ class Conditions:
 
     wanted: dict = field(default_factory=dict)  # by plain value name or `tags`: the value or values wanted
 
-    def met_by(self, hand: dict) -> bool:
-        return all(_holds(_value(hand, name), wanted) for name, wanted in self.wanted.items())
+    def met_by(self, values: dict) -> bool:
+        """Whether a hand with these `values` (see _condition_values) meets every condition."""
+        return all(_holds(values[name], wanted) for name, wanted in self.wanted.items())
 
     def __str__(self) -> str:
         return ", ".join(f"{name} = {'/'.join(map(str, _listed(wanted)))}" for name, wanted in self.wanted.items())
 
 
+def _condition_values(hand: dict) -> dict:
+    """What conditions read of a hand record: each plain value, and its tags, by name."""
+    return {**hand["plainValues"], TAGS_CONDITION: hand["tags"]}
+
+
 def _listed(wanted) -> list:
     return wanted if isinstance(wanted, list) else [wanted]
-
-
-def _value(hand: dict, name: str):
-    return hand["tags"] if name == "tags" else hand["plainValues"][name]
 
 
 def _holds(value, wanted) -> bool:
@@ -69,7 +73,7 @@ class Part:
 
     name: str
     wanted: int
-    takes: Callable[[dict], bool]
+    takes: Callable[[dict], bool]  # given a hand's condition values
 
 
 @dataclass(frozen=True)
@@ -154,16 +158,17 @@ def _drill(entry: dict) -> Drill:
     def refuse(problem: str) -> CatalogueError:
         return CatalogueError(f"drill {key!r}: {problem}")
 
-    def conditions(where: dict, *, trap: bool = False) -> Conditions:
-        for name, wanted in where.items():
-            if name not in PLAIN_VALUE_NAMES and name != "tags":
+    def check_conditions(where: dict, *, trap: bool = False) -> None:
+        """Refuses a condition on anything but a plain value or tags, and a tag that gives the answer away
+        anywhere but in the trap of a drill that mixes in lookalikes."""
+        for name in where:
+            if name not in CONDITION_NAMES:
                 raise refuse(f"{name} is neither a plain value nor tags")
-            if name == "tags" and (unknown := [tag for tag in _listed(wanted) if tag not in TAGS]):
-                raise refuse(f"no tag is called {', '.join(unknown)}")
-            if name == "tags" and not (trap and lookalikes > 0) and (
-                    giveaways := [tag for tag in _listed(wanted) if tag in TAGS_GIVING_THE_ANSWER_AWAY]):
-                raise refuse(f"{giveaways[0]} gives the answer away, so it can only be a trap, with lookalikes")
-        return Conditions(where)
+        tags = _listed(where.get(TAGS_CONDITION, []))
+        if unknown_tags := [tag for tag in tags if tag not in TAGS]:
+            raise refuse(f"no tag is called {', '.join(unknown_tags)}")
+        if not (trap and lookalikes > 0) and (giveaways := [tag for tag in tags if tag in TAGS_GIVING_THE_ANSWER_AWAY]):
+            raise refuse(f"{giveaways[0]} gives the answer away, so it can only be a trap, with lookalikes")
 
     if unknown := sorted(set(entry) - DRILL_FIELDS):
         raise refuse(f"unknown field {', '.join(unknown)}")
@@ -174,28 +179,32 @@ def _drill(entry: dict) -> Drill:
     lookalikes = entry.get("lookalikes", DEFAULT_LOOKALIKE_SHARE)
     if not 0 <= lookalikes <= 1:
         raise refuse("lookalikes must be a share of the drill, from 0 to 1")
-    quotas = []
-    for quota in entry.get("quotas", []):
+    quotas = entry.get("quotas", [])
+    for quota in quotas:
         if unknown := sorted(set(quota) - QUOTA_FIELDS):
             raise refuse(f"unknown quota field {', '.join(unknown)}")
-        quotas.append(Quota(quota["share"], conditions(quota["where"])))
-    if not all(0 <= quota.share for quota in quotas) or sum(quota.share for quota in quotas) > 1:
+        check_conditions(quota["where"])
+    if not all(0 <= quota["share"] for quota in quotas) or sum(quota["share"] for quota in quotas) > 1:
         raise refuse("each of the quotas must have a share from 0 to 1, together no more than the whole drill")
+    pool, trap = entry.get("pool", {}), entry.get("trap")
+    check_conditions(pool)
+    if trap is not None:
+        check_conditions(trap, trap=True)
     return Drill(
         key=key,
         target=entry["target"],
-        pool=conditions(entry.get("pool", {})),
-        trap=conditions(entry["trap"], trap=True) if "trap" in entry else None,
+        pool=Conditions(pool),
+        trap=None if trap is None else Conditions(trap),
         lookalikes=lookalikes,
-        quotas=tuple(quotas),
+        quotas=tuple(Quota(quota["share"], Conditions(quota["where"])) for quota in quotas),
     )
 
 
 def draw_drills(catalogue: list[Drill], hands: Iterable[dict], *, seed: int = 0) -> list[DrawnDrill]:
     """Draws each part of each drill at random from the hands it may take. Each drill has its own random
     draw, seeded by `seed` and its key, so adding a drill to the catalogue never changes another's hands."""
-    # Only a hand's ID, plain values and tags matter to a drill, so whole hand records aren't kept.
-    hands = [{"id": hand["id"], "plainValues": hand["plainValues"], "tags": hand["tags"]} for hand in hands]
+    # Only a hand's ID and what its conditions read matter to a drill, so whole hand records aren't kept.
+    hands = [(hand["id"], _condition_values(hand)) for hand in hands]
     drawn = []
     for drill in catalogue:
         rng = random.Random(f"{seed}/{drill.key}")
@@ -211,13 +220,14 @@ def draw_drills(catalogue: list[Drill], hands: Iterable[dict], *, seed: int = 0)
     return drawn
 
 
-def _take(wanted: int, takes: Callable[[dict], bool], hands: list[dict], taken_already: list[str],
+def _take(wanted: int, takes: Callable[[dict], bool], hands: list[tuple[str, dict]], taken_already: list[str],
           rng: random.Random) -> list[str]:
-    """Draws up to `wanted` of the hands that `takes` accepts and the drill hasn't taken already."""
+    """Draws up to `wanted` of the hands, (ID, condition values), that `takes` accepts and the drill hasn't
+    taken already."""
     if wanted <= 0:
         return []
     taken_already = set(taken_already)
-    return _newest_first([hand["id"] for hand in hands if hand["id"] not in taken_already and takes(hand)],
+    return _newest_first([hand_id for hand_id, values in hands if hand_id not in taken_already and takes(values)],
                          wanted, rng)
 
 
