@@ -11,8 +11,10 @@ from logparser.export import Drill, export_bundle, load_catalogue
 from logparser.hand_store import HandStore
 from logparser.ingest import ingest
 from logparser.log_store import LogStore
+from logparser.tags import TAGS
 from logparser.yaku import TENHOU_YAKU_KEYS
-from tenhou_xml import CLOSED_HAND, KAMICHA, added_kan, agari, called_win, closed_kan, closed_win, game, ids, init, m, short_win
+from tenhou_xml import (CLOSED_HAND, KAMICHA, added_kan, agari, called_win, chi, closed_kan, closed_win, game, ids,
+                        init, m, short_win)
 
 SCHEMA_PATH = Path(__file__).parents[1] / "src" / "logparser" / "schema" / "trainer-bundle.schema.json"
 LOG_ID = "2024010112gm-00a9-0000-0123abcd"
@@ -66,7 +68,7 @@ def test_the_manifest_lists_each_drill_with_the_ids_of_its_hands_and_counts_them
     assert manifest["build"] == {"builtAt": "2026-01-02T03:04:05Z", "generator": "mahjong-logparser 2.0.0.dev0", "seed": 7}
 
 
-def test_each_hand_appears_once_with_its_id_situation_tiles_and_answer_key(hand_store, tmp_path):
+def test_each_hand_appears_once_with_its_id_situation_tiles_answer_key_and_tags(hand_store, tmp_path):
     drills = [Drill(key="everything", pool="all", target=500), Drill(key="everything-again", pool="all", target=500)]
 
     export_bundle(hand_store, tmp_path / "bundle", drills, built_at=BUILT_AT)
@@ -98,6 +100,7 @@ def test_each_hand_appears_once_with_its_id_situation_tiles_and_answer_key(hand_
             "points": 1000,
             "payments": {"base": {"fromDiscarder": 1000}, "honbaBonus": 0, "riichiSticksCollected": 0},
         },
+        "tags": [],
     }
 
 
@@ -155,6 +158,32 @@ def test_a_hand_with_calls_reaches_the_bundle_with_each_call_as_an_object(tmp_pa
     ]
 
 
+@pytest.fixture
+def tagged_hand_store(tmp_path):
+    """Three verified hands: one with kuisagari, one with wraparound-dora and one with no tags."""
+    logs = LogStore(tmp_path / "log-store")
+    logs.add(LOG_ID, game(
+        # Chi 123m; 567m 78m+9m 444z 33z: open honitsu, 2 han 30 fu.
+        init(round_number=0), agari(who=1, from_who=0, hai=ids(17, 20, 24, 25, 28, 32, 116, 117, 120, 121, 122),
+                                    m=m(chi((0, 4, 8), called=0)), machi=32, ten="30,2000,0", yaku="34,2"),
+        # Chiitoitsu with the 9m as indicator, so the pair of 1m is dora: 4 han 25 fu.
+        init(round_number=1), agari(who=2, from_who=0, hai=ids(0, 1, 32, 33, 36, 37, 40, 41, 72, 73, 108, 109, 124, 125),
+                                    machi=125, ten="25,6400,0", yaku="22,2,52,2", dora=ids(34)),
+        init(round_number=2), closed_win(who=3),
+    ))
+    with HandStore(tmp_path / "hand-store.sqlite") as hands:
+        ingest(logs, hands)
+        yield hands
+
+
+def test_each_hand_in_the_bundle_carries_its_tags(tagged_hand_store, tmp_path):
+    export_bundle(tagged_hand_store, tmp_path / "bundle", EVERYTHING, built_at=BUILT_AT)
+
+    tags = {hand["id"]: hand["tags"] for hand in bundle_hands(tmp_path / "bundle")}
+
+    assert tags == {f"{LOG_ID}/0/0": ["kuisagari"], f"{LOG_ID}/1/0": ["wraparound-dora"], f"{LOG_ID}/2/0": []}
+
+
 def test_the_schema_requires_a_closed_kan_to_have_no_called_tile_and_other_calls_to_have_one():
     validator = Draft202012Validator(json.loads(SCHEMA_PATH.read_text()))
     call_schema = {"$ref": "#/$defs/call", "$defs": validator.schema["$defs"]}
@@ -209,3 +238,9 @@ def test_the_schema_knows_every_yaku_key_the_parser_can_write():
     schema = json.loads(SCHEMA_PATH.read_text())
 
     assert set(schema["$defs"]["yakuKey"]["enum"]) == set(TENHOU_YAKU_KEYS.values())
+
+
+def test_the_schema_knows_every_tag_key_the_parser_can_write():
+    schema = json.loads(SCHEMA_PATH.read_text())
+
+    assert set(schema["$defs"]["tagKey"]["enum"]) == set(TAGS)
