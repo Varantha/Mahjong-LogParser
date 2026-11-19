@@ -60,6 +60,15 @@ def test_a_gzip_encoded_reply_is_asked_for_and_decoded(server):
     assert "gzip" in server.request_headers[0]["accept-encoding"]
 
 
+def test_requests_name_the_downloader_because_tenhou_sends_python_s_default_client_an_empty_reply(server):
+    server.routes["/0/log/?x"] = (200, {}, b"<mjloggm/>")
+
+    urllib_get(server.url + "/0/log/?x")
+
+    user_agent = server.request_headers[0].get("user-agent", "")
+    assert user_agent.startswith("Mahjong-LogParser/") and "Python-urllib" not in user_agent
+
+
 def test_a_redirect_is_followed(server):
     server.routes["/sc/raw/dat/scc2026110604.html.gz"] = (302, {"Location": "/moved/scc2026110604.html.gz"}, b"")
     server.routes["/moved/scc2026110604.html.gz"] = (200, {"Content-Type": "application/x-gzip"}, gzip.compress(b"list"))
