@@ -84,7 +84,7 @@ def _hand(log_id: str, round_: _Round, agari: ET.Element) -> dict:
     winner = int(agari.get("who"))
     honba, sticks = _ints(agari.get("ba"))
     concealed = _ints(agari.get("hai"))
-    calls = [decode_call(code) for code in reversed(_ints(agari.get("m", "")))]  # Tenhou lists them latest first
+    calls = _calls(agari)
     yaku = _recorded_yaku(agari)
     reasons = quarantine_reasons(
         concealed=concealed,
@@ -105,7 +105,7 @@ def _hand(log_id: str, round_: _Round, agari: ET.Element) -> dict:
         },
         "tiles": {
             "concealed": mpsz(concealed),
-            "calls": [_call_record(call) for call in calls],
+            "calls": [_call_record(call) for call in calls or []],
             "winningTile": tile(int(agari.get("machi"))),
             "doraIndicators": mpsz(_ints(agari.get("doraHai"))),
             "uraDoraIndicators": mpsz(_ints(agari.get("doraHaiUra", ""))),
@@ -113,6 +113,14 @@ def _hand(log_id: str, round_: _Round, agari: ET.Element) -> dict:
         "answerKey": _answer_key(agari, yaku),
         "quarantineReasons": reasons,
     }
+
+
+def _calls(agari: ET.Element) -> list[Call] | None:
+    """The winner's calls in the order they were made (Tenhou lists them latest first), or None if one can't be read."""
+    try:
+        return [decode_call(code) for code in reversed(_ints(agari.get("m", "")))]
+    except ValueError:
+        return None
 
 
 def _call_record(call: Call) -> dict:

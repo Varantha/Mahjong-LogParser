@@ -250,6 +250,14 @@ def test_a_hand_with_calls_whose_tiles_dont_come_to_14_plus_one_per_kan_is_quara
     assert only_hand(xml)["quarantineReasons"] == ["tile-total"]
 
 
+def test_a_hand_with_a_call_code_that_is_no_four_player_call_is_quarantined():
+    nuki = 120 << 8 | 0b100000  # a North taken out, which only three-player games have
+
+    hand = only_hand(win_with_calls(nuki))
+
+    assert (hand["quarantineReasons"], hand["tiles"]["calls"]) == (["unreadable-call"], [])
+
+
 def test_a_closed_hand_has_no_calls():
     assert only_hand(game(init(), win()))["tiles"]["calls"] == []
 

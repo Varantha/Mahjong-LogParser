@@ -9,11 +9,15 @@ from logparser.calls import KANS, Call
 
 TILE_TOTAL = "tile-total"
 UNKNOWN_YAKU = "unknown-yaku"
+UNREADABLE_CALL = "unreadable-call"
 
 
-def quarantine_reasons(*, concealed: list[int], calls: list[Call], unknown_yaku: list[int]) -> list[str]:
+def quarantine_reasons(*, concealed: list[int], calls: list[Call] | None, unknown_yaku: list[int]) -> list[str]:
+    """`calls` is None when a call code in the win could not be read, so the tiles can't be checked."""
     reasons = []
-    if not _tile_total_adds_up(concealed, calls):
+    if calls is None:
+        reasons.append(UNREADABLE_CALL)
+    elif not _tile_total_adds_up(concealed, calls):
         reasons.append(TILE_TOTAL)
     if unknown_yaku:
         reasons.append(UNKNOWN_YAKU)
