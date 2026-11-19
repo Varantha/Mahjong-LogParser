@@ -50,8 +50,16 @@ class Drill:
 
 @dataclass(frozen=True)
 class DrawnDrill:
+    """A drill's hands. A drill is never shrunk to fit the hand store: when every year of logs together
+    still holds too few hands, it keeps its target and falls short by the difference."""
+
     key: str
+    target: int
     hand_ids: list[str]
+
+    @property
+    def short_by(self) -> int:
+        return self.target - len(self.hand_ids)
 
 
 def load_catalogue(path: Path = CATALOGUE_PATH) -> list[Drill]:
@@ -68,7 +76,7 @@ def draw_drills(catalogue: list[Drill], hands: Iterable[dict], *, seed: int = 0)
     for drill in catalogue:
         pool = [hand["id"] for hand in hands if drill.pool.matches(hand)]
         rng = random.Random(f"{seed}/{drill.key}")
-        drawn.append(DrawnDrill(drill.key, _newest_first(pool, drill.target, rng)))
+        drawn.append(DrawnDrill(drill.key, drill.target, _newest_first(pool, drill.target, rng)))
     return drawn
 
 

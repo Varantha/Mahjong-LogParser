@@ -133,3 +133,30 @@ def test_a_drill_short_of_hands_draws_on_older_years_one_at_a_time_until_it_has_
 
     from_2022 = drawn_ids(everything) - ids(in_2024 + in_2023)
     assert (len(everything.hand_ids), len(from_2022)) == (4, 1) and from_2022 <= ids(in_2022)
+
+
+def test_a_drill_the_whole_hand_store_cannot_fill_takes_every_pool_hand_and_says_how_short_it_falls(tmp_path):
+    drills = catalogue(tmp_path, """
+        [[drill]]
+        key = "payments"
+        target = 5
+        pool = { tsumo = true }
+    """)
+    tsumo = [hand(1, year=2024, tsumo=True), hand(2, year=2023, tsumo=True), hand(3, year=2019, tsumo=True)]
+    ron = [hand(number, year=2024) for number in range(4, 10)]
+
+    [payments] = draw_drills(drills, tsumo + ron)
+
+    assert (drawn_ids(payments), payments.target, payments.short_by) == (ids(tsumo), 5, 2)
+
+
+def test_a_drill_the_hand_store_can_fill_falls_short_by_nothing(tmp_path):
+    drills = catalogue(tmp_path, """
+        [[drill]]
+        key = "everything"
+        target = 2
+    """)
+
+    [everything] = draw_drills(drills, [hand(number) for number in range(3)])
+
+    assert everything.short_by == 0
