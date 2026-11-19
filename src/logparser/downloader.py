@@ -24,7 +24,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from logparser.log_store import LOG_ID, LogStore
-from logparser.tenhou import NO_OPEN_TANYAO, NO_RED_FIVES, SANMA
+from logparser.tenhou import skip_reason
 
 TENHOU = "https://tenhou.net"
 FILE_INDEXES = (f"{TENHOU}/sc/raw/list.cgi", f"{TENHOU}/sc/raw/list.cgi?old")
@@ -221,8 +221,7 @@ def _ingest_takes(log_id: str) -> bool:
 
     The game type is the hex field after "gm-" in the log ID, the same value as the log's GO tag.
     """
-    game_type = int(log_id[13:17], 16)
-    return not game_type & (SANMA | NO_RED_FIVES | NO_OPEN_TANYAO)
+    return skip_reason(int(log_id[13:17], 16)) is None
 
 
 def urllib_get(url: str) -> Response:

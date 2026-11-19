@@ -79,7 +79,7 @@ def parse_log(log_id: str, xml_text: str, tag_settings: TagSettings = TagSetting
     round_ = None
     for event in root:
         if event.tag == "GO":
-            parsed.skipped = _skip_reason(int(event.get("type")))
+            parsed.skipped = skip_reason(int(event.get("type")))
             if parsed.skipped:
                 return parsed
         elif event.tag == "INIT":
@@ -128,8 +128,9 @@ def _robbable_tiles(call: Call) -> tuple[int, ...]:
     return ()
 
 
-def _skip_reason(game_type: int) -> str | None:
-    """Only 4-player games with open tanyao and red fives are taken, east-only or hanchan."""
+def skip_reason(game_type: int) -> str | None:
+    """Why a game of this type, the GO tag's `type`, is not taken, or None if it is. Only 4-player games
+    with open tanyao and red fives are taken, east-only or hanchan."""
     if game_type & SANMA:
         return "sanma"
     if game_type & (NO_RED_FIVES | NO_OPEN_TANYAO):
