@@ -3,6 +3,7 @@
     logparser add-logs FILE...   add <logId>.xml files to the log store
     logparser import-dump DUMP   add the logs in a database dump to the log store
     logparser download           fetch Phoenix-room logs from Tenhou into the log store
+                                 (with --ids FILE, the logs a list of log IDs names)
     logparser ingest             stage 1: log store -> hand store, plus an ingest report
     logparser export             stage 2: hand store -> trainer bundle
 
@@ -12,6 +13,7 @@ uses the network.
 """
 
 import argparse
+import sys
 from pathlib import Path
 
 from logparser.downloader import DEFAULT_INTERVAL, Downloader, DownloadStopped
@@ -52,9 +54,13 @@ def _parser() -> argparse.ArgumentParser:
     import_dump_.set_defaults(run=_import_dump)
 
     download = commands.add_parser(
-        "download", help="fetch the Phoenix-room logs in Tenhou's scc lists into the log store (uses the network)",
-        description="Fetches the logs of the 4-player Phoenix-room games in Tenhou's scc lists that the log store "
-                    "lacks, one request at a time. Stopping and running it again carries on where it stopped.")
+        "download", help="fetch the Phoenix-room logs in Tenhou's scc lists, or in an ID list, into the log store "
+                         "(uses the network)",
+        description="Fetches the logs of the 4-player Phoenix-room games in Tenhou's scc lists, or in an ID list, "
+                    "that the log store lacks, one request at a time. Stopping and running it again carries on "
+                    "where it stopped.")
+    download.add_argument("--ids", type=Path, metavar="FILE",
+                          help="fetch the logs this file names, one log ID per line, instead of reading the scc lists")
     download.add_argument("--log-store", type=Path, default=LOG_STORE)
     download.add_argument("--state", type=Path, default=DOWNLOADER_STATE,
                           help="where the downloader keeps the lists it has read, to resume and to skip unchanged lists")
@@ -103,13 +109,30 @@ def _skipped(skipped: dict[str, int]) -> str:
 
 
 def _download(args) -> None:
+    id_list = None if args.ids is None else _read_id_list(args.ids)
     try:
         with Downloader(LogStore(args.log_store), args.state, interval=args.interval) as downloader:
-            summary = downloader.run(max_logs=args.max_logs)
+            if id_list is None:
+                summary = downloader.run(max_logs=args.max_logs)
+            else:
+                summary = downloader.run_id_list(id_list, max_logs=args.max_logs)
     except DownloadStopped as stopped:
         raise SystemExit(f"Download stopped: {stopped}. Run it again later to carry on.") from stopped
-    print(f"Read {summary.lists_read} scc lists; fetched {summary.fetched} logs ({summary.failed} failed); "
-          f"{summary.remaining} left to fetch")
+    if id_list is None:
+        print(f"Read {summary.lists_read} scc lists; fetched {summary.fetched} logs ({summary.failed} failed); "
+              f"{summary.remaining} left to fetch")
+        return
+    for number, line in summary.not_log_ids:
+        print(f"{args.ids}:{number}: not a log ID: {line!r}", file=sys.stderr)
+    print(f"Fetched {summary.fetched} logs ({summary.failed} failed); {summary.already_stored} already stored, "
+          f"{_skipped(summary.skipped)}; {summary.remaining} left to fetch")
+
+
+def _read_id_list(path: Path) -> list[str]:
+    try:
+        return path.read_text(encoding="utf-8-sig").splitlines()
+    except (OSError, UnicodeDecodeError) as error:
+        raise SystemExit(f"Could not read the ID list {path}: {error}") from error
 
 
 def _seconds(value: str) -> float:

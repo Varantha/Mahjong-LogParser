@@ -1,7 +1,8 @@
 """The downloader fills the log store from Tenhou.
 
 It reads Tenhou's FileIndex, then the `scc` lists of Phoenix-room games it
-names, then fetches each listed log. It is the only part of the pipeline that
+names, then fetches each listed log. Given an ID list of log IDs instead, it
+fetches the logs that list names. It is the only part of the pipeline that
 uses the network.
 
 It keeps to Tenhou's rules for automatic downloads (https://tenhou.net/sc/raw/):
@@ -20,7 +21,7 @@ import urllib.error
 import urllib.request
 import zlib
 from collections import Counter
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -130,18 +131,20 @@ class Downloader:
         self._fetch_logs(to_fetch, max_logs, summary)
         return summary
 
-    def run_id_list(self, id_list: Path, max_logs: int | None = None) -> DownloadSummary:
-        """Fetches the logs an ID list names, one log ID per line, instead of reading Tenhou's scc lists."""
+    def run_id_list(self, lines: Iterable[str], max_logs: int | None = None) -> DownloadSummary:
+        """Fetches the logs an ID list names, given its lines, one log ID per line, instead of reading Tenhou's
+        scc lists. Blank lines are ignored, and lines that are not log IDs are skipped and kept in the summary."""
         summary = DownloadSummary()
         skipped = Counter()
         listed = set()
-        for number, line in enumerate(Path(id_list).read_text(encoding="utf-8").splitlines(), start=1):
+        for number, line in enumerate(lines, start=1):
             if not (log_id := line.strip()):
                 continue
             if LOG_ID.fullmatch(log_id):
                 listed.add(log_id)
             else:
                 summary.not_log_ids.append((number, log_id))
+                skipped["not a log ID"] += 1
         failed = {log_id for (log_id,) in self._db.execute("SELECT log_id FROM failed")}
         to_fetch = []
         for log_id in sorted(listed):

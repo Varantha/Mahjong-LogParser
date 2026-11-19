@@ -268,14 +268,12 @@ def test_an_scc_list_tenhou_cannot_give_is_skipped_and_read_again_next_time(tenh
 
 
 @pytest.fixture
-def download_ids(state, log_store, tenhou, clock, tmp_path, no_network):
-    """Writes these lines to an ID list, runs the downloader on it once against the fake Tenhou and returns its summary."""
+def download_ids(state, log_store, tenhou, clock, no_network):
+    """Runs the downloader once on an ID list of these lines against the fake Tenhou and returns its summary."""
 
     def run(*lines, max_logs=None, **options):
-        id_list = tmp_path / "ids.txt"
-        id_list.write_text("".join(line + "\n" for line in lines), encoding="utf-8")
         with Downloader(log_store, state, http_get=tenhou, clock=clock, sleep=clock.sleep, **options) as downloader:
-            return downloader.run_id_list(id_list, max_logs=max_logs)
+            return downloader.run_id_list(lines, max_logs=max_logs)
 
     return run
 
@@ -375,14 +373,11 @@ def test_an_id_list_download_can_be_limited_to_a_number_of_logs_and_says_how_man
     assert (summary.fetched, summary.remaining, list(log_store.log_ids())) == (2, 1, [GAME_A, GAME_B])
 
 
-def test_an_id_list_download_cannot_start_while_another_download_is_running(state, log_store, tenhou, clock, tmp_path,
-                                                                            no_network):
-    id_list = tmp_path / "ids.txt"
-    id_list.write_text(GAME_A + "\n")
+def test_an_id_list_download_cannot_start_while_another_download_is_running(state, log_store, tenhou, clock, no_network):
     tenhou.add_log(GAME_A, log(0))
 
     with Downloader(log_store, state, http_get=tenhou, clock=clock, sleep=clock.sleep):
         with pytest.raises(DownloadStopped, match="another download"):
-            Downloader(log_store, state, http_get=tenhou, clock=clock, sleep=clock.sleep).run_id_list(id_list)
+            Downloader(log_store, state, http_get=tenhou, clock=clock, sleep=clock.sleep).run_id_list([GAME_A])
 
     assert tenhou.urls() == []
