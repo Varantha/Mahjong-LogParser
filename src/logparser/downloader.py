@@ -81,6 +81,7 @@ class DownloadSummary:
     fetched: int = 0  # logs added to the log store this run
     failed: int = 0  # logs Tenhou could not give this run
     remaining: int = 0  # listed logs still to fetch, for a later run
+    not_log_ids: list[tuple[int, str]] = field(default_factory=list)  # (line number, line) of each ID-list line skipped
 
 
 class Downloader:
@@ -129,8 +130,15 @@ class Downloader:
     def run_id_list(self, id_list: Path, max_logs: int | None = None) -> DownloadSummary:
         """Fetches the logs an ID list names, one log ID per line, instead of reading Tenhou's scc lists."""
         summary = DownloadSummary()
-        to_fetch = sorted(Path(id_list).read_text(encoding="utf-8").split())
-        self._fetch_logs(to_fetch, max_logs, summary)
+        listed = set()
+        for number, line in enumerate(Path(id_list).read_text(encoding="utf-8").splitlines(), start=1):
+            if not (log_id := line.strip()):
+                continue
+            if LOG_ID.fullmatch(log_id):
+                listed.add(log_id)
+            else:
+                summary.not_log_ids.append((number, log_id))
+        self._fetch_logs(sorted(listed), max_logs, summary)
         return summary
 
     def _fetch_logs(self, to_fetch: list[str], max_logs: int | None, summary: DownloadSummary) -> None:

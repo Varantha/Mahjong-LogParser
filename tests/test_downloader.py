@@ -289,3 +289,14 @@ def test_the_logs_in_an_id_list_are_fetched_in_log_id_order_without_reading_tenh
 
     assert tenhou.urls() == [tenhou.log_url(GAME_A), tenhou.log_url(GAME_B)]
     assert {log_id: log_store.read(log_id) for log_id in log_store.log_ids()} == {GAME_A: log(0), GAME_B: log(1)}
+
+
+def test_blank_lines_and_spaces_in_an_id_list_are_ignored_and_a_line_that_is_not_a_log_id_is_reported_and_skipped(
+        tenhou, log_store, download_ids):
+    tenhou.add_log(GAME_A, log(0))
+    tenhou.add_log(GAME_B, log(1))
+
+    summary = download_ids("", f"  {GAME_A}\t", "   ", "my game", f"https://tenhou.net/0/?log={GAME_C}", GAME_B)
+
+    assert tenhou.urls() == [tenhou.log_url(GAME_A), tenhou.log_url(GAME_B)]
+    assert summary.not_log_ids == [(4, "my game"), (5, f"https://tenhou.net/0/?log={GAME_C}")]
