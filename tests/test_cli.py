@@ -30,24 +30,43 @@ def test_logs_go_from_xml_files_to_a_trainer_bundle_under_local_without_the_netw
 
 def test_every_location_can_be_given_on_the_command_line(tmp_path, no_network):
     (tmp_path / f"{LOG_ID}.xml").write_text(game(init(), closed_win()))
-    logs, hands, bundle = tmp_path / "logs", tmp_path / "hands.sqlite", tmp_path / "out"
+    logs, hands, reports, bundle = tmp_path / "logs", tmp_path / "hands.sqlite", tmp_path / "reports", tmp_path / "out"
 
     main(["add-logs", "--log-store", str(logs), str(tmp_path / f"{LOG_ID}.xml")])
-    main(["ingest", "--log-store", str(logs), "--hand-store", str(hands)])
+    main(["ingest", "--log-store", str(logs), "--hand-store", str(hands), "--reports", str(reports)])
     main(["export", "--hand-store", str(hands), "--bundle", str(bundle), "--chunk-size", "1", "--seed", "3"])
 
     manifest = json.loads((bundle / "manifest.json").read_text())
     assert (manifest["chunks"], manifest["build"]["seed"]) == (["hands-000.json"], 3)
+    [report_folder] = reports.iterdir()
+    assert (report_folder / "report.json").is_file()
 
 
 def test_ingest_reports_what_it_did(tmp_path, capsys):
     (tmp_path / f"{LOG_ID}.xml").write_text(game(init(round_number=0), closed_win(who=1), init(round_number=1), short_win(who=2)))
-    logs, hands = tmp_path / "logs", tmp_path / "hands.sqlite"
+    logs, hands, reports = tmp_path / "logs", tmp_path / "hands.sqlite", tmp_path / "reports"
     main(["add-logs", "--log-store", str(logs), str(tmp_path / f"{LOG_ID}.xml")])
 
-    main(["ingest", "--log-store", str(logs), "--hand-store", str(hands)])
+    main(["ingest", "--log-store", str(logs), "--hand-store", str(hands), "--reports", str(reports)])
 
-    assert capsys.readouterr().out.splitlines()[-1] == "1 logs (0 skipped), 2 hands (1 verified, 1 quarantined)"
+    [report_folder] = reports.iterdir()
+    assert capsys.readouterr().out.splitlines()[-2:] == [
+        "1 logs (0 skipped), 2 hands (1 verified, 1 quarantined)",
+        f"Wrote the ingest report to {report_folder} (0 hands changed since the previous run)",
+    ]
+
+
+def test_ingest_writes_its_report_and_diff_under_local(tmp_path, monkeypatch, no_network):
+    (tmp_path / f"{LOG_ID}.xml").write_text(game(init(), closed_win()))
+    monkeypatch.chdir(tmp_path)
+    main(["add-logs", f"{LOG_ID}.xml"])
+
+    main(["ingest"])
+    main(["ingest"])
+
+    report_folders = sorted((tmp_path / "local" / "ingest-reports").iterdir())
+    assert len(report_folders) == 2
+    assert all(sorted(path.name for path in folder.iterdir()) == ["diff.jsonl", "report.json"] for folder in report_folders)
 
 
 @pytest.mark.parametrize(("options", "tagged"), [([], False), (["--high-fu", "30"], True)], ids=["default", "set-to-30"])
@@ -70,7 +89,7 @@ def test_a_dump_is_imported_into_the_log_store_under_local_and_ingested_without_
     main(["import-dump", "dump.db"])
     main(["ingest"])
 
-    assert capsys.readouterr().out.splitlines()[-1] == "1 logs (0 skipped), 1 hands (1 verified, 0 quarantined)"
+    assert capsys.readouterr().out.splitlines()[-2] == "1 logs (0 skipped), 1 hands (1 verified, 0 quarantined)"
 
 
 def test_importing_a_dump_reports_what_it_added_kept_and_skipped(tmp_path, capsys):
@@ -102,7 +121,7 @@ def test_logs_are_downloaded_into_the_log_store_under_local_and_ingested(tmp_pat
     main(["download", "--interval", "0"])
     main(["ingest"])
 
-    assert capsys.readouterr().out.splitlines() == [
+    assert capsys.readouterr().out.splitlines()[:2] == [
         "Read 1 scc lists; fetched 1 logs (0 failed); 0 left to fetch",
         "1 logs (0 skipped), 1 hands (1 verified, 0 quarantined)",
     ]
