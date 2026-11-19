@@ -2,7 +2,9 @@
 
 import pytest
 
+from logparser.tags import TAGS
 from logparser.tenhou import parse_log
+from logparser.yaku import TENHOU_YAKU_KEYS
 from tenhou_xml import KAMICHA, TOIMEN, agari, called_win, chi, closed_kan, game, ids, init, m, pon
 
 LOG_ID = "2024010112gm-00a9-0000-0123abcd"
@@ -122,3 +124,15 @@ def test_a_hand_lists_its_tags_once_each_in_a_fixed_order():
               machi=32, ten="30,3900,0", yaku="34,2,52,1", dora=ids(35))
 
     assert only_hand(xml)["tags"] == ["kuisagari", "wraparound-dora"]
+
+
+def test_no_plain_value_is_a_tag():
+    # The spec's plain values, which drills filter on directly: han, fu, raw fu, limit tier, dealer,
+    # tsumo/ron, open/closed, yaku, dora count, honba, riichi sticks and call types.
+    plain_values = {
+        "han", "fu", "raw-fu", "limit-tier", "mangan", "haneman", "baiman", "sanbaiman", "kazoe-yakuman", "yakuman",
+        "dealer", "tsumo", "ron", "open", "closed", "dora-count", "honba", "riichi-sticks",
+        "chi", "pon", "open-kan", "closed-kan", "added-kan", *TENHOU_YAKU_KEYS.values(),
+    }
+
+    assert set(TAGS).isdisjoint(plain_values)
