@@ -1,6 +1,6 @@
 """Dump import: fills the log store from a database dump of Tenhou logs.
 
-A dump is V1's SQLite format: a table `logs(log_id, log_content)` mapping each
+A dump is an SQLite file with a table `logs(log_id, log_content)` mapping each
 log ID to its log XML, bz2-compressed. Other columns are ignored. The dump is
 only read, never changed, and no network is used.
 
