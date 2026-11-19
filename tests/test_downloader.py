@@ -300,3 +300,14 @@ def test_blank_lines_and_spaces_in_an_id_list_are_ignored_and_a_line_that_is_not
 
     assert tenhou.urls() == [tenhou.log_url(GAME_A), tenhou.log_url(GAME_B)]
     assert summary.not_log_ids == [(4, "my game"), (5, f"https://tenhou.net/0/?log={GAME_C}")]
+
+
+def test_only_listed_games_ingest_takes_are_fetched(tenhou, download_ids):
+    hanchan, sanma, no_aka = "2026110604gm-00a9-0000-00000001", "2026110604gm-00b9-0000-00000004", "2026110604gm-00ab-0000-00000005"
+    for n, log_id in enumerate([hanchan, sanma, no_aka]):
+        tenhou.add_log(log_id, log(n))
+
+    summary = download_ids(sanma, hanchan, no_aka)
+
+    assert tenhou.urls() == [tenhou.log_url(hanchan)]
+    assert summary.skipped == {"sanma": 1, "ruleset": 1}

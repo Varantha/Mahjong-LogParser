@@ -19,6 +19,7 @@ import time
 import urllib.error
 import urllib.request
 import zlib
+from collections import Counter
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -81,6 +82,7 @@ class DownloadSummary:
     fetched: int = 0  # logs added to the log store this run
     failed: int = 0  # logs Tenhou could not give this run
     remaining: int = 0  # listed logs still to fetch, for a later run
+    skipped: dict[str, int] = field(default_factory=dict)  # ID-list entries not fetched, by reason
     not_log_ids: list[tuple[int, str]] = field(default_factory=list)  # (line number, line) of each ID-list line skipped
 
 
@@ -123,13 +125,14 @@ class Downloader:
                 summary.lists_read += self._read_list(file, size)
         listed = self._db.execute(
             "SELECT log_id FROM listed WHERE log_id NOT IN (SELECT log_id FROM failed) ORDER BY log_id").fetchall()
-        to_fetch = [log_id for (log_id,) in listed if _ingest_takes(log_id) and log_id not in self._log_store]
+        to_fetch = [log_id for (log_id,) in listed if not _skip_reason(log_id) and log_id not in self._log_store]
         self._fetch_logs(to_fetch, max_logs, summary)
         return summary
 
     def run_id_list(self, id_list: Path, max_logs: int | None = None) -> DownloadSummary:
         """Fetches the logs an ID list names, one log ID per line, instead of reading Tenhou's scc lists."""
         summary = DownloadSummary()
+        skipped = Counter()
         listed = set()
         for number, line in enumerate(Path(id_list).read_text(encoding="utf-8").splitlines(), start=1):
             if not (log_id := line.strip()):
@@ -138,7 +141,14 @@ class Downloader:
                 listed.add(log_id)
             else:
                 summary.not_log_ids.append((number, log_id))
-        self._fetch_logs(sorted(listed), max_logs, summary)
+        to_fetch = []
+        for log_id in sorted(listed):
+            if reason := _skip_reason(log_id):
+                skipped[reason] += 1
+            else:
+                to_fetch.append(log_id)
+        summary.skipped = dict(skipped)
+        self._fetch_logs(to_fetch, max_logs, summary)
         return summary
 
     def _fetch_logs(self, to_fetch: list[str], max_logs: int | None, summary: DownloadSummary) -> None:
@@ -235,12 +245,13 @@ def _is_phoenix_list(file: str) -> bool:
     return file.rsplit("/", 1)[-1].startswith("scc")
 
 
-def _ingest_takes(log_id: str) -> bool:
-    """Only 4-player games with open tanyao and red fives are worth fetching: ingest skips the rest.
+def _skip_reason(log_id: str) -> str | None:
+    """Why ingest would skip this game, or None if it takes it. Only 4-player games with open tanyao and red
+    fives are worth fetching.
 
     The game type is the hex field after "gm-" in the log ID, the same value as the log's GO tag.
     """
-    return skip_reason(int(log_id[13:17], 16)) is None
+    return skip_reason(int(log_id[13:17], 16))
 
 
 def urllib_get(url: str) -> Response:
