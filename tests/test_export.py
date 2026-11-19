@@ -199,7 +199,7 @@ def test_each_hand_in_the_bundle_carries_its_tags(tagged_hand_store, tmp_path):
 def test_the_manifest_counts_the_hands_with_each_tag(tagged_hand_store, tmp_path):
     manifest = export_bundle(tagged_hand_store, tmp_path / "bundle", EVERYTHING, built_at=BUILT_AT)
 
-    assert manifest["counts"]["tags"] == {"kuisagari": 1, "wraparound-dora": 1}
+    assert manifest["counts"]["tags"] == {"kuisagari": 1, "wraparound-dora": 1, "ambiguous-wait": 0}
 
 
 def test_the_manifest_counts_a_tag_no_bundle_hand_has_as_0(hand_store, tmp_path):

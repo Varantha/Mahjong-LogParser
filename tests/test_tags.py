@@ -5,7 +5,7 @@ import pytest
 from logparser.tags import TAGS
 from logparser.tenhou import parse_log
 from logparser.yaku import TENHOU_YAKU_KEYS
-from tenhou_xml import KAMICHA, TOIMEN, agari, called_win, chi, closed_kan, game, ids, init, m, pon
+from tenhou_xml import KAMICHA, TOIMEN, Wall, agari, called_win, chi, closed_kan, game, ids, init, m, pon
 
 LOG_ID = "2024010112gm-00a9-0000-0123abcd"
 
@@ -116,6 +116,30 @@ HANDS_WITHOUT_WRAPAROUND_DORA = {
 @pytest.mark.parametrize("xml", HANDS_WITHOUT_WRAPAROUND_DORA.values(), ids=HANDS_WITHOUT_WRAPAROUND_DORA.keys())
 def test_a_hand_without_the_dora_of_a_dora_indicator_that_wraps_round_has_no_wraparound_dora(xml):
     assert "wraparound-dora" not in only_hand(xml)["tags"]
+
+
+def wall_ron(wall: Wall, *, concealed: str, winning: str, ten: str, yaku: str, calls: tuple[int, ...] = (),
+             dora: str = "130") -> str:
+    """`ron`, with the tiles in mpsz taken from `wall`: `concealed` are the concealed tiles besides the winning tile."""
+    winning_tile = wall.take(winning)[0]
+    return ron(hai=ids(*wall.take(concealed), winning_tile), machi=winning_tile, ten=ten, yaku=yaku,
+               calls=m(*calls) if calls else None, dora=dora)
+
+
+def pinfu_or_tanki() -> str:
+    # 123456789p 234m 44m, won on 4m: read as 23m waiting on 1m-4m it is pinfu and ittsu, 3 han 30 fu;
+    # read as 44m waiting on the 4m, a single wait, it is ittsu alone, 2 han 40 fu. Tenhou scores the pinfu.
+    return wall_ron(Wall(), concealed="123456789p2344m", winning="4m", ten="30,3900,0", yaku="7,1,24,2")
+
+
+HANDS_WITH_AN_AMBIGUOUS_WAIT = {
+    "pinfu-or-tanki": pinfu_or_tanki(),
+}
+
+
+@pytest.mark.parametrize("xml", HANDS_WITH_AN_AMBIGUOUS_WAIT.values(), ids=HANDS_WITH_AN_AMBIGUOUS_WAIT.keys())
+def test_a_hand_whose_splits_into_sets_and_a_pair_give_different_fu_has_ambiguous_wait(xml):
+    assert "ambiguous-wait" in only_hand(xml)["tags"]
 
 
 def test_a_hand_lists_its_tags_once_each_in_a_fixed_order():
