@@ -210,3 +210,13 @@ def test_a_second_download_cannot_start_while_one_is_running(state, log_store, t
             Downloader(log_store, state, http_get=tenhou, clock=clock, sleep=clock.sleep)
 
     Downloader(log_store, state, http_get=tenhou, clock=clock, sleep=clock.sleep).close()
+
+
+def test_a_run_can_be_limited_to_a_number_of_logs_and_says_how_many_are_left(tenhou, log_store, download):
+    tenhou.add_list("scc2026110604.html.gz", GAME_A, GAME_B, GAME_C)
+    for n, log_id in enumerate([GAME_A, GAME_B, GAME_C]):
+        tenhou.add_log(log_id, log(n))
+
+    summary = download(max_logs=2)
+
+    assert (summary.fetched, summary.remaining, list(log_store.log_ids())) == (2, 1, [GAME_A, GAME_B])

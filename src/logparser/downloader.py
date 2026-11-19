@@ -64,8 +64,10 @@ class DownloadStopped(Exception):
 
 @dataclass
 class DownloadSummary:
-    fetched: int = 0
-    failed: int = 0
+    lists_read: int = 0  # scc lists read this run
+    fetched: int = 0  # logs added to the log store this run
+    failed: int = 0  # logs Tenhou could not give this run
+    remaining: int = 0  # listed logs still to fetch, for a later run
 
 
 class Downloader:
@@ -104,11 +106,13 @@ class Downloader:
         for file, size in self._file_index():
             if lists_read.get(file) != size:  # Tenhou adds late-finishing games to a list after it first appears
                 self._read_list(file, size)
-        to_fetch = self._db.execute(
+                summary.lists_read += 1
+        listed = self._db.execute(
             "SELECT log_id FROM listed WHERE log_id NOT IN (SELECT log_id FROM failed) ORDER BY log_id").fetchall()
-        for (log_id,) in to_fetch:
-            if not _ingest_takes(log_id) or log_id in self._log_store:
-                continue
+        to_fetch = [log_id for (log_id,) in listed if _ingest_takes(log_id) and log_id not in self._log_store]
+        summary.remaining = len(to_fetch)
+        for log_id in to_fetch[:max_logs]:
+            summary.remaining -= 1
             xml, failure = self._fetch_log(log_id)
             if failure:
                 with self._db:
