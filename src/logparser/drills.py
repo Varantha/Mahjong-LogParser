@@ -7,6 +7,7 @@ described by their plain values and tags.
 
 import random
 import tomllib
+from collections import defaultdict
 from collections.abc import Iterable
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -65,7 +66,27 @@ def draw_drills(catalogue: list[Drill], hands: Iterable[dict], *, seed: int = 0)
     hands = list(hands)
     drawn = []
     for drill in catalogue:
-        pool = sorted(hand["id"] for hand in hands if drill.pool.matches(hand))
+        pool = [hand["id"] for hand in hands if drill.pool.matches(hand)]
         rng = random.Random(f"{seed}/{drill.key}")
-        drawn.append(DrawnDrill(drill.key, sorted(rng.sample(pool, min(drill.target, len(pool))))))
+        drawn.append(DrawnDrill(drill.key, _newest_first(pool, drill.target, rng)))
     return drawn
+
+
+def _newest_first(hand_ids: list[str], wanted: int, rng: random.Random) -> list[str]:
+    """Draws `wanted` hands on the newest year of logs. While that is not enough, it takes every hand of
+    that year and draws the rest on the year before, so a drill reaches back only as far as it needs."""
+    by_year = defaultdict(list)
+    for hand_id in sorted(hand_ids):
+        by_year[_year(hand_id)].append(hand_id)
+    drawn = []
+    for year in sorted(by_year, reverse=True):
+        needed = wanted - len(drawn)
+        if needed <= 0:
+            break
+        drawn += by_year[year] if len(by_year[year]) <= needed else rng.sample(by_year[year], needed)
+    return sorted(drawn)
+
+
+def _year(hand_id: str) -> str:
+    """The year the hand's game was played: a hand ID starts with its log ID, which starts YYYYMMDDHH."""
+    return hand_id[:4]

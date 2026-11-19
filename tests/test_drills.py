@@ -32,6 +32,10 @@ def drawn_ids(drill) -> set[str]:
     return set(drill.hand_ids)
 
 
+def ids(hands: list[dict]) -> set[str]:
+    return {hand["id"] for hand in hands}
+
+
 def test_a_drill_takes_only_hands_from_its_pool(tmp_path):
     drills = catalogue(tmp_path, """
         [[drill]]
@@ -100,3 +104,32 @@ def test_a_drill_with_no_pool_draws_its_target_of_hands_at_random_from_every_han
 
     assert len(first.hand_ids) == 3 and drawn_ids(first) <= {hand["id"] for hand in hands}
     assert (first.hand_ids == same_seed.hand_ids, first.hand_ids == other_seed.hand_ids) == (True, False)
+
+
+def test_a_drill_draws_only_on_the_newest_year_of_logs_when_that_year_holds_enough_hands(tmp_path):
+    drills = catalogue(tmp_path, """
+        [[drill]]
+        key = "everything"
+        target = 2
+    """)
+    newest = [hand(number, year=2024) for number in range(3)]
+    older = [hand(number, year=2023) for number in range(3)]
+
+    [everything] = draw_drills(drills, older + newest)
+
+    assert len(everything.hand_ids) == 2 and drawn_ids(everything) <= ids(newest)
+
+
+def test_a_drill_short_of_hands_draws_on_older_years_one_at_a_time_until_it_has_enough(tmp_path):
+    drills = catalogue(tmp_path, """
+        [[drill]]
+        key = "everything"
+        target = 4
+    """)
+    in_2024, in_2023 = [hand(number, year=2024) for number in range(2)], [hand(0, year=2023)]
+    in_2022, in_2021 = [hand(number, year=2022) for number in range(3)], [hand(number, year=2021) for number in range(3)]
+
+    [everything] = draw_drills(drills, in_2021 + in_2022 + in_2023 + in_2024)
+
+    from_2022 = drawn_ids(everything) - ids(in_2024 + in_2023)
+    assert (len(everything.hand_ids), len(from_2022)) == (4, 1) and from_2022 <= ids(in_2022)
