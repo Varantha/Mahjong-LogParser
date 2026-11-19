@@ -24,6 +24,8 @@ LOG_URL = TENHOU + "/0/log/?{log_id}"
 # Tenhou allows one download at a time and no more. The downloader makes one
 # request at a time and, by default, starts each one at least 2 s after the last.
 DEFAULT_INTERVAL = 2.0
+# Tenhou: refresh the FileIndex no more often than every 20 minutes.
+INDEX_REFRESH = 20 * 60.0
 
 # FileIndex entries, e.g. {file:'scc2026110604.html.gz',size:735}
 INDEX_ENTRY = re.compile(r"\{\s*file\s*:\s*'([^']+)'\s*,\s*size\s*:\s*([0-9]+)\s*\}")
@@ -31,6 +33,9 @@ INDEX_ENTRY = re.compile(r"\{\s*file\s*:\s*'([^']+)'\s*,\s*size\s*:\s*([0-9]+)\s
 LISTED_GAME = re.compile(r"^(\d{2}:\d{2}).*?log=([^\"'&>]+)", re.MULTILINE)
 
 SCHEMA = """
+-- The scc lists in the FileIndex last read, with their sizes, and when it was read.
+CREATE TABLE IF NOT EXISTS file_index (file TEXT PRIMARY KEY, size INTEGER NOT NULL);
+CREATE TABLE IF NOT EXISTS state (key TEXT PRIMARY KEY, value);
 -- Each scc list already read, at the size the FileIndex gave it then.
 CREATE TABLE IF NOT EXISTS lists_read (file TEXT PRIMARY KEY, size INTEGER NOT NULL);
 -- Every game those lists named. Only log IDs are kept, never the lines (they hold player names).
@@ -100,13 +105,23 @@ class Downloader:
         return self._http_get(url)
 
     def _file_index(self) -> list[tuple[str, int]]:
-        """The scc lists Tenhou offers, with their sizes, from the recent and the old FileIndex."""
-        index = []
-        for url in FILE_INDEXES:
-            for file, size in INDEX_ENTRY.findall(self._get(url).body.decode("ascii")):
-                if _is_phoenix_list(file):
-                    index.append((file, int(size)))
-        return index
+        """The scc lists Tenhou offers, with their sizes, from the recent and the old FileIndex.
+
+        A FileIndex read less than 20 minutes ago is used again rather than read anew.
+        """
+        read_at = self._db.execute("SELECT value FROM state WHERE key = 'index_read_at'").fetchone()
+        if read_at is None or not 0 <= self._clock() - read_at[0] < INDEX_REFRESH:
+            read_at = self._clock()
+            index = []
+            for url in FILE_INDEXES:
+                for file, size in INDEX_ENTRY.findall(self._get(url).body.decode("ascii")):
+                    if _is_phoenix_list(file):
+                        index.append((file, int(size)))
+            with self._db:
+                self._db.execute("DELETE FROM file_index")
+                self._db.executemany("INSERT OR REPLACE INTO file_index (file, size) VALUES (?, ?)", index)
+                self._db.execute("INSERT OR REPLACE INTO state (key, value) VALUES ('index_read_at', ?)", (read_at,))
+        return self._db.execute("SELECT file, size FROM file_index ORDER BY rowid").fetchall()
 
     def _read_list(self, file: str, size: int) -> None:
         body = self._get(LIST_URL.format(file=file)).body

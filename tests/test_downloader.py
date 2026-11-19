@@ -137,3 +137,16 @@ def test_an_scc_list_is_read_again_only_when_its_size_in_the_file_index_changed(
     download()
 
     assert tenhou.urls() == [*FILE_INDEXES, tenhou.list_url("scc2026110605.html.gz"), tenhou.log_url(GAME_C)]
+
+
+def test_the_file_index_is_read_at_most_once_every_twenty_minutes(tenhou, clock, download):
+    tenhou.add_list("scc2026110604.html.gz", GAME_A)
+    tenhou.add_log(GAME_A, log(1))
+    download()
+
+    clock.advance(19 * MINUTE)
+    download()
+    clock.advance(2 * MINUTE)
+    download()
+
+    assert [url for url in tenhou.urls() if url in FILE_INDEXES] == [*FILE_INDEXES, *FILE_INDEXES]
