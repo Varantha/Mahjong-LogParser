@@ -69,7 +69,7 @@ def test_the_manifest_lists_each_drill_with_the_ids_of_its_hands_and_counts_them
     assert manifest["build"] == {"builtAt": "2026-01-02T03:04:05Z", "generator": "mahjong-logparser 2.0.0.dev0", "seed": 7}
 
 
-def test_each_hand_appears_once_with_its_id_situation_tiles_answer_key_and_tags(hand_store, tmp_path):
+def test_each_hand_appears_once_with_its_id_situation_tiles_answer_key_plain_values_and_tags(hand_store, tmp_path):
     drills = [Drill(key="everything", pool="all", target=500), Drill(key="everything-again", pool="all", target=500)]
 
     export_bundle(hand_store, tmp_path / "bundle", drills, built_at=BUILT_AT)
@@ -109,6 +109,20 @@ def test_each_hand_appears_once_with_its_id_situation_tiles_answer_key_and_tags(
             "payments": {"base": {"fromDiscarder": 1000}, "honbaBonus": 0, "riichiSticksCollected": 0},
             "rawFu": 30,
             "fuBreakdown": [{"key": "base", "fu": 20}, {"key": "closed-ron", "fu": 10}],
+        },
+        "plainValues": {
+            "han": 1,
+            "fu": 30,
+            "rawFu": 30,
+            "limitTier": "none",
+            "dealer": False,
+            "tsumo": False,
+            "open": False,
+            "yaku": ["pinfu"],
+            "doraCount": 0,
+            "honba": 0,
+            "riichiSticks": 0,
+            "callTypes": [],
         },
         "tags": [],
     }

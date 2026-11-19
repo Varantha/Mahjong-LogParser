@@ -25,7 +25,7 @@ CATALOGUE_PATH = Path(__file__).with_name("drills.toml")
 DEFAULT_CHUNK_SIZE = 200
 # The parts of a hand-store record the trainer sees. Replay links, quarantine
 # reasons and anything else stay in the hand store.
-BUNDLE_FIELDS = ("id", "situation", "tiles", "answerKey", "tags")
+BUNDLE_FIELDS = ("id", "situation", "tiles", "answerKey", "plainValues", "tags")
 
 
 @dataclass(frozen=True)

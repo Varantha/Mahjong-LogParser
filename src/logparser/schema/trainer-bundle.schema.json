@@ -82,15 +82,16 @@
     },
 
     "hand": {
-      "description": "One scorable win: its tiles, its situation, its answer key and its tags.",
+      "description": "One scorable win: its tiles, its situation, its answer key, its plain values and its tags.",
       "type": "object",
       "additionalProperties": false,
-      "required": ["id", "situation", "tiles", "answerKey", "tags"],
+      "required": ["id", "situation", "tiles", "answerKey", "plainValues", "tags"],
       "properties": {
         "id": { "$ref": "#/$defs/handId" },
         "situation": { "$ref": "#/$defs/situation" },
         "tiles": { "$ref": "#/$defs/tiles" },
         "answerKey": { "$ref": "#/$defs/answerKey" },
+        "plainValues": { "$ref": "#/$defs/plainValues" },
         "tags": {
           "description": "The hand's tags; empty when it has none. Players never see them before answering; the trainer may show them afterwards, as the lesson.",
           "type": "array",
@@ -298,6 +299,42 @@
     },
 
     "payment": { "type": "integer", "minimum": 100, "multipleOf": 100 },
+
+    "plainValues": {
+      "description": "The facts drills filter on directly, gathered in one place. Each one repeats a value found elsewhere in the hand or follows from one. Plain values are never tags.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["han", "fu", "rawFu", "limitTier", "dealer", "tsumo", "open", "yaku", "doraCount", "honba", "riichiSticks", "callTypes"],
+      "properties": {
+        "han": { "description": "The answer key's han.", "type": "integer", "minimum": 1 },
+        "fu": { "description": "The answer key's fu.", "type": "integer", "minimum": 0 },
+        "rawFu": { "description": "The answer key's raw fu.", "type": "integer", "minimum": 0 },
+        "limitTier": { "$ref": "#/$defs/limitTier" },
+        "dealer": { "description": "True when the winner is the dealer.", "type": "boolean" },
+        "tsumo": { "description": "True for a win by tsumo, false for ron.", "type": "boolean" },
+        "open": { "description": "True once the hand has a call other than a closed kan.", "type": "boolean" },
+        "yaku": {
+          "description": "The keys of the answer key's yaku, in its order.",
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/yakuKey" }
+        },
+        "doraCount": {
+          "description": "The han of the dora, aka dora and ura dora Tenhou recorded. Tenhou records no dora with a yakuman, so a yakuman counts 0.",
+          "type": "integer",
+          "minimum": 0
+        },
+        "honba": { "description": "Honba on the table when the hand wins.", "type": "integer", "minimum": 0 },
+        "riichiSticks": { "description": "Riichi sticks on the table when the hand wins.", "type": "integer", "minimum": 0 },
+        "callTypes": {
+          "description": "The type of each call, in the order made; empty when the hand has none.",
+          "type": "array",
+          "maxItems": 4,
+          "items": { "enum": ["chi", "pon", "open-kan", "closed-kan", "added-kan"] }
+        }
+      }
+    },
 
     "key": { "type": "string", "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$" },
 
