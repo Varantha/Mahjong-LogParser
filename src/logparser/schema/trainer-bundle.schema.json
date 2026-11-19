@@ -200,7 +200,7 @@
       "description": "The result Tenhou recorded for the hand, under Tenhou rules.",
       "type": "object",
       "additionalProperties": false,
-      "required": ["yaku", "han", "fu", "rawFu", "fuBreakdown", "points", "payments"],
+      "required": ["yaku", "han", "fu", "rawFu", "fuBreakdown", "limitTier", "points", "payments"],
       "properties": {
         "yaku": {
           "description": "Each yaku with its han. Every yakuman counts 13 han.",
@@ -236,9 +236,15 @@
             }
           }
         },
+        "limitTier": { "$ref": "#/$defs/limitTier" },
         "points": { "description": "What the winner receives, before honba and riichi sticks.", "type": "integer", "minimum": 1000 },
         "payments": { "$ref": "#/$defs/payments" }
       }
+    },
+
+    "limitTier": {
+      "description": "The named payment cap the hand reaches, as Tenhou recorded it, lowest first: none below mangan. A kazoe yakuman has 13 han or more and no yakuman; a hand with one or more yakuman is a yakuman.",
+      "enum": ["none", "mangan", "haneman", "baiman", "sanbaiman", "kazoe-yakuman", "yakuman"]
     },
 
     "payments": {

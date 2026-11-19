@@ -104,6 +104,7 @@ def test_each_hand_appears_once_with_its_id_situation_tiles_answer_key_and_tags(
             "yaku": [{"key": "pinfu", "han": 1}],
             "han": 1,
             "fu": 30,
+            "limitTier": "none",
             "points": 1000,
             "payments": {"base": {"fromDiscarder": 1000}, "honbaBonus": 0, "riichiSticksCollected": 0},
             "rawFu": 30,
@@ -275,3 +276,10 @@ def test_the_schema_knows_every_fu_key_the_parser_can_write():
     schema = json.loads(SCHEMA_PATH.read_text())
 
     assert schema["$defs"]["fuKey"]["enum"] == list(FU_KEYS)
+
+
+def test_the_schema_knows_every_limit_tier_lowest_first():
+    schema = json.loads(SCHEMA_PATH.read_text())
+
+    assert schema["$defs"]["limitTier"]["enum"] == [
+        "none", "mangan", "haneman", "baiman", "sanbaiman", "kazoe-yakuman", "yakuman"]

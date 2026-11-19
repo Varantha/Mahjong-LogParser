@@ -9,9 +9,9 @@ Every win (AGARI) in a taken game becomes a hand record, a JSON-ready dict:
                        round's moves (see `logparser.situation`)
     tiles              concealed tiles, calls, winning tile and dora indicators, in mpsz.
                        Each call is {type, tiles, calledTile, calledFrom}, in the order made.
-    answerKey          Tenhou's recorded yaku (contract keys), han, fu, points and payments, plus the
-                       raw fu and fu breakdown (contract keys) of a hand whose cross-check matched;
-                       both are None for any other hand
+    answerKey          Tenhou's recorded yaku (contract keys), han, fu, limit tier, points and
+                       payments, plus the raw fu and fu breakdown (contract keys) of a hand whose
+                       cross-check matched; both are None for any other hand
     quarantineReasons  one reason code per failed check; empty when verified
     tags               the keys of the hand's tags (see `logparser.tags`)
 """
@@ -41,6 +41,10 @@ DRAW_TAGS = "TUVW"
 DISCARD_TAGS = "DEFG"
 MOVE_TAG = re.compile(r"([TUVWDEFG])(\d+)")  # DORA also starts with D, so the whole tag must match
 DRAW, DISCARD, CALL = "draw", "discard", "call"
+
+# Limit codes: the third value of AGARI's `ten`, by limit tier. A yakuman and a kazoe yakuman share a code.
+TENHOU_LIMITS = {0: "none", 1: "mangan", 2: "haneman", 3: "baiman", 4: "sanbaiman"}
+TENHOU_YAKUMAN_LIMIT = 5
 
 
 @dataclass
@@ -247,14 +251,25 @@ def _recorded_yaku(agari: ET.Element) -> list[tuple[int, int]]:
 def _answer_key(agari: ET.Element, yaku: list[tuple[int, int]], *, tsumo: bool, dealer: bool,
                 honba: int, riichi_sticks: int) -> dict:
     """Tenhou's recorded result, with yaku under their contract keys."""
-    fu, points, _limit = _ints(agari.get("ten"))
+    fu, points, limit = _ints(agari.get("ten"))
     return {
         "yaku": [{"key": TENHOU_YAKU_KEYS[i], "han": han} for i, han in yaku if i in TENHOU_YAKU_KEYS],
         "han": sum(han for _, han in yaku),
         "fu": fu,
+        "limitTier": _limit_tier(limit, yakuman=bool(agari.get("yakuman"))),
         "points": points,
         "payments": payments(points, tsumo=tsumo, dealer=dealer, honba=honba, riichi_sticks=riichi_sticks),
     }
+
+
+def _limit_tier(limit: int, *, yakuman: bool) -> str | None:
+    """The limit tier Tenhou recorded, or None for a limit code Tenhou never records.
+
+    Tenhou records a kazoe yakuman as a yakuman: it is the one won without a yakuman.
+    """
+    if limit == TENHOU_YAKUMAN_LIMIT:
+        return "yakuman" if yakuman else "kazoe-yakuman"
+    return TENHOU_LIMITS.get(limit)
 
 
 def _recorded_score_changes(agari: ET.Element) -> list[int]:

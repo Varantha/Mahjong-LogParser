@@ -218,3 +218,15 @@ class Wall:
                 self._taken.add(tile_id)
                 taken.append(tile_id)
         return tuple(taken)
+
+
+def win(wall: Wall, *, concealed: str, winning: str, ten: str, yaku: str | None = None, yakuman: str | None = None,
+        calls: tuple[int, ...] = (), who: int = 1, tsumo: bool = False, dora: str = "1z",
+        ura: str | None = None) -> str:
+    """A win by `who` on `winning`, with `concealed` the rest of its concealed tiles. A ron is on
+    the discard of the seat before. Tiles are in mpsz and come from `wall`, as do the tiles of
+    `calls` (call codes, in the order made). The dora indicator is East unless given."""
+    winning_tile = wall.take(winning)[0]
+    return agari(who=who, from_who=who if tsumo else (who - 1) % 4, hai=ids(*wall.take(concealed), winning_tile),
+                 m=m(*calls) if calls else None, machi=winning_tile, ten=ten, yaku=yaku, yakuman=yakuman,
+                 dora=ids(*wall.take(dora)), ura=None if ura is None else ids(*wall.take(ura)))
