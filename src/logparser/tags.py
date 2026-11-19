@@ -32,6 +32,12 @@ def _wraparound_dora(hand: dict) -> bool:
     return any(WRAPAROUND_DORA.get(indicator) in held for indicator in kinds(tiles["doraIndicators"]))
 
 
+def _ambiguous_wait(hand: dict) -> bool:
+    """The hand's tiles split into sets and a pair in more than one way, and the split chosen changes
+    the fu. Tenhou scores the split worth the most points."""
+    return len(set(hand["splitFu"] or [])) > 1
+
+
 def _is_open(hand: dict) -> bool:
     """A hand is open once it has a call other than a closed kan."""
     return any(call["type"] != CLOSED_KAN for call in hand["tiles"]["calls"])
@@ -41,6 +47,7 @@ def _is_open(hand: dict) -> bool:
 TAGS = {
     "kuisagari": _kuisagari,
     "wraparound-dora": _wraparound_dora,
+    "ambiguous-wait": _ambiguous_wait,
 }
 
 

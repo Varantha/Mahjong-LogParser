@@ -14,16 +14,21 @@ Its fu reasons are turned into the fu a player counts:
     the 2 fu the library gives an open hand that has no other fu
                            tsumo 2 on a tsumo. On a ron it is left out: the raw fu of the
                            open pinfu shape is 20, which Tenhou scores as 30 fu.
+
+It also works out the fu of every split of the hand. The library scores each split and keeps the
+one worth the most points, as Tenhou does, but it only reports that one.
 """
 
 from dataclasses import dataclass
 
-from mahjong.constants import EAST, NORTH, SOUTH, WEST
+from mahjong.constants import CHUN, EAST, HAKU, HATSU, NORTH, SOUTH, WEST
+from mahjong.hand_calculating.divider import HandDivider
 from mahjong.hand_calculating.fu import FuCalculator
 from mahjong.hand_calculating.hand import HandCalculator
 from mahjong.hand_calculating.hand_config import HandConfig, HandConstants, OptionalRules
 from mahjong.hand_calculating.yaku_config import YAKU_ID_TO_TENHOU_ID
 from mahjong.meld import Meld
+from mahjong.tile import TilesConverter
 
 from logparser.calls import ADDED_KAN, CHI, CLOSED_KAN, OPEN_KAN, PON, Call
 from logparser.yaku import TENHOU_YAKU_KEYS
@@ -99,6 +104,7 @@ class Recalculation:
     points: int  # before honba and riichi sticks
     raw_fu: int  # fu before rounding: the fu breakdown's sum
     fu_breakdown: list[dict]  # [{key, fu}] under the contract's fu keys, in FU_KEYS order
+    split_fu: list[int]  # the fu of each split of the hand, ascending (see _split_fu)
 
 
 def recalculate(*, concealed: list[int], calls: list[Call], winning_tile: int, dora_indicators: list[int],
@@ -109,10 +115,12 @@ def recalculate(*, concealed: list[int], calls: list[Call], winning_tile: int, d
     `situation` is the hand record's situation, worked out from the game's moves.
     """
     config = _config(situation)  # a new one per hand: the library changes it while scoring
+    tiles = [*concealed, *(tile for call in calls for tile in call.tiles)]
+    melds = [_meld(call) for call in calls]
     result = HandCalculator.estimate_hand_value(
-        tiles=[*concealed, *(tile for call in calls for tile in call.tiles)],
+        tiles=tiles,
         win_tile=winning_tile,
-        melds=[_meld(call) for call in calls],
+        melds=melds,
         dora_indicators=dora_indicators,
         ura_dora_indicators=ura_dora_indicators,
         config=config,
@@ -127,7 +135,30 @@ def recalculate(*, concealed: list[int], calls: list[Call], winning_tile: int, d
         points=result.cost["main"] + 2 * result.cost["additional"],
         raw_fu=sum(item["fu"] for item in fu_breakdown),
         fu_breakdown=fu_breakdown,
+        split_fu=_split_fu(tiles, winning_tile, melds, config),
     )
+
+
+def _split_fu(tiles: list[int], winning_tile: int, melds: list[Meld], config: HandConfig) -> list[int]:
+    """The fu of each split of the hand, ascending.
+
+    A split arranges the tiles into four sets and a pair, the calls being sets as they were made,
+    and says which concealed set or pair the winning tile completed. One arrangement can make
+    several splits: in 234m 44m won on a 4m, the 4m completed either the 23m or the 4m. Seven pairs
+    is no split into sets and a pair, so a chiitoitsu hand that can't be read as sets has none.
+    """
+    valued_tiles = [HAKU, HATSU, CHUN, config.player_wind, config.round_wind]
+    fu = []
+    for sets_and_pair in HandDivider.divide_hand(TilesConverter.to_34_array(tiles), melds):
+        if len(sets_and_pair) != 5:
+            continue  # seven pairs
+        concealed = list(sets_and_pair)
+        for meld in melds:
+            concealed.remove(sorted(tile // 4 for tile in meld.tiles))
+        completed_by_the_winning_tile = {tuple(group): group for group in concealed if winning_tile // 4 in group}
+        for completed in completed_by_the_winning_tile.values():
+            fu.append(FuCalculator.calculate_fu(sets_and_pair, winning_tile, completed, config, valued_tiles, melds)[1])
+    return sorted(fu)
 
 
 def _config(situation: dict) -> HandConfig:

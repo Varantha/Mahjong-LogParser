@@ -320,7 +320,7 @@
 
     "tagKey": {
       "description": "A tag's key. A tag is a named fact derived from a hand, often a trap a player could fall into; the trainer turns the key into display text. Plain values such as han, fu or yaku are never tags.",
-      "enum": ["kuisagari", "wraparound-dora"]
+      "enum": ["kuisagari", "wraparound-dora", "ambiguous-wait"]
     }
   }
 }
