@@ -5,7 +5,8 @@ import pytest
 from logparser.tags import TAGS
 from logparser.tenhou import parse_log
 from logparser.yaku import TENHOU_YAKU_KEYS
-from tenhou_xml import KAMICHA, TOIMEN, Wall, agari, called_win, chi, closed_kan, closed_win, game, ids, init, m, pon
+from tenhou_xml import (KAMICHA, TOIMEN, Wall, agari, called_win, chi, closed_kan, closed_win, game, ids, init, m, pon,
+                        turns, win)
 
 LOG_ID = "2024010112gm-00a9-0000-0123abcd"
 
@@ -239,3 +240,39 @@ def test_no_plain_value_is_a_tag():
     }
 
     assert set(TAGS).isdisjoint(plain_values)
+
+
+def open_tanyao(*, tsumo: bool = False, concealed: str = "22456p34567s", winning: str = "8s", ten: str = "30,1000,0",
+                dora: str = "1z") -> str:
+    # Chi 234m; 22p 456p 345s 67s+8s by default: open tanyao, 1 han. Won by ron on the 8s it has no
+    # fu but the base, raw fu 20, which Tenhou scores as 30 fu. A tsumo comes a few turns in.
+    wall = Wall()
+    chi_tiles = wall.take("234m")
+    return game(init(), turns(4) if tsumo else "", win(wall, calls=(chi(chi_tiles, called=chi_tiles[0]),), concealed=concealed, winning=winning,
+                            tsumo=tsumo, ten=ten, yaku="8,1", dora=dora))
+
+
+def test_an_open_hand_with_raw_fu_20_has_open_pinfu_shape():
+    hand = only_hand(open_tanyao())
+
+    assert (hand["quarantineReasons"], hand["answerKey"]["rawFu"], hand["answerKey"]["fu"]) == ([], 20, 30)
+    assert "open-pinfu-shape" in hand["tags"]
+
+
+HANDS_WITHOUT_AN_OPEN_PINFU_SHAPE = {
+    # Pinfu won by ron: raw fu 30.
+    "closed": game(init(), closed_win()),
+    # The open tanyao won by tsumo: raw fu 22, the base and the tsumo.
+    "won-by-tsumo": open_tanyao(tsumo=True, ten="30,1100,0"),
+    # The open tanyao with 68s waiting on the 7s, a kanchan: raw fu 22.
+    "kanchan-wait": open_tanyao(concealed="22456p34568s", winning="7s"),
+}
+
+
+@pytest.mark.parametrize("xml", HANDS_WITHOUT_AN_OPEN_PINFU_SHAPE.values(),
+                         ids=HANDS_WITHOUT_AN_OPEN_PINFU_SHAPE.keys())
+def test_a_hand_that_is_closed_or_has_raw_fu_other_than_20_has_no_open_pinfu_shape(xml):
+    hand = only_hand(xml)
+
+    assert hand["quarantineReasons"] == []
+    assert "open-pinfu-shape" not in hand["tags"]

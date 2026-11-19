@@ -39,11 +39,18 @@ def _ambiguous_wait(hand: dict) -> bool:
     return len(set(hand["splitFu"] or [])) > 1
 
 
+def _open_pinfu_shape(hand: dict) -> bool:
+    """The hand is open and its raw fu are 20, which Tenhou scores as 30 fu."""
+    plain = hand["plainValues"]
+    return plain["open"] and plain["rawFu"] == 20
+
+
 # Every tag, by key, in the order a hand lists them.
 TAGS = {
     "kuisagari": _kuisagari,
     "wraparound-dora": _wraparound_dora,
     "ambiguous-wait": _ambiguous_wait,
+    "open-pinfu-shape": _open_pinfu_shape,
 }
 
 
