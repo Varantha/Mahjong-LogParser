@@ -75,13 +75,24 @@ class Drill:
 
 
 @dataclass(frozen=True)
+class Shortfall:
+    """A part of a drill that every year of logs together could not fill."""
+
+    part: str
+    wanted: int
+    found: int
+
+
+@dataclass(frozen=True)
 class DrawnDrill:
     """A drill's hands. A drill is never shrunk to fit the hand store: when every year of logs together
-    still holds too few hands, it keeps its target and falls short by the difference."""
+    still holds too few hands for a part of it, it keeps its target, the other parts don't make up the
+    difference, and it falls short by that much."""
 
     key: str
     target: int
     hand_ids: list[str]
+    shortfalls: list[Shortfall] = field(default_factory=list)
 
     @property
     def short_by(self) -> int:
@@ -111,10 +122,13 @@ def draw_drills(catalogue: list[Drill], hands: Iterable[dict], *, seed: int = 0)
     drawn = []
     for drill in catalogue:
         rng = random.Random(f"{seed}/{drill.key}")
-        hand_ids = []
+        hand_ids, shortfalls = [], []
         for part in drill.parts():
-            hand_ids += _newest_first([hand["id"] for hand in hands if part.takes(hand)], part.wanted, rng)
-        drawn.append(DrawnDrill(drill.key, drill.target, sorted(hand_ids)))
+            taken = _newest_first([hand["id"] for hand in hands if part.takes(hand)], part.wanted, rng)
+            hand_ids += taken
+            if len(taken) < part.wanted:
+                shortfalls.append(Shortfall(part.name, part.wanted, len(taken)))
+        drawn.append(DrawnDrill(drill.key, drill.target, sorted(hand_ids), shortfalls))
     return drawn
 
 

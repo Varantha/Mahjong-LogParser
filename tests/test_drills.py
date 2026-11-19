@@ -6,7 +6,7 @@ of a hand a drill filters on.
 
 import pytest
 
-from logparser.drills import draw_drills, load_catalogue
+from logparser.drills import Shortfall, draw_drills, load_catalogue
 
 
 def hand(number: int, *, year: int = 2024, tags: tuple[str, ...] = (), **plain_values) -> dict:
@@ -195,3 +195,20 @@ def test_lookalikes_make_up_about_half_a_drill_unless_the_catalogue_says_otherwi
     [kuisagari] = draw_drills(drills, trap_hands + lookalikes)
 
     assert (len(drawn_ids(kuisagari) & ids(trap_hands)), len(drawn_ids(kuisagari) & ids(lookalikes))) == (2, 2)
+
+
+def test_a_drill_short_of_trap_hands_is_not_filled_up_with_lookalikes_and_says_which_part_fell_short(tmp_path):
+    drills = catalogue(tmp_path, """
+        [[drill]]
+        key = "kuisagari"
+        target = 6
+        pool = { open = true }
+        trap = { tags = "kuisagari" }
+    """)
+    trap_hand = hand(1, yaku=["honitsu"], open=True, tags=["kuisagari"])
+    lookalikes = [hand(number, yaku=["haku"], open=True) for number in range(2, 10)]
+
+    [kuisagari] = draw_drills(drills, [trap_hand, *lookalikes])
+
+    assert (len(kuisagari.hand_ids), kuisagari.short_by) == (4, 2)
+    assert kuisagari.shortfalls == [Shortfall(part="trap hands", wanted=3, found=1)]
