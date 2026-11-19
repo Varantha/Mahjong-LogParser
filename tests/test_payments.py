@@ -93,3 +93,16 @@ def test_in_a_double_ron_the_first_winner_collects_the_honba_and_the_riichi_stic
         "honbaBonus": 0,
         "riichiSticksCollected": 0,
     }
+
+
+def ron_8000(sc: str, ba: str = "0,0") -> str:
+    """Seat 1 rons seat 3 for 8000 in East 1 (seat 0 deals), with the given recorded score changes."""
+    return game(init(), agari(who=1, from_who=3, ba=ba, hai=CLOSED_HAND, machi=84, ten="30,8000,1",
+                              yaku="7,1,52,3", sc=sc))
+
+
+def test_a_hand_whose_recorded_score_changes_disagree_with_its_payments_is_quarantined():
+    # The discarder lost 7700 and the winner gained 7700, but the hand is worth 8000.
+    xml = ron_8000(sc="250,0,250,77,250,0,250,-77")
+
+    assert only_hand(xml)["quarantineReasons"] == ["payments"]

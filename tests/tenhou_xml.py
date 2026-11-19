@@ -43,7 +43,11 @@ def init(round_number: int = 0, honba: int = 0, sticks: int = 0, oya: int | None
 def agari(*, who: int, from_who: int, hai: str, machi: int, ten: str,
           yaku: str | None = None, yakuman: str | None = None, ba: str = "0,0",
           dora: str = "130", ura: str | None = None, m: str | None = None,
-          sc: str = "250,0,250,0,250,0,250,0") -> str:
+          sc: str | None = None, dealer: int = 0) -> str:
+    """A win. Unless `sc` is given, the recorded score changes settle `ten` and `ba` in full,
+    with `dealer` dealing (seat 0, as in the first round of `init`)."""
+    if sc is None:
+        sc = settlement(who=who, from_who=from_who, ten=ten, ba=ba, dealer=dealer)
     attrs = [f'ba="{ba}"', f'hai="{hai}"']
     if m is not None:
         attrs.append(f'm="{m}"')
@@ -57,6 +61,29 @@ def agari(*, who: int, from_who: int, hai: str, machi: int, ten: str,
         attrs.append(f'doraHaiUra="{ura}"')
     attrs += [f'who="{who}"', f'fromWho="{from_who}"', f'sc="{sc}"']
     return f"<AGARI {' '.join(attrs)}/>"
+
+
+def settlement(*, who: int, from_who: int, ten: str, ba: str, dealer: int) -> str:
+    """Tenhou's `sc` for a win paid in full: each seat's score (all 25000) and change, in hundreds.
+
+    The discarder pays a ron; on a tsumo each non-dealer pays a quarter of the points rounded
+    up to 100 and the dealer pays the rest. Honba are 300 a hand and riichi sticks 1000 each.
+    """
+    points = int(ten.split(",")[1])
+    honba, sticks = (int(v) for v in ba.split(","))
+    changes = [0] * 4
+    if who != from_who:
+        changes[from_who] = -(points + 300 * honba)
+    else:
+        each_non_dealer = -(-points // 400) * 100
+        for seat in set(range(4)) - {who}:
+            if who == dealer:
+                share = points // 3
+            else:
+                share = points - 2 * each_non_dealer if seat == dealer else each_non_dealer
+            changes[seat] = -(share + 100 * honba)
+    changes[who] = -sum(changes) + 1000 * sticks
+    return ",".join(f"250,{change // 100}" for change in changes)
 
 
 def ryuukyoku() -> str:

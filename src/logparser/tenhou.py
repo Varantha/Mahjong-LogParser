@@ -13,7 +13,7 @@ Every win (AGARI) in a taken game becomes a hand record, a JSON-ready dict:
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass, field
 
-from logparser.payments import payments
+from logparser.payments import payments, score_changes
 from logparser.tiles import mpsz, tile
 from logparser.verification import quarantine_reasons
 from logparser.yaku import TENHOU_YAKU_KEYS, YAKUMAN_HAN
@@ -81,8 +81,9 @@ def _skip_reason(game_type: int) -> str | None:
 
 def _hand(log_id: str, round_: _Round, agari: ET.Element) -> dict:
     winner = int(agari.get("who"))
+    discarder = int(agari.get("fromWho"))
     honba, sticks = _ints(agari.get("ba"))
-    tsumo = winner == int(agari.get("fromWho"))
+    tsumo = winner == discarder
     concealed = _ints(agari.get("hai"))
     yaku = _recorded_yaku(agari)
     # In a double ron Tenhou pays the honba and the riichi sticks to the first winner only. The
@@ -94,6 +95,9 @@ def _hand(log_id: str, round_: _Round, agari: ET.Element) -> dict:
         concealed=concealed,
         call_codes=_ints(agari.get("m", "")),
         unknown_yaku=[tenhou_id for tenhou_id, _ in yaku if tenhou_id not in TENHOU_YAKU_KEYS],
+        recorded_score_changes=_recorded_score_changes(agari),
+        expected_score_changes=score_changes(answer_key["payments"], winner=winner, discarder=discarder,
+                                             dealer=round_.dealer),
     )
     return {
         "id": f"{log_id}/{round_.index}/{round_.wins}",
@@ -137,6 +141,11 @@ def _answer_key(agari: ET.Element, yaku: list[tuple[int, int]], *, tsumo: bool, 
         "points": points,
         "payments": payments(points, tsumo=tsumo, dealer=dealer, honba=honba, riichi_sticks=riichi_sticks),
     }
+
+
+def _recorded_score_changes(agari: ET.Element) -> list[int]:
+    """Each seat's score change in points. `sc` holds a score and a change per seat, in hundreds."""
+    return [change * 100 for change in _ints(agari.get("sc", ""))[1::2]]
 
 
 def _ints(value: str) -> list[int]:

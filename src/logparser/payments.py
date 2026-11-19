@@ -28,3 +28,21 @@ def payments(points: int, *, tsumo: bool, dealer: bool, honba: int, riichi_stick
         "honbaBonus": HONBA_POINTS * honba,
         "riichiSticksCollected": RIICHI_STICK_POINTS * riichi_sticks,
     }
+
+
+def score_changes(payments: dict, *, winner: int, discarder: int, dealer: int) -> list[int]:
+    """How much each seat's score changes, in points, when the winner is paid `payments`."""
+    base = payments["base"]
+    others = [seat for seat in range(4) if seat != winner]
+    if "fromDiscarder" in base:
+        owed = {discarder: base["fromDiscarder"]}
+    elif "fromEachPlayer" in base:
+        owed = {seat: base["fromEachPlayer"] for seat in others}
+    else:
+        owed = {seat: base["fromDealer"] if seat == dealer else base["fromEachNonDealer"] for seat in others}
+    honba_each = payments["honbaBonus"] // len(owed)
+    changes = [0] * 4
+    for seat, amount in owed.items():
+        changes[seat] = -(amount + honba_each)
+    changes[winner] = -sum(changes) + payments["riichiSticksCollected"]
+    return changes

@@ -28,7 +28,7 @@ def hand_store(tmp_path):
         init(round_number=0), closed_win(who=1),
         init(round_number=1), called_win(who=2),
         init(round_number=2), closed_win(who=3),
-        init(round_number=3), closed_win(who=0),
+        init(round_number=3), closed_win(who=0, from_who=3),
     ))
     with HandStore(tmp_path / "hand-store.sqlite") as hands:
         ingest(logs, hands)
