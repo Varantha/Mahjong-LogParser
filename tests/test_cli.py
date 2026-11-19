@@ -68,7 +68,7 @@ def test_export_says_which_drills_fall_short_by_how_much_and_which_part_of_a_dri
         trap = { open = true }
     """)
     main(["add-logs", "--log-store", str(logs), str(tmp_path / f"{LOG_ID}.xml")])
-    main(["ingest", "--log-store", str(logs), "--hand-store", str(hands)])
+    main(["ingest", "--log-store", str(logs), "--hand-store", str(hands), "--reports", str(tmp_path / "reports")])
 
     main(["export", "--hand-store", str(hands), "--bundle", str(tmp_path / "out"), "--catalogue", str(catalogue)])
 
@@ -114,7 +114,8 @@ def test_ingest_tags_hands_with_the_high_fu_threshold_given(tmp_path, options, t
     logs, hands = tmp_path / "logs", tmp_path / "hands.sqlite"
     main(["add-logs", "--log-store", str(logs), str(tmp_path / f"{LOG_ID}.xml")])
 
-    main(["ingest", "--log-store", str(logs), "--hand-store", str(hands), *options])
+    main(["ingest", "--log-store", str(logs), "--hand-store", str(hands), "--reports", str(tmp_path / "reports"),
+          *options])
 
     with HandStore(hands) as store:
         assert ("high-fu" in store.get(f"{LOG_ID}/0/0")["tags"]) == tagged
