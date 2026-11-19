@@ -1,10 +1,8 @@
 """Tenhou's call codes decoded into calls.
 
 A call code is the integer in the `m` attribute of N and AGARI tags. Its
-layout is Tenhou's own (the viewer's `tehai.js`). This is V1's decoder
-(`models/meld.py`) carried over, with its open kan fixed: the called tile of
-an open kan is the tile in bits 8+, not a guess from the seat. Bit 0 is the
-least significant:
+layout is Tenhou's own (the viewer's `tehai.js`). Bit 0 is the least
+significant:
 
     bits 0-1   whose discard the called tile was, relative to the caller:
                1 shimocha (next), 2 toimen (across), 3 kamicha (previous), 0 nobody

@@ -1,4 +1,4 @@
-"""Builds small database dumps in V1's format for tests.
+"""Builds small database dumps for tests.
 
 A dump is an SQLite file with a table `logs(log_id, log_content)` holding
 bz2-compressed log XML. The logs put in one come from `tenhou_xml`, so nothing
