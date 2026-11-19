@@ -31,6 +31,8 @@ INDEX_REFRESH = 20 * 60.0
 INDEX_ENTRY = re.compile(r"\{\s*file\s*:\s*'([^']+)'\s*,\s*size\s*:\s*([0-9]+)\s*\}")
 # One finished game per scc line: its start time, then a replay link holding the log ID.
 LISTED_GAME = re.compile(r"^(\d{2}:\d{2}).*?log=([^\"'&>]+)", re.MULTILINE)
+# What a log Tenhou serves starts with, after an optional XML declaration.
+MJLOG_START = re.compile(r"\A\s*(?:<\?xml\s[\s\S]*?\?>\s*)?<mjloggm(?=[\s/>])")
 
 SCHEMA = """
 -- The scc lists in the FileIndex last read, with their sizes, and when it was read.
@@ -40,6 +42,8 @@ CREATE TABLE IF NOT EXISTS state (key TEXT PRIMARY KEY, value);
 CREATE TABLE IF NOT EXISTS lists_read (file TEXT PRIMARY KEY, size INTEGER NOT NULL);
 -- Every game those lists named. Only log IDs are kept, never the lines (they hold player names).
 CREATE TABLE IF NOT EXISTS listed (log_id TEXT PRIMARY KEY);
+-- Listed games Tenhou could not give a log for. They are not asked for again.
+CREATE TABLE IF NOT EXISTS failed (log_id TEXT PRIMARY KEY, reason TEXT NOT NULL);
 """
 
 
@@ -60,6 +64,7 @@ class DownloadStopped(Exception):
 @dataclass
 class DownloadSummary:
     fetched: int = 0
+    failed: int = 0
 
 
 class Downloader:
@@ -91,12 +96,19 @@ class Downloader:
         for file, size in self._file_index():
             if lists_read.get(file) != size:  # Tenhou adds late-finishing games to a list after it first appears
                 self._read_list(file, size)
-        for (log_id,) in self._db.execute("SELECT log_id FROM listed ORDER BY log_id").fetchall():
+        to_fetch = self._db.execute(
+            "SELECT log_id FROM listed WHERE log_id NOT IN (SELECT log_id FROM failed) ORDER BY log_id").fetchall()
+        for (log_id,) in to_fetch:
             if not _ingest_takes(log_id) or log_id in self._log_store:
                 continue
-            reply = self._get(LOG_URL.format(log_id=log_id))
-            self._log_store.add(log_id, reply.body.decode("utf-8"))
-            summary.fetched += 1
+            xml, failure = self._fetch_log(log_id)
+            if failure:
+                with self._db:
+                    self._db.execute("INSERT OR REPLACE INTO failed (log_id, reason) VALUES (?, ?)", (log_id, failure))
+                summary.failed += 1
+            else:
+                self._log_store.add(log_id, xml)
+                summary.fetched += 1
         return summary
 
     def _get(self, url: str) -> Response:
@@ -112,6 +124,19 @@ class Downloader:
             raise DownloadStopped(f"Tenhou answered {reply.status} for {url}"
                                   + (f"; it asks to retry after {retry_after}" if retry_after else ""))
         return reply
+
+    def _fetch_log(self, log_id: str) -> tuple[str | None, str | None]:
+        """A log's XML, or why Tenhou could not give it."""
+        reply = self._get(LOG_URL.format(log_id=log_id))
+        if reply.status != 200:
+            return None, f"HTTP {reply.status}"
+        try:
+            xml = reply.body.decode("utf-8-sig")
+        except UnicodeDecodeError:
+            return None, "not UTF-8"
+        if not MJLOG_START.match(xml):
+            return None, "no log content"
+        return xml, None
 
     def _file_index(self) -> list[tuple[str, int]]:
         """The scc lists Tenhou offers, with their sizes, from the recent and the old FileIndex.

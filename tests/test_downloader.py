@@ -187,3 +187,18 @@ def test_an_interrupted_run_resumes_where_it_stopped(tenhou, clock, log_store, d
 
     assert tenhou.urls() == [tenhou.log_url(GAME_B), tenhou.log_url(GAME_C)]
     assert list(log_store.log_ids()) == [GAME_A, GAME_B, GAME_C]
+
+
+@pytest.mark.parametrize("reply", [(404, b"Not Found"), (200, b"<html><body>no such log</body></html>")])
+def test_a_log_tenhou_cannot_give_is_skipped_now_and_in_later_runs(tenhou, clock, log_store, download, reply):
+    tenhou.add_list("scc2026110604.html.gz", GAME_A, GAME_B)
+    tenhou.reply(tenhou.log_url(GAME_A), *reply)
+    tenhou.add_log(GAME_B, log(2))
+
+    first = download()
+    clock.advance(30 * MINUTE)
+    download()
+
+    assert list(log_store.log_ids()) == [GAME_B]
+    assert tenhou.urls().count(tenhou.log_url(GAME_A)) == 1
+    assert first.failed == 1
