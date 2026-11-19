@@ -1,4 +1,14 @@
-"""Reads the hands out of one Tenhou mjlog XML log."""
+"""Reads the hands out of one Tenhou mjlog XML log.
+
+Every win (AGARI) in a taken game becomes a hand record, a JSON-ready dict:
+
+    id                 <logId>/<roundIndex>/<winIndex>
+    replayUrl          Tenhou replay of the round from the winner's seat (hand store only)
+    situation          winds, dealer, honba, riichi sticks, tsumo, riichi
+    tiles              concealed tiles, winning tile and dora indicators, in mpsz
+    answerKey          Tenhou's recorded yaku (contract keys), han, fu and points
+    quarantineReasons  one reason code per failed check; empty when verified
+"""
 
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass, field
@@ -8,7 +18,7 @@ from logparser.verification import quarantine_reasons
 from logparser.yaku import TENHOU_YAKU_KEYS, YAKUMAN_HAN
 
 REPLAY_URL = "https://tenhou.net/0/?log={log_id}&ts={round_index}&tw={seat}"
-
+WINDS = ("east", "south", "west", "north")
 
 # Bits of the GO tag's `type` attribute.
 NO_RED_FIVES = 0x02
@@ -19,10 +29,7 @@ SANMA = 0x10
 @dataclass
 class ParsedLog:
     hands: list[dict] = field(default_factory=list)
-    skipped: str | None = None  # why the whole game was not taken
-
-
-WINDS = ("east", "south", "west", "north")
+    skipped: str | None = None  # why the whole game was not taken: "sanma", "ruleset" or "malformed"
 
 
 @dataclass
