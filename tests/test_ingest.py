@@ -5,6 +5,7 @@ import json
 from logparser.hand_store import HandStore
 from logparser.ingest import IngestSummary, ingest
 from logparser.log_store import LogStore
+from logparser.tags import TAGS
 from tenhou_xml import SANMA_HANCHAN, agari, called_win, chi, closed_win, game, ids, init, m, short_win
 
 PHOENIX_LOG = "2024010112gm-00a9-0000-0123abcd"
@@ -87,3 +88,31 @@ def test_the_report_gives_the_hands_parsed_and_the_quarantined_hands_grouped_by_
     assert report(summary)["logs"] == {"read": 2, "skipped": {"sanma": 1}}
     assert report(summary)["hands"] == {"parsed": 3, "verified": 1, "quarantined": 2}
     assert report(summary)["quarantined"] == {"payments": [f"{PHOENIX_LOG}/2/0"], "tile-total": [f"{PHOENIX_LOG}/1/0"]}
+
+
+def test_the_report_counts_the_verified_hands_with_each_tag_listing_every_tag(tmp_path):
+    logs = LogStore(tmp_path / "log-store")
+    logs.add(PHOENIX_LOG, game(init(round_number=0), open_honitsu(), init(round_number=1, oya=0), closed_win(),
+                               init(round_number=2, oya=0), open_honitsu(sc="250,-10,250,10,250,0,250,0")))
+
+    with HandStore(tmp_path / "hand-store.sqlite") as hands:
+        summary = ingest(logs, hands, tmp_path / "reports")
+
+    tags = report(summary)["verified"]["tags"]
+    assert (tags["kuisagari"], tags["wraparound-dora"]) == (1, 0)  # the quarantined kuisagari hand isn't counted
+    assert set(tags) == set(TAGS)
+
+
+def test_the_report_counts_the_verified_hands_at_each_limit_tier(tmp_path):
+    # Seat 1 rons off seat 0 with a chi of 123m and 345m 67m+8m 999m 22m concealed: chinitsu, 5 han, mangan.
+    open_chinitsu = agari(who=1, from_who=0, m=m(chi((0, 4, 8), called=0)), hai=ids(5, 6, 9, 12, 17, 20, 24, 28, 32, 33, 34),
+                          machi=28, ten="30,8000,1", yaku="35,5")
+    logs = LogStore(tmp_path / "log-store")
+    logs.add(PHOENIX_LOG, game(init(round_number=0), open_chinitsu, init(round_number=1, oya=0), closed_win(),
+                               init(round_number=2, oya=0), short_win()))
+
+    with HandStore(tmp_path / "hand-store.sqlite") as hands:
+        summary = ingest(logs, hands, tmp_path / "reports")
+
+    assert report(summary)["verified"]["limitTiers"] == {
+        "none": 1, "mangan": 1, "haneman": 0, "baiman": 0, "sanbaiman": 0, "kazoe-yakuman": 0, "yakuman": 0}

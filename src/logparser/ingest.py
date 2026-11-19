@@ -18,6 +18,8 @@ from pathlib import Path
 
 from logparser.hand_store import HandStore
 from logparser.log_store import LogStore
+from logparser.plain_values import LIMIT_TIERS
+from logparser.tags import TAGS
 from logparser.tenhou import parse_log
 
 
@@ -38,6 +40,8 @@ def ingest(logs: LogStore, hands: HandStore, reports: Path | None = None, *,
     summary = IngestSummary()
     skipped = Counter()
     quarantined = defaultdict(list)  # hand IDs, by reason code
+    tags = Counter()  # verified hands, by tag
+    limit_tiers = Counter()  # verified hands, by limit tier
     for log_id in logs.log_ids():
         parsed = parse_log(log_id, logs.read(log_id))
         hands.replace_log(log_id, parsed.hands)
@@ -49,6 +53,9 @@ def ingest(logs: LogStore, hands: HandStore, reports: Path | None = None, *,
             summary.quarantined += bool(hand["quarantineReasons"])
             for reason in hand["quarantineReasons"]:
                 quarantined[reason].append(hand["id"])
+            if not hand["quarantineReasons"]:
+                tags.update(hand["tags"])
+                limit_tiers[hand["plainValues"]["limitTier"]] += 1
     summary.skipped = dict(skipped)
     if reports is not None:
         summary.report_folder = Path(reports) / ingested_at.strftime("%Y%m%dT%H%M%SZ")
@@ -60,6 +67,8 @@ def ingest(logs: LogStore, hands: HandStore, reports: Path | None = None, *,
             "hands": {"parsed": summary.hands, "verified": summary.hands - summary.quarantined,
                       "quarantined": summary.quarantined},
             "quarantined": dict(sorted(quarantined.items())),
+            "verified": {"tags": {tag: tags[tag] for tag in TAGS},
+                         "limitTiers": {tier: limit_tiers[tier] for tier in LIMIT_TIERS}},
         }
         (summary.report_folder / "report.json").write_text(json.dumps(report, indent=2), encoding="utf-8")
     return summary
