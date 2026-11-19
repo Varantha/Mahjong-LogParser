@@ -31,13 +31,20 @@ class Filter:
     def matches(self, hand: dict) -> bool:
         return all(_holds(_value(hand, name), wanted) for name, wanted in self.conditions.items())
 
+    def __str__(self) -> str:
+        return ", ".join(f"{name} = {'/'.join(map(str, _listed(wanted)))}" for name, wanted in self.conditions.items())
+
+
+def _listed(wanted) -> list:
+    return wanted if isinstance(wanted, list) else [wanted]
+
 
 def _value(hand: dict, name: str):
     return hand["tags"] if name == "tags" else hand["plainValues"][name]
 
 
 def _holds(value, wanted) -> bool:
-    wanted = wanted if isinstance(wanted, list) else [wanted]
+    wanted = _listed(wanted)
     if isinstance(value, list):
         return any(held in wanted for held in value)
     return value in wanted
@@ -53,20 +60,37 @@ class Part:
 
 
 @dataclass(frozen=True)
+class Quota:
+    """A share of a drill kept for the pool hands that also meet `where`, so they appear more often
+    than in real games."""
+
+    share: float
+    where: Filter
+
+
+@dataclass(frozen=True)
 class Drill:
-    """A drill in the catalogue. With a trap, `lookalikes` is the share of the drill given to pool hands
-    without the trap, so the drill doesn't give the answer away; the rest of the drill has the trap."""
+    """A drill in the catalogue.
+
+    With a trap, `lookalikes` is the share of the drill given to pool hands without the trap, so the
+    drill doesn't give the answer away; the rest of the drill has the trap. Without one, each quota
+    takes its share first and the rest of the drill is drawn from the whole pool.
+    """
 
     key: str
     target: int
     pool: Filter = Filter()
     trap: Filter | None = None
     lookalikes: float = DEFAULT_LOOKALIKE_SHARE
+    quotas: tuple[Quota, ...] = ()
 
     def parts(self) -> list[Part]:
         pool, trap = self.pool, self.trap
         if trap is None:
-            return [Part("pool", self.target, pool.matches)]
+            quotas = [Part(str(quota.where), round(self.target * quota.share),
+                           lambda hand, where=quota.where: pool.matches(hand) and where.matches(hand))
+                      for quota in self.quotas]
+            return [*quotas, Part("pool", self.target - sum(quota.wanted for quota in quotas), pool.matches)]
         lookalikes = round(self.target * self.lookalikes)
         return [
             Part("trap hands", self.target - lookalikes, lambda hand: pool.matches(hand) and trap.matches(hand)),
@@ -112,6 +136,7 @@ def _drill(entry: dict) -> Drill:
         pool=Filter(entry.get("pool", {})),
         trap=Filter(entry["trap"]) if "trap" in entry else None,
         lookalikes=entry.get("lookalikes", DEFAULT_LOOKALIKE_SHARE),
+        quotas=tuple(Quota(quota["share"], Filter(quota["where"])) for quota in entry.get("quotas", [])),
     )
 
 
@@ -124,7 +149,9 @@ def draw_drills(catalogue: list[Drill], hands: Iterable[dict], *, seed: int = 0)
         rng = random.Random(f"{seed}/{drill.key}")
         hand_ids, shortfalls = [], []
         for part in drill.parts():
-            taken = _newest_first([hand["id"] for hand in hands if part.takes(hand)], part.wanted, rng)
+            taken_already = set(hand_ids)
+            candidates = [hand["id"] for hand in hands if hand["id"] not in taken_already and part.takes(hand)]
+            taken = _newest_first(candidates, part.wanted, rng)
             hand_ids += taken
             if len(taken) < part.wanted:
                 shortfalls.append(Shortfall(part.name, part.wanted, len(taken)))

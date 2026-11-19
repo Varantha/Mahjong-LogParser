@@ -212,3 +212,44 @@ def test_a_drill_short_of_trap_hands_is_not_filled_up_with_lookalikes_and_says_w
 
     assert (len(kuisagari.hand_ids), kuisagari.short_by) == (4, 2)
     assert kuisagari.shortfalls == [Shortfall(part="trap hands", wanted=3, found=1)]
+
+
+BIG_HANDS = """
+    [[drill]]
+    key = "big-hands"
+    target = 4
+    pool = { limitTier = ["haneman", "yakuman"] }
+    quotas = [{ share = 0.5, where = { limitTier = "yakuman" } }]
+"""
+
+
+def test_a_quota_gives_its_share_of_a_drill_to_pool_hands_that_are_rarer_in_real_games(tmp_path):
+    haneman = [hand(number, han=6, limitTier="haneman") for number in range(40)]
+    yakuman = [hand(number, han=13, limitTier="yakuman") for number in range(40, 42)]
+    mangan = [hand(number, han=5, limitTier="mangan") for number in range(42, 50)]
+
+    [big_hands] = draw_drills(catalogue(tmp_path, BIG_HANDS), haneman + yakuman + mangan)
+
+    assert (len(big_hands.hand_ids), drawn_ids(big_hands) >= ids(yakuman)) == (4, True)
+    assert drawn_ids(big_hands) <= ids(haneman + yakuman)
+
+
+def test_a_short_quota_reaches_back_through_the_years_while_the_rest_of_the_drill_stays_in_the_newest(tmp_path):
+    haneman_2024 = [hand(number, year=2024, han=6, limitTier="haneman") for number in range(10)]
+    yakuman_2023 = [hand(number, year=2023, han=13, limitTier="yakuman") for number in range(10, 12)]
+    haneman_2022 = [hand(number, year=2022, han=6, limitTier="haneman") for number in range(12, 20)]
+
+    [big_hands] = draw_drills(catalogue(tmp_path, BIG_HANDS), haneman_2024 + yakuman_2023 + haneman_2022)
+
+    assert (len(drawn_ids(big_hands) & ids(haneman_2024)), drawn_ids(big_hands) & ids(haneman_2022)) == (2, set())
+    assert drawn_ids(big_hands) >= ids(yakuman_2023)
+
+
+def test_a_quota_the_hand_store_cannot_fill_is_not_made_up_from_the_rest_of_the_pool(tmp_path):
+    haneman = [hand(number, han=6, limitTier="haneman") for number in range(10)]
+    yakuman = hand(10, han=13, limitTier="yakuman")
+
+    [big_hands] = draw_drills(catalogue(tmp_path, BIG_HANDS), [*haneman, yakuman])
+
+    assert (len(big_hands.hand_ids), yakuman["id"] in big_hands.hand_ids) == (3, True)
+    assert big_hands.shortfalls == [Shortfall(part="limitTier = yakuman", wanted=2, found=1)]
