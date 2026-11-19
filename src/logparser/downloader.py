@@ -6,9 +6,12 @@ uses the network.
 """
 
 import gzip
+import http.client
 import re
 import sqlite3
 import time
+import urllib.error
+import urllib.request
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -55,6 +58,8 @@ class Response:
 
 
 HttpGet = Callable[[str], Response]
+
+TIMEOUT = 60.0  # seconds to wait for Tenhou to answer
 
 
 class DownloadStopped(Exception):
@@ -190,3 +195,19 @@ def _ingest_takes(log_id: str) -> bool:
     """
     game_type = int(log_id[13:17], 16)
     return not game_type & (SANMA | NO_RED_FIVES | NO_OPEN_TANYAO)
+
+
+def urllib_get(url: str) -> Response:
+    """Fetches a URL, following redirects and decoding a gzip-encoded reply. Error replies are returned, not raised."""
+    request = urllib.request.Request(url, headers={"Accept-Encoding": "gzip"})
+    try:
+        try:
+            with urllib.request.urlopen(request, timeout=TIMEOUT) as reply:
+                status, headers, body = reply.status, reply.headers, reply.read()
+        except urllib.error.HTTPError as error:
+            status, headers, body = error.code, error.headers, error.read()
+        if headers.get("Content-Encoding", "").lower() == "gzip":
+            body = gzip.decompress(body)
+    except (OSError, EOFError, http.client.HTTPException) as error:
+        raise DownloadStopped(f"could not reach {url}: {error}") from error
+    return Response(status, body, {name.lower(): value for name, value in headers.items()})
