@@ -58,7 +58,7 @@ key = "high-fu"
 target = 500
 pool = { tags = "high-fu" }
 
-# Open hands below mangan by han. About half have the open pinfu shape: raw fu 20, scored
+# Open hands with 4 han or fewer. About half have the open pinfu shape: raw fu 20, scored
 # as 30. That tag gives the fu away, so the rest are open lookalikes with other raw fu.
 # Skill: open hands with 20 fu round up to 30.
 [[drill]]
@@ -99,8 +99,8 @@ trap = { tags = "wraparound-dora" }
 lookalikes = 0.5
 
 # Haneman and above. Sanbaiman, kazoe yakuman and yakuman are about 1 in 100 of these
-# hands in real games; here they make up a fifth of the drill. One year of logs holds
-# only about 22 of them, so this drill draws on several years.
+# hands in real games; here they make up a fifth of the drill. They are about 1 in 1,200
+# of all hands, so this drill needs the logs of many more games than most.
 # Skill: han counting for big hands, limit tiers.
 [[drill]]
 key = "big-hands"
@@ -116,9 +116,10 @@ target = 500
 pool = { tsumo = true }
 
 # Hands with haitei, houtei, rinshan, chankan or double riichi, a fifth of the drill each
-# rather than at their real-game frequency, which makes chankan the rarest by far. Ippatsu
-# is left out: it is common and dull, and its hands still turn up in other drills with
-# the situation shown. Skill: situational yaku.
+# rather than at their real-game frequency. Chankan is the rarest by far, about 1 in 7,000
+# hands, so this drill needs the logs of many more games than most. Ippatsu is left out:
+# it is common and dull, and its hands still turn up in other drills with the situation
+# shown. Skill: situational yaku.
 [[drill]]
 key = "rare-situations"
 target = 500

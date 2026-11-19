@@ -400,7 +400,7 @@ def test_big_hands_takes_haneman_and_above_giving_a_fifth_of_the_drill_to_sanbai
 
 
 def test_big_hands_short_of_sanbaiman_and_above_says_so_rather_than_shrinking():
-    # About what one year of logs holds: a few thousand haneman and baiman, 22 hands above them.
+    # About what the logs of 3,000 games hold: a few thousand haneman and baiman, 22 hands above them.
     common = numbered(2000, han=6, limitTier="haneman")
     rare = numbered(8, 2000, han=11, limitTier="sanbaiman") + numbered(14, 2008, han=13, limitTier="yakuman")
 

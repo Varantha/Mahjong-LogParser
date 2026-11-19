@@ -106,17 +106,34 @@ The drill catalogue is configuration: adding or retuning a drill means editing [
 
 - its **pool**, the hands it may take, as conditions on plain values and tags (`pool = { tsumo = true }`, `pool = { limitTier = ["sanbaiman", "yakuman"] }`, `pool = { tags = "kuisagari" }`). With no pool it takes any hand, at real-game frequency.
 - its **target**, how many hands it aims for.
-- optionally a **trap**, with a share of **lookalikes** (about half unless set): pool hands without the trap, so the drill doesn't give the answer away.
+- optionally a **trap**, with a share of **lookalikes** (about half unless set): pool hands without the trap, so the drill doesn't give the answer away. A tag that gives the answer away, `open-pinfu-shape` (the fu) or `fu-mangan` (the points), can only be a trap, in a drill with lookalikes; export refuses a catalogue that uses it any other way.
 - or optionally **quotas**, shares of the drill kept for rarer pool hands so they appear more often than in real games.
 
-The catalogue holds `everything`, `open-hand-han`, `big-hands`, `payments` and `rare-situations`, each aiming for 500 hands. A drill draws on the newest year of logs first and reaches back a year at a time only while it is short. A drill is never shrunk to fit: when every year in the hand store together still leaves it short, export lists it after the summary line, with how many hands it has, how many it is short, and which part of the drill ran out:
+The catalogue holds every drill in the drill table, each aiming for 500 hands:
+
+| Drill | Pool | Mixed in |
+|---|---|---|
+| `everything` | Any hand, at real-game frequency | |
+| `fu-rounding-edge` | `knife-edge-fu` | |
+| `tricky-waits` | `ambiguous-wait` | |
+| `high-fu` | `high-fu` | |
+| `open-hand-fu` | Open hands with 1–4 han | About half `open-pinfu-shape`, half lookalikes |
+| `mangan-or-not` | Hands with 3–4 han | About half `fu-mangan`, half lookalikes |
+| `open-hand-han` | Hands with sanshoku, ittsu, chanta, junchan, honitsu or chinitsu | About half open, half closed lookalikes |
+| `hidden-dora` | Hands holding dora named by the dora indicators | About half `wraparound-dora`, half lookalikes |
+| `big-hands` | Haneman and above | A fifth sanbaiman, kazoe yakuman or yakuman |
+| `payments` | Tsumo hands | |
+| `rare-situations` | Hands with haitei, houtei, rinshan, chankan or double riichi | A fifth for each of the five; ippatsu is left out |
+
+A drill draws on the newest year of logs first and reaches back a year at a time only while it is short. A drill is never shrunk to fit: when every year in the hand store together still leaves it short, export lists it after the summary line, with how many hands it has, how many it is short, and which part of the drill ran out:
 
 ```
 Short of hands, even drawing on every year of logs in the hand store:
   big-hands: 422 of 500 hands, 78 short (limitTier = sanbaiman/kazoe-yakuman/yakuman: 22 of 100)
+  rare-situations: 325 of 500 hands, 175 short (yaku = rinshan: 67 of 100; yaku = chankan: 4 of 100; yaku = double-riichi: 54 of 100)
 ```
 
-One year of logs holds only about 22 hands at sanbaiman or above, so `big-hands` needs several years.
+That is export on the logs of about 3,000 Phoenix games, which hold only 22 hands at sanbaiman or above, 4 with chankan, 54 with double riichi and 67 with rinshan. A year of Phoenix games, about 200,000 of them, should fill both drills.
 
 ### Where data lives
 
