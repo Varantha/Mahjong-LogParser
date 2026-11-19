@@ -53,6 +53,10 @@ class Response:
 HttpGet = Callable[[str], Response]
 
 
+class DownloadStopped(Exception):
+    """Tenhou asked the downloader to wait, or could not be reached. Run it again later to carry on."""
+
+
 @dataclass
 class DownloadSummary:
     fetched: int = 0
@@ -102,7 +106,12 @@ class Downloader:
             if wait > 0:
                 self._sleep(min(wait, self._interval))  # never longer, even if the clock jumps back
         self._last_request = self._clock()
-        return self._http_get(url)
+        reply = self._http_get(url)
+        if reply.status in (408, 429) or reply.status >= 500:
+            retry_after = reply.headers.get("retry-after")
+            raise DownloadStopped(f"Tenhou answered {reply.status} for {url}"
+                                  + (f"; it asks to retry after {retry_after}" if retry_after else ""))
+        return reply
 
     def _file_index(self) -> list[tuple[str, int]]:
         """The scc lists Tenhou offers, with their sizes, from the recent and the old FileIndex.

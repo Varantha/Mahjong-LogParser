@@ -6,12 +6,12 @@ Every test talks to a fake Tenhou: none of them touches the network.
 import pytest
 
 from fake_tenhou import FILE_INDEXES, FakeClock, FakeTenhou
-from logparser.downloader import Downloader
+from logparser.downloader import Downloader, DownloadStopped
 from logparser.log_store import LogStore
 from tenhou_xml import closed_win, game, init
 
 GAME_A = "2026110604gm-00a9-0000-0000000a"
-GAME_B = "2026110604gm-00a1-0000-0000000b"
+GAME_B = "2026110604gm-00a9-0000-0000000b"
 
 
 @pytest.fixture
@@ -150,3 +150,40 @@ def test_the_file_index_is_read_at_most_once_every_twenty_minutes(tenhou, clock,
     download()
 
     assert [url for url in tenhou.urls() if url in FILE_INDEXES] == [*FILE_INDEXES, *FILE_INDEXES]
+
+
+@pytest.mark.parametrize("status", [408, 429, 500, 503])
+def test_tenhou_asking_the_downloader_to_wait_stops_the_run_at_once(tenhou, log_store, download, status):
+    tenhou.add_list("scc2026110604.html.gz", GAME_A, GAME_B)
+    tenhou.reply(tenhou.log_url(GAME_A), status, b"busy")
+    tenhou.add_log(GAME_B, log(2))
+
+    with pytest.raises(DownloadStopped, match=str(status)):
+        download()
+
+    assert tenhou.urls()[-1] == tenhou.log_url(GAME_A) and list(log_store.log_ids()) == []
+
+
+def test_when_tenhou_says_how_long_to_wait_the_stop_says_so(tenhou, download):
+    tenhou.add_list("scc2026110604.html.gz", GAME_A)
+    tenhou.reply(tenhou.log_url(GAME_A), 429, headers={"retry-after": "600"})
+
+    with pytest.raises(DownloadStopped, match="retry after 600"):
+        download()
+
+
+def test_an_interrupted_run_resumes_where_it_stopped(tenhou, clock, log_store, download):
+    tenhou.add_list("scc2026110604.html.gz", GAME_A, GAME_B, GAME_C)
+    for n, log_id in enumerate([GAME_A, GAME_B, GAME_C]):
+        tenhou.add_log(log_id, log(n))
+    tenhou.reply(tenhou.log_url(GAME_B), 503)
+    with pytest.raises(DownloadStopped):
+        download()
+    tenhou.reply(tenhou.log_url(GAME_B), 200, log(1).encode())
+    clock.advance(5 * MINUTE)
+    tenhou.requests.clear()
+
+    download()
+
+    assert tenhou.urls() == [tenhou.log_url(GAME_B), tenhou.log_url(GAME_C)]
+    assert list(log_store.log_ids()) == [GAME_A, GAME_B, GAME_C]
