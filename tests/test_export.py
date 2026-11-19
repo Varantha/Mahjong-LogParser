@@ -12,7 +12,7 @@ from logparser.hand_store import HandStore
 from logparser.ingest import ingest
 from logparser.log_store import LogStore
 from logparser.yaku import TENHOU_YAKU_KEYS
-from tenhou_xml import KAMICHA, added_kan, agari, called_win, closed_kan, closed_win, game, ids, init, m, short_win
+from tenhou_xml import CLOSED_HAND, KAMICHA, added_kan, agari, called_win, closed_kan, closed_win, game, ids, init, m, short_win
 
 SCHEMA_PATH = Path(__file__).parents[1] / "src" / "logparser" / "schema" / "trainer-bundle.schema.json"
 LOG_ID = "2024010112gm-00a9-0000-0123abcd"
@@ -28,7 +28,7 @@ def hand_store(tmp_path):
         init(round_number=0), closed_win(who=1),
         init(round_number=1), short_win(who=2),
         init(round_number=2), closed_win(who=3),
-        init(round_number=3), closed_win(who=0),
+        init(round_number=3), closed_win(who=0, from_who=3),
     ))
     with HandStore(tmp_path / "hand-store.sqlite") as hands:
         ingest(logs, hands)
@@ -91,7 +91,38 @@ def test_each_hand_appears_once_with_its_id_situation_tiles_and_answer_key(hand_
             "doraIndicators": "6z",
             "uraDoraIndicators": "",
         },
-        "answerKey": {"yaku": [{"key": "pinfu", "han": 1}], "han": 1, "fu": 30, "points": 1000},
+        "answerKey": {
+            "yaku": [{"key": "pinfu", "han": 1}],
+            "han": 1,
+            "fu": 30,
+            "points": 1000,
+            "payments": {"base": {"fromDiscarder": 1000}, "honbaBonus": 0, "riichiSticksCollected": 0},
+        },
+    }
+
+
+def test_the_bundle_carries_each_kind_of_payment_with_the_honba_and_riichi_sticks_apart(tmp_path):
+    logs = LogStore(tmp_path / "log-store")
+    logs.add(LOG_ID, game(
+        # Dealer tsumo: 3 han 30 fu, 2000 all.
+        init(round_number=0), agari(who=0, from_who=0, hai=CLOSED_HAND, machi=84, ten="30,6000,0", yaku="0,1,52,2"),
+        # Non-dealer tsumo with 1 honba and 1 stick: 3 han 40 fu, 1300 / 2600.
+        init(round_number=1, honba=1, sticks=1),
+        agari(who=2, from_who=2, ba="1,1", hai=CLOSED_HAND, machi=84, ten="40,5200,0", yaku="0,1,52,2", dealer=1),
+        # Ron: 1 han 30 fu, 1000 from the discarder.
+        init(round_number=2), closed_win(who=3, from_who=0),
+    ))
+    with HandStore(tmp_path / "hand-store.sqlite") as hands:
+        ingest(logs, hands)
+        export_bundle(hands, tmp_path / "bundle", EVERYTHING, built_at=BUILT_AT)
+
+    payments = {hand["id"]: hand["answerKey"]["payments"] for hand in bundle_hands(tmp_path / "bundle")}
+
+    assert payments == {
+        f"{LOG_ID}/0/0": {"base": {"fromEachPlayer": 2000}, "honbaBonus": 0, "riichiSticksCollected": 0},
+        f"{LOG_ID}/1/0": {"base": {"fromDealer": 2600, "fromEachNonDealer": 1300},
+                          "honbaBonus": 300, "riichiSticksCollected": 1000},
+        f"{LOG_ID}/2/0": {"base": {"fromDiscarder": 1000}, "honbaBonus": 0, "riichiSticksCollected": 0},
     }
 
 

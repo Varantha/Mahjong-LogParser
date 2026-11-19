@@ -8,17 +8,22 @@ bundle. Reason codes are stable strings, so reports can group by them.
 from logparser.calls import KANS, Call
 
 TILE_TOTAL = "tile-total"
+PAYMENTS = "payments"
 UNKNOWN_YAKU = "unknown-yaku"
 UNREADABLE_CALL = "unreadable-call"
 
 
-def quarantine_reasons(*, concealed: list[int], calls: list[Call] | None, unknown_yaku: list[int]) -> list[str]:
+def quarantine_reasons(*, concealed: list[int], calls: list[Call] | None, unknown_yaku: list[int],
+                       recorded_score_changes: list[int], expected_score_changes: list[int] | None) -> list[str]:
     """`calls` is None when a call code in the win could not be read, so the tiles can't be checked."""
     reasons = []
     if calls is None:
         reasons.append(UNREADABLE_CALL)
     elif not _tile_total_adds_up(concealed, calls):
         reasons.append(TILE_TOTAL)
+    if recorded_score_changes != expected_score_changes:
+        # Check 5: Tenhou's recorded score changes are the answer key's payments, honba and riichi sticks.
+        reasons.append(PAYMENTS)
     if unknown_yaku:
         reasons.append(UNKNOWN_YAKU)
     return reasons

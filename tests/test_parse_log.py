@@ -100,7 +100,7 @@ def test_situation_of_a_dealer_tsumo_without_riichi():
     xml = game(
         init(round_number=5, oya=1),
         '<REACH who="3" step="1"/><G30/><REACH who="3" step="2" ten="250,250,250,240"/>',
-        agari(who=1, from_who=1, ba="0,1", hai=CLOSED_HAND, machi=84, ten="30,1500,0", yaku="0,1,7,1"),
+        agari(who=1, from_who=1, ba="0,1", hai=CLOSED_HAND, machi=84, ten="30,1500,0", yaku="0,1,7,1", dealer=1),
     )
 
     situation = only_hand(xml)["situation"]
@@ -144,6 +144,7 @@ def test_answer_key_holds_tenhous_yaku_as_contract_keys_with_han_fu_and_points()
         "han": 5,
         "fu": 30,
         "points": 8000,
+        "payments": {"base": {"fromDiscarder": 8000}, "honbaBonus": 0, "riichiSticksCollected": 0},
     }
 
 
@@ -166,6 +167,7 @@ def test_each_yakuman_in_the_answer_key_counts_13_han():
         "han": 26,
         "fu": 40,
         "points": 64000,
+        "payments": {"base": {"fromDiscarder": 64000}, "honbaBonus": 0, "riichiSticksCollected": 0},
     }
 
 
