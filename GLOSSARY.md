@@ -32,6 +32,10 @@ _Avoid_: hand (for the tiles), closed hand
 A hand's fu before it is rounded up to the next 10.
 _Avoid_: unrounded fu, base fu (base is one fu component)
 
+**Fu breakdown**:
+Where a hand's raw fu come from: the base, a closed ron or a tsumo, each set, the pair and the wait, each under a contract key with its fu. Only a hand whose cross-check matched has one.
+_Avoid_: fu details, fu reasons (the `mahjong` library's terms)
+
 **Limit tier**:
 The named payment cap a hand reaches: none, mangan, haneman, baiman, sanbaiman, kazoe yakuman or yakuman.
 _Avoid_: limit, limit hand level

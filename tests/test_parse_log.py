@@ -24,6 +24,7 @@ from tenhou_xml import (
     game,
     ids,
     init,
+    riichi,
     turns,
 )
 from tenhou_xml import closed_win as win
@@ -147,10 +148,16 @@ def test_riichi_is_taken_from_the_moves_of_the_winners_own_round():
     assert only_hand(xml)["situation"]["riichi"] is False
 
 
+# CLOSED_HAND with the red 5p (52) in place of its 5p.
+CLOSED_HAND_WITH_RED_5P = ids(0, 4, 8, 48, 52, 56, 68, 69, 76, 80, 84, 96, 100, 104)
+
+
 def test_answer_key_holds_tenhous_yaku_as_contract_keys_with_han_fu_and_points():
-    # Riichi 1, pinfu 1, dora 2, aka dora 1, and Tenhou's "ura dora 0" entry.
-    xml = game(init(), agari(who=1, from_who=0, hai=CLOSED_HAND, machi=84, ten="30,8000,1",
-                             yaku="1,1,7,1,52,2,54,1,53,0", ura="40"))
+    # Seat 1 is in riichi. Riichi 1, pinfu 1, dora 2 (8p indicates the pair of 9p), aka dora 1,
+    # and Tenhou's "ura dora 0" entry.
+    xml = game(init(), turns(2), riichi(1), turns(4, first_seat=2),
+               agari(who=1, from_who=0, hai=CLOSED_HAND_WITH_RED_5P, machi=84, ten="30,8000,1",
+                     yaku="1,1,7,1,52,2,54,1,53,0", dora=ids(64), ura="40"))
 
     answer_key = only_hand(xml)["answerKey"]
 
@@ -165,6 +172,8 @@ def test_answer_key_holds_tenhous_yaku_as_contract_keys_with_han_fu_and_points()
         "fu": 30,
         "points": 8000,
         "payments": {"base": {"fromDiscarder": 8000}, "honbaBonus": 0, "riichiSticksCollected": 0},
+        "rawFu": 30,
+        "fuBreakdown": [{"key": "base", "fu": 20}, {"key": "closed-ron", "fu": 10}],
     }
 
 
@@ -177,17 +186,29 @@ def test_seat_wind_and_round_wind_yaku_have_their_own_keys():
 
 
 def test_each_yakuman_in_the_answer_key_counts_13_han():
-    # Tsuuiisou plus daisangen, a double yakuman: Tenhou lists only the yakuman.
-    xml = game(init(), agari(who=1, from_who=0, hai=CLOSED_HAND, machi=84, ten="40,64000,5", yakuman="42,39"))
+    # Tsuuiisou plus daisangen, a double yakuman: Tenhou lists only the yakuman. Haku, Hatsu and
+    # Chun triplets, East East South South, won by ron on East; the 1m indicator names no tile held.
+    hai = ids(124, 125, 126, 128, 129, 130, 132, 133, 134, 108, 109, 110, 112, 113)
+    xml = game(init(), agari(who=1, from_who=0, hai=hai, machi=110, ten="60,64000,5", yakuman="42,39", dora=ids(0)))
 
     answer_key = only_hand(xml)["answerKey"]
 
     assert answer_key == {
         "yaku": [{"key": "tsuuiisou", "han": 13}, {"key": "daisangen", "han": 13}],
         "han": 26,
-        "fu": 40,
+        "fu": 60,
         "points": 64000,
         "payments": {"base": {"fromDiscarder": 64000}, "honbaBonus": 0, "riichiSticksCollected": 0},
+        "rawFu": 60,
+        "fuBreakdown": [
+            {"key": "base", "fu": 20},
+            {"key": "closed-ron", "fu": 10},
+            {"key": "closed-terminal-triplet", "fu": 8},
+            {"key": "closed-terminal-triplet", "fu": 8},
+            {"key": "closed-terminal-triplet", "fu": 8},
+            {"key": "open-terminal-triplet", "fu": 4},
+            {"key": "yakuhai-pair", "fu": 2},
+        ],
     }
 
 
@@ -251,8 +272,10 @@ def test_a_red_five_that_is_the_called_tile_stays_red():
     "xml",
     [
         game(init(), called_win()),  # 8 concealed + chi 3 + pon 3
-        win_with_calls(closed_kan(16), open_kan(89, from_seat=SHIMOCHA),  # 8 concealed + 2 kans of 4
-                       hai=ids(36, 40, 44, 60, 64, 68, 104, 105)),
+        # 8 concealed + 2 kans of 4: 234p 678p 88s beside kans of 5m and 5s, won on 8s. Tanyao and
+        # aka dora 2, 3 han 50 fu.
+        game(init(), agari(who=1, from_who=0, hai=ids(40, 44, 48, 56, 60, 64, 100, 101), machi=101,
+                           m=m(closed_kan(16), open_kan(89, from_seat=SHIMOCHA)), ten="50,6400,0", yaku="8,1,54,2")),
     ],
     ids=["chi-and-pon", "two-kans"],
 )
@@ -290,7 +313,7 @@ def test_a_yaku_without_a_contract_key_quarantines_the_hand():
 
     hand = only_hand(xml)
 
-    assert (hand["quarantineReasons"], hand["answerKey"]["yaku"]) == (["unknown-yaku"], [])
+    assert (hand["quarantineReasons"], hand["answerKey"]["yaku"]) == (["cross-check", "unknown-yaku"], [])
 
 
 def test_concealed_tiles_are_written_in_mpsz_with_man_first():

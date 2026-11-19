@@ -19,6 +19,7 @@ from tenhou_xml import (
     init,
     m,
     pon,
+    riichi,
     turns,
 )
 
@@ -72,12 +73,13 @@ def test_a_hand_with_two_red_fives_of_one_suit_is_quarantined_for_its_tile_limit
 
 def test_four_copies_of_a_tile_and_one_red_five_per_suit_are_within_the_tile_limits():
     # 9p: 68 69 concealed, 70 a dora indicator, 71 an ura dora indicator. One red five in each
-    # suit: 16 (0m) and 52 (0p) concealed, 88 (0s) a dora indicator.
+    # suit: 16 (0m) and 52 (0p) concealed, 88 (0s) a dora indicator. Seat 1 is in riichi:
+    # riichi, pinfu and aka dora 2, 4 han 30 fu.
     hai = ids(8, 12, 16, 48, 52, 56, 68, 69, 76, 80, 84, 96, 100, 104)
-    win = agari(who=1, from_who=0, hai=hai, machi=84, ten="30,3900,0", yaku="1,1,7,1,54,2,53,0",
+    win = agari(who=1, from_who=0, hai=hai, machi=84, ten="30,7700,0", yaku="1,1,7,1,54,2,53,0",
                 dora="70,88", ura="71,120")
 
-    assert only_hand(game(init(), win))["quarantineReasons"] == []
+    assert only_hand(game(init(), turns(2), riichi(1), turns(4, first_seat=2), win))["quarantineReasons"] == []
 
 
 @pytest.mark.parametrize(

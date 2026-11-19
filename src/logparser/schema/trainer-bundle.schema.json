@@ -200,7 +200,7 @@
       "description": "The result Tenhou recorded for the hand, under Tenhou rules.",
       "type": "object",
       "additionalProperties": false,
-      "required": ["yaku", "han", "fu", "points", "payments"],
+      "required": ["yaku", "han", "fu", "rawFu", "fuBreakdown", "points", "payments"],
       "properties": {
         "yaku": {
           "description": "Each yaku with its han. Every yakuman counts 13 han.",
@@ -217,7 +217,25 @@
           }
         },
         "han": { "type": "integer", "minimum": 1 },
-        "fu": { "type": "integer", "minimum": 0 },
+        "fu": { "description": "Fu after rounding, as Tenhou scored it. 0 for kokushi musou.", "type": "integer", "minimum": 0 },
+        "rawFu": {
+          "description": "Fu before rounding: the sum of the fu breakdown. Fu is raw fu rounded up to the next 10, except that chiitoitsu stays at 25 and an open hand with raw fu 20 (the open pinfu shape) scores 30.",
+          "type": "integer",
+          "minimum": 0
+        },
+        "fuBreakdown": {
+          "description": "Where the raw fu come from, one entry per source; a key appears once for each set, pair or wait that earns it. Empty for kokushi musou, which has no fu.",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["key", "fu"],
+            "properties": {
+              "key": { "$ref": "#/$defs/fuKey" },
+              "fu": { "type": "integer", "minimum": 2 }
+            }
+          }
+        },
         "points": { "description": "What the winner receives, before honba and riichi sticks.", "type": "integer", "minimum": 1000 },
         "payments": { "$ref": "#/$defs/payments" }
       }
@@ -287,6 +305,16 @@
         "tenhou", "chiihou", "daisangen", "suuankou", "suuankou-tanki", "tsuuiisou", "ryuuiisou", "chinroutou",
         "chuuren-poutou", "junsei-chuuren-poutou", "kokushi-musou", "kokushi-musou-13-wait", "daisuushii", "shousuushii",
         "suukantsu", "dora", "ura-dora", "aka-dora"
+      ]
+    },
+
+    "fuKey": {
+      "description": "A source of fu; the trainer turns the key into display text. base: 20 for every hand except chiitoitsu. closed-ron: 10 for winning a closed hand by ron. chiitoitsu: 25, the whole of a chiitoitsu's fu. tsumo: 2 for winning by tsumo, but not with pinfu. Kans and triplets are open or closed (a triplet completed by ron is open) and of simples (2-8) or terminals (1, 9 and honours). double-wind-pair: 4 for a pair of the wind that is both the seat and round wind. yakuhai-pair: 2 for a pair of dragons or of the seat or round wind. tanki-wait, kanchan-wait, penchan-wait: 2 for winning on a single wait, a closed wait or an edge wait.",
+      "enum": [
+        "base", "closed-ron", "chiitoitsu", "tsumo",
+        "closed-terminal-kan", "open-terminal-kan", "closed-simple-kan", "open-simple-kan",
+        "closed-terminal-triplet", "open-terminal-triplet", "closed-simple-triplet", "open-simple-triplet",
+        "double-wind-pair", "yakuhai-pair", "tanki-wait", "kanchan-wait", "penchan-wait"
       ]
     },
 

@@ -3,7 +3,7 @@
 import pytest
 
 from logparser.tenhou import parse_log
-from tenhou_xml import CLOSED_HAND, agari, game, init, turns
+from tenhou_xml import CLOSED_HAND, SHIMOCHA, TOIMEN, agari, game, ids, init, m, pon, turns
 
 LOG_ID = "2024010112gm-00a9-0000-0123abcd"
 
@@ -69,15 +69,20 @@ def test_the_honba_bonus_and_the_riichi_sticks_collected_are_kept_apart_from_the
     }
 
 
+# CLOSED_HAND with the red 5p (52) in place of its 5p.
+CLOSED_HAND_WITH_RED_5P = ids(0, 4, 8, 48, 52, 56, 68, 69, 76, 80, 84, 96, 100, 104)
+
+
 def double_ron(second_sc: str) -> str:
-    """East 3 with 1 honba and 1 stick carried in: seat 0 deals into seat 1 (2000) and seat 3 (1000).
+    """East 3 with 1 honba and 1 stick carried in: seat 0 deals into seat 1 (pinfu and aka dora,
+    2000) and seat 3 (pinfu, 1000).
 
     The second winner's ba still shows the honba, but Tenhou gives the honba and the stick to the
     first winner. Both win on the same discard, so no move comes between the two wins.
     """
     return game(
         init(round_number=2, honba=1, sticks=1),
-        agari(who=1, from_who=0, ba="1,1", hai=CLOSED_HAND, machi=84, ten="30,2000,0", yaku="7,1,52,1",
+        agari(who=1, from_who=0, ba="1,1", hai=CLOSED_HAND_WITH_RED_5P, machi=84, ten="30,2000,0", yaku="7,1,54,1",
               sc="250,-23,250,33,250,0,240,0"),
         agari(who=3, from_who=0, ba="1,0", hai=CLOSED_HAND, machi=84, ten="30,1000,0", yaku="7,1",
               sc=second_sc, winning_move=False),
@@ -108,17 +113,32 @@ def test_the_second_winner_of_a_double_ron_paid_the_honba_fails_check_5():
 
 
 def ron_8000(sc: str, ba: str = "0,0") -> str:
-    """Seat 1 rons seat 3 for 8000 in East 1 (seat 0 deals), with the given recorded score changes."""
+    """Seat 1 rons seat 3 for 8000 in East 1 (seat 0 deals), with the given recorded score changes.
+
+    Two 8p dora indicators make the pair of 9p dora twice over: pinfu and dora 4, 5 han, mangan.
+    """
     return game(init(), agari(who=1, from_who=3, ba=ba, hai=CLOSED_HAND, machi=84, ten="30,8000,1",
-                              yaku="7,1,52,3", sc=sc))
+                              yaku="7,1,52,4", dora=ids(64, 65), sc=sc))
 
 
-def tsumo(*, who: int, ten: str, sc: str, ba: str = "0,0", yakuman: str | None = None) -> str:
+def tsumo(*, who: int, ten: str, sc: str, ba: str = "0,0") -> str:
     """Seat `who` wins by tsumo on its second draw in East 1 (seat 0 deals), with the given recorded
-    score changes."""
-    yaku = None if yakuman else "0,1,52,2"
+    score changes.
+
+    The 8p dora indicator makes the pair of 9p dora: menzen tsumo, pinfu and dora 2, 4 han 20 fu,
+    2600 all from the dealer or 1300 / 2600 from a non-dealer.
+    """
     return game(init(), turns(4), agari(who=who, from_who=who, ba=ba, hai=CLOSED_HAND, machi=84, ten=ten,
-                              yaku=yaku, yakuman=yakuman, sc=sc))
+                              yaku="0,1,7,1,52,2", dora=ids(64), sc=sc))
+
+
+def daisangen_tsumo(sc: str) -> str:
+    """Seat 1 wins by tsumo on its second draw in East 1: pons of Haku, Hatsu and Chun, 234m and a
+    pair of 9p, won on 4m. Daisangen, 40 fu, 32000."""
+    calls = m(pon((124, 125, 126), called=124, from_seat=TOIMEN), pon((128, 129, 130), called=128, from_seat=TOIMEN),
+              pon((132, 133, 134), called=132, from_seat=SHIMOCHA))
+    return game(init(), turns(4), agari(who=1, from_who=1, hai=ids(4, 8, 12, 68, 69), m=calls, machi=12,
+                                        ten="40,32000,5", yakuman="39", dora=ids(0), sc=sc))
 
 
 @pytest.mark.parametrize(
@@ -126,11 +146,11 @@ def tsumo(*, who: int, ten: str, sc: str, ba: str = "0,0", yakuman: str | None =
     [
         # 8000 + 2 honba (600) from the discarder; the winner also collects 1 stick.
         pytest.param(ron_8000(ba="2,1", sc="250,0,250,96,250,0,250,-86"), id="ron"),
-        # 2000 all + 1 honba (100 from each player).
-        pytest.param(tsumo(who=0, ten="30,6000,0", ba="1,0", sc="250,63,250,-21,250,-21,250,-21"),
+        # 2600 all + 1 honba (100 from each player).
+        pytest.param(tsumo(who=0, ten="20,7800,0", ba="1,0", sc="250,81,250,-27,250,-27,250,-27"),
                      id="dealer-tsumo"),
         # 1300 / 2600 + 2 honba (200 from each player); the winner also collects 1 stick.
-        pytest.param(tsumo(who=1, ten="40,5200,0", ba="2,1", sc="250,-28,250,68,250,-15,250,-15"),
+        pytest.param(tsumo(who=1, ten="20,5200,0", ba="2,1", sc="250,-28,250,68,250,-15,250,-15"),
                      id="non-dealer-tsumo"),
     ],
 )
@@ -139,28 +159,28 @@ def test_a_hand_is_verified_when_its_recorded_score_changes_are_its_points_plus_
 
 
 @pytest.mark.parametrize(
-    "xml",
+    ("xml", "reasons"),
     [
         # The discarder lost 7700 and the winner gained 7700, but the hand is worth 8000.
-        pytest.param(ron_8000(sc="250,0,250,77,250,0,250,-77"), id="points-short"),
+        pytest.param(ron_8000(sc="250,0,250,77,250,0,250,-77"), ["payments"], id="points-short"),
         # 1 honba on the table, but the discarder paid only the points.
-        pytest.param(ron_8000(ba="1,0", sc="250,0,250,80,250,0,250,-80"), id="honba-unpaid"),
+        pytest.param(ron_8000(ba="1,0", sc="250,0,250,80,250,0,250,-80"), ["payments"], id="honba-unpaid"),
         # 1 riichi stick on the table, but the winner gained only the points.
-        pytest.param(ron_8000(ba="0,1", sc="250,0,250,80,250,0,250,-80"), id="stick-not-collected"),
+        pytest.param(ron_8000(ba="0,1", sc="250,0,250,80,250,0,250,-80"), ["payments"], id="stick-not-collected"),
         # Seat 2 paid for seat 3's discard.
-        pytest.param(ron_8000(sc="250,0,250,80,250,-80,250,0"), id="wrong-payer"),
+        pytest.param(ron_8000(sc="250,0,250,80,250,-80,250,0"), ["payments"], id="wrong-payer"),
         # 5200 from a non-dealer tsumo is 2600 from the dealer and 1300 from each non-dealer,
         # but seat 2 paid the dealer's share.
-        pytest.param(tsumo(who=1, ten="40,5200,0", sc="250,-13,250,52,250,-26,250,-13"),
+        pytest.param(tsumo(who=1, ten="20,5200,0", sc="250,-13,250,52,250,-26,250,-13"), ["payments"],
                      id="tsumo-split-wrong"),
         # 1000 from a non-dealer tsumo would be 400 / 300 / 300, but the dealer always pays twice
-        # a non-dealer's share or 100 less (both are rounded up to 100), so no hand is worth 1000.
-        pytest.param(tsumo(who=1, ten="30,1000,0", sc="250,-4,250,10,250,-3,250,-3"),
+        # a non-dealer's share or 100 less (both are rounded up to 100), so no hand is worth 1000:
+        # the cross-check can't match it either.
+        pytest.param(tsumo(who=1, ten="20,1000,0", sc="250,-4,250,10,250,-3,250,-3"), ["payments", "cross-check"],
                      id="points-cannot-be-split"),
         # Pao: seat 2 is liable for a daisangen and pays the whole tsumo alone.
-        pytest.param(tsumo(who=1, ten="40,32000,5", yakuman="39", sc="250,0,250,320,250,-320,250,0"),
-                     id="pao"),
+        pytest.param(daisangen_tsumo(sc="250,0,250,320,250,-320,250,0"), ["payments"], id="pao"),
     ],
 )
-def test_a_hand_whose_recorded_score_changes_disagree_with_its_payments_is_quarantined(xml):
-    assert only_hand(xml)["quarantineReasons"] == ["payments"]
+def test_a_hand_whose_recorded_score_changes_disagree_with_its_payments_is_quarantined(xml, reasons):
+    assert only_hand(xml)["quarantineReasons"] == reasons
