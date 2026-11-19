@@ -14,6 +14,11 @@ SANMA_LOG = "2024010113gm-00b9-0000-4567cdef"
 OTHER_LOG = "2024010114gm-00a9-0000-89abcdef"
 
 
+def stored(hands: HandStore) -> list[dict]:
+    """Every hand the hand store holds, verified or quarantined, log by log."""
+    return [hand for log_id in hands.log_ids() for hand in hands.log_hands(log_id)]
+
+
 def test_ingest_turns_every_win_of_a_taken_game_into_a_hand(tmp_path):
     logs = LogStore(tmp_path / "log-store")
     logs.add(PHOENIX_LOG, game(init(round_number=0), closed_win(who=1), init(round_number=1), called_win(who=2)))
@@ -22,7 +27,7 @@ def test_ingest_turns_every_win_of_a_taken_game_into_a_hand(tmp_path):
     with HandStore(tmp_path / "hand-store.sqlite") as hands:
         ingest(logs, hands)
 
-        assert sorted(hands.hand_ids()) == [f"{PHOENIX_LOG}/0/0", f"{PHOENIX_LOG}/1/0"]
+        assert [hand["id"] for hand in stored(hands)] == [f"{PHOENIX_LOG}/0/0", f"{PHOENIX_LOG}/1/0"]
 
 
 def test_the_hand_store_keeps_each_hand_as_parsed_including_quarantined_hands(tmp_path):
@@ -44,11 +49,11 @@ def test_ingesting_again_gives_the_same_hands_without_duplicates(tmp_path):
 
     with HandStore(tmp_path / "hand-store.sqlite") as hands:
         ingest(logs, hands)
-        first = {hand_id: hands.get(hand_id) for hand_id in hands.hand_ids()}
+        first = stored(hands)
         ingest(logs, hands)
-        second = {hand_id: hands.get(hand_id) for hand_id in hands.hand_ids()}
+        second = stored(hands)
 
-    assert second == first
+    assert (len(first), second) == (2, first)
 
 
 def test_ingest_counts_the_logs_skipped_the_hands_parsed_and_the_hands_quarantined(tmp_path):

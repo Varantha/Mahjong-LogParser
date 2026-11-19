@@ -42,7 +42,7 @@ TIMEOUT = 60.0  # seconds to wait for Tenhou to answer
 FILE_INDEX = re.compile(r"\s*list\s*\(\s*(?:\[(.*)\])?\s*\)\s*;\s*", re.DOTALL)
 INDEX_ENTRY = re.compile(r"\{\s*file\s*:\s*'([^']+)'\s*,\s*size\s*:\s*([0-9]+)\s*\}")
 # One finished game per scc line: its start time, then a replay link holding the log ID.
-LISTED_GAME = re.compile(r"^(\d{2}:\d{2}).*?log=([^\"'&>]+)", re.MULTILINE)
+LISTED_GAME = re.compile(r"^\d{2}:\d{2}.*?log=([^\"'&>]+)", re.MULTILINE)
 # What a log Tenhou serves starts with, after an optional XML declaration.
 MJLOG_START = re.compile(r"\A\s*(?:<\?xml\s[\s\S]*?\?>\s*)?<mjloggm(?=[\s/>])")
 
@@ -204,7 +204,7 @@ class Downloader:
             text = gzip.decompress(reply.body).decode("utf-8", "replace")
         except (OSError, EOFError, zlib.error):
             return False
-        log_ids = [log_id for _start, log_id in LISTED_GAME.findall(text) if LOG_ID.fullmatch(log_id)]
+        log_ids = [log_id for log_id in LISTED_GAME.findall(text) if LOG_ID.fullmatch(log_id)]
         with self._db:
             self._db.executemany("INSERT OR IGNORE INTO listed (log_id) VALUES (?)", [(i,) for i in log_ids])
             self._db.execute("INSERT OR REPLACE INTO lists_read (file, size) VALUES (?, ?)", (file, size))
