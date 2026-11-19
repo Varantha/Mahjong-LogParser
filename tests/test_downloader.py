@@ -5,7 +5,7 @@ Every test talks to a fake Tenhou: none of them touches the network.
 
 import pytest
 
-from fake_tenhou import FakeClock, FakeTenhou
+from fake_tenhou import FILE_INDEXES, FakeClock, FakeTenhou
 from logparser.downloader import Downloader
 from logparser.log_store import LogStore
 from tenhou_xml import closed_win, game, init
@@ -118,3 +118,22 @@ def test_the_gap_between_requests_can_be_set(tenhou, download):
     download(interval=7.5)
 
     assert request_gaps(tenhou) == [7.5, 7.5, 7.5, 7.5]
+
+
+MINUTE = 60.0
+GAME_C = "2026110605gm-00a9-0000-0000000c"
+
+
+def test_an_scc_list_is_read_again_only_when_its_size_in_the_file_index_changed(tenhou, clock, log_store, download):
+    tenhou.add_list("scc2026110604.html.gz", GAME_A)
+    tenhou.add_list("scc2026110605.html.gz", GAME_B)
+    for n, log_id in enumerate([GAME_A, GAME_B, GAME_C]):
+        tenhou.add_log(log_id, log(n))
+    download()
+    clock.advance(30 * MINUTE)
+    tenhou.add_list("scc2026110605.html.gz", GAME_B, GAME_C)  # a game that finished late joins the list
+    tenhou.requests.clear()
+
+    download()
+
+    assert tenhou.urls() == [*FILE_INDEXES, tenhou.list_url("scc2026110605.html.gz"), tenhou.log_url(GAME_C)]

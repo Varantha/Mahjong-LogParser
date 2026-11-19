@@ -10,6 +10,7 @@ import gzip
 from logparser.downloader import Response
 
 TENHOU = "https://tenhou.net"
+FILE_INDEXES = (f"{TENHOU}/sc/raw/list.cgi", f"{TENHOU}/sc/raw/list.cgi?old")  # recent, then old
 
 
 class FakeClock:
@@ -69,9 +70,9 @@ class FakeTenhou:
         self.requests.append((self.clock(), url))
         if url in self._replies:
             return self._replies[url]
-        if url == f"{TENHOU}/sc/raw/list.cgi":
+        if url == FILE_INDEXES[0]:
             return Response(200, _index(self._recent))
-        if url == f"{TENHOU}/sc/raw/list.cgi?old":
+        if url == FILE_INDEXES[1]:
             return Response(200, _index(self._old))
         files = self._recent | self._old
         for file, body in files.items():

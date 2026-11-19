@@ -31,6 +31,9 @@ INDEX_ENTRY = re.compile(r"\{\s*file\s*:\s*'([^']+)'\s*,\s*size\s*:\s*([0-9]+)\s
 LISTED_GAME = re.compile(r"^(\d{2}:\d{2}).*?log=([^\"'&>]+)", re.MULTILINE)
 
 SCHEMA = """
+-- Each scc list already read, at the size the FileIndex gave it then.
+CREATE TABLE IF NOT EXISTS lists_read (file TEXT PRIMARY KEY, size INTEGER NOT NULL);
+-- Every game those lists named. Only log IDs are kept, never the lines (they hold player names).
 CREATE TABLE IF NOT EXISTS listed (log_id TEXT PRIMARY KEY);
 """
 
@@ -75,10 +78,10 @@ class Downloader:
 
     def run(self, max_logs: int | None = None) -> DownloadSummary:
         summary = DownloadSummary()
-        for index_url in FILE_INDEXES:
-            for file, _size in INDEX_ENTRY.findall(self._get(index_url).body.decode("ascii")):
-                if _is_phoenix_list(file):
-                    self._read_list(file)
+        lists_read = dict(self._db.execute("SELECT file, size FROM lists_read"))
+        for file, size in self._file_index():
+            if lists_read.get(file) != size:  # Tenhou adds late-finishing games to a list after it first appears
+                self._read_list(file, size)
         for (log_id,) in self._db.execute("SELECT log_id FROM listed ORDER BY log_id").fetchall():
             if not _ingest_takes(log_id) or log_id in self._log_store:
                 continue
@@ -96,12 +99,22 @@ class Downloader:
         self._last_request = self._clock()
         return self._http_get(url)
 
-    def _read_list(self, file: str) -> None:
+    def _file_index(self) -> list[tuple[str, int]]:
+        """The scc lists Tenhou offers, with their sizes, from the recent and the old FileIndex."""
+        index = []
+        for url in FILE_INDEXES:
+            for file, size in INDEX_ENTRY.findall(self._get(url).body.decode("ascii")):
+                if _is_phoenix_list(file):
+                    index.append((file, int(size)))
+        return index
+
+    def _read_list(self, file: str, size: int) -> None:
         body = self._get(LIST_URL.format(file=file)).body
         text = gzip.decompress(body).decode("utf-8")
         log_ids = [log_id for _start, log_id in LISTED_GAME.findall(text) if LOG_ID.fullmatch(log_id)]
         with self._db:
             self._db.executemany("INSERT OR IGNORE INTO listed (log_id) VALUES (?)", [(i,) for i in log_ids])
+            self._db.execute("INSERT OR REPLACE INTO lists_read (file, size) VALUES (?, ?)", (file, size))
 
 
 def _is_phoenix_list(file: str) -> bool:
