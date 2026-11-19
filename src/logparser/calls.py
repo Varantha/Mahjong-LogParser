@@ -59,7 +59,7 @@ def decode_call(code: int) -> Call:
     if code & 0x18:
         kind, position = divmod(code >> 9, 3)
         _check(kind < KINDS, code)
-        left_out = kind * 4 + (code >> 5 & 3)
+        left_out = kind * 4 + (code >> 5 & 3)  # the copy not in the pon; an added kan adds it
         pon = tuple(kind * 4 + copy for copy in range(4) if kind * 4 + copy != left_out)
         if code & 0x8:
             return Call(type=PON, tiles=pon, called_tile=pon[position], called_from=called_from)
