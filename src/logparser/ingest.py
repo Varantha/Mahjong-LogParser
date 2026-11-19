@@ -82,18 +82,22 @@ def ingest(logs: LogStore, hands: HandStore, reports: Path | None = None, *,
 
 
 def _change(previous: dict | None, hand: dict) -> dict | None:
-    """How a hand changed since the previous run, or None if it is unchanged or new."""
+    """How a hand changed since the previous run, or None if it is unchanged or new.
+
+    A hand stored by an older parser may lack a value, or a whole part such as its plain values or
+    tags: it is taken as having none."""
     if previous is None:
         return None
     change = {}
     for part in ("answerKey", "plainValues"):
-        before, after = previous[part], hand[part]
+        before, after = previous.get(part, {}), hand[part]
         values = {key: {"before": before.get(key), "after": after.get(key)}
                   for key in {**before, **after} if before.get(key) != after.get(key)}
         if values:
             change[part] = values
-    added = [tag for tag in hand["tags"] if tag not in previous["tags"]]
-    removed = [tag for tag in previous["tags"] if tag not in hand["tags"]]
+    previous_tags = previous.get("tags", [])
+    added = [tag for tag in hand["tags"] if tag not in previous_tags]
+    removed = [tag for tag in previous_tags if tag not in hand["tags"]]
     if added or removed:
         change["tags"] = {"added": added, "removed": removed}
     return {"id": hand["id"], **change} if change else None

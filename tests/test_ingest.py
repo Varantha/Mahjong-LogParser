@@ -183,3 +183,21 @@ def test_the_diff_gives_each_changed_value_of_the_answer_key_and_plain_values_be
         "answerKey": {"fu": {"before": 40, "after": 30}},
         "plainValues": {"fu": {"before": 40, "after": 30}, "doraCount": {"before": None, "after": 0}},
     }]
+
+
+def test_the_diff_takes_hands_stored_before_plain_values_and_tags_existed_as_having_none(tmp_path):
+    logs = LogStore(tmp_path / "log-store")
+    logs.add(PHOENIX_LOG, game(init(), open_honitsu()))
+    with HandStore(tmp_path / "hand-store.sqlite") as hands:
+        ingest(logs, hands)
+        older = hands.get(f"{PHOENIX_LOG}/0/0")
+        del older["plainValues"], older["tags"]
+        hands.replace_log(PHOENIX_LOG, [older])
+
+        summary = ingest(logs, hands, tmp_path / "reports")
+
+    [change] = diff(summary)
+    assert "answerKey" not in change
+    assert (change["plainValues"]["han"], change["plainValues"]["open"]) == ({"before": None, "after": 2},
+                                                                            {"before": None, "after": True})
+    assert change["tags"] == {"added": ["kuisagari"], "removed": []}
