@@ -335,3 +335,54 @@ def test_a_listed_log_tenhou_cannot_give_is_recorded_as_failed_and_not_asked_for
     assert tenhou.urls() == [tenhou.log_url(GAME_A), tenhou.log_url(GAME_B)]
     assert list(log_store.log_ids()) == [GAME_B]
     assert (first.failed, second.skipped) == (1, {"failed before": 1})
+
+
+def test_the_logs_in_an_id_list_are_fetched_at_the_interval_set_and_the_gap_holds_into_the_next_run(tenhou, download_ids):
+    for n, log_id in enumerate([GAME_A, GAME_B, GAME_C]):
+        tenhou.add_log(log_id, log(n))
+
+    download_ids(GAME_A, GAME_B, interval=7.5)
+    download_ids(GAME_C, interval=7.5)
+
+    assert request_gaps(tenhou) == [7.5, 7.5]
+
+
+@pytest.mark.parametrize("status", [408, 429, 503])
+def test_an_id_list_download_tenhou_asks_to_wait_stops_at_once_and_resumes_where_it_stopped(tenhou, clock, log_store,
+                                                                                            download_ids, status):
+    for n, log_id in enumerate([GAME_A, GAME_B, GAME_C]):
+        tenhou.add_log(log_id, log(n))
+    tenhou.reply(tenhou.log_url(GAME_B), status, b"busy")
+    with pytest.raises(DownloadStopped, match=str(status)):
+        download_ids(GAME_A, GAME_B, GAME_C)
+    tenhou.replies_reset()
+    clock.advance(5 * MINUTE)
+    tenhou.requests.clear()
+
+    download_ids(GAME_A, GAME_B, GAME_C)
+
+    assert tenhou.urls() == [tenhou.log_url(GAME_B), tenhou.log_url(GAME_C)]
+    assert list(log_store.log_ids()) == [GAME_A, GAME_B, GAME_C]
+
+
+def test_an_id_list_download_can_be_limited_to_a_number_of_logs_and_says_how_many_are_left(tenhou, log_store,
+                                                                                           download_ids):
+    for n, log_id in enumerate([GAME_A, GAME_B, GAME_C]):
+        tenhou.add_log(log_id, log(n))
+
+    summary = download_ids(GAME_C, GAME_B, GAME_A, max_logs=2)
+
+    assert (summary.fetched, summary.remaining, list(log_store.log_ids())) == (2, 1, [GAME_A, GAME_B])
+
+
+def test_an_id_list_download_cannot_start_while_another_download_is_running(state, log_store, tenhou, clock, tmp_path,
+                                                                            no_network):
+    id_list = tmp_path / "ids.txt"
+    id_list.write_text(GAME_A + "\n")
+    tenhou.add_log(GAME_A, log(0))
+
+    with Downloader(log_store, state, http_get=tenhou, clock=clock, sleep=clock.sleep):
+        with pytest.raises(DownloadStopped, match="another download"):
+            Downloader(log_store, state, http_get=tenhou, clock=clock, sleep=clock.sleep).run_id_list(id_list)
+
+    assert tenhou.urls() == []
