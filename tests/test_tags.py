@@ -327,3 +327,31 @@ def test_a_hand_below_mangan_or_at_mangan_by_han_alone_has_no_fu_mangan(xml):
 
     assert hand["quarantineReasons"] == []
     assert "fu-mangan" not in hand["tags"]
+
+
+HANDS_WITH_HIGH_FU = {
+    "50-fu": tanki_or_ryanmen(),
+    "70-fu": honitsu_with_a_closed_kan(),
+}
+
+
+@pytest.mark.parametrize("xml", HANDS_WITH_HIGH_FU.values(), ids=HANDS_WITH_HIGH_FU.keys())
+def test_a_hand_with_50_fu_or_more_has_high_fu(xml):
+    hand = only_hand(xml)
+
+    assert hand["quarantineReasons"] == []
+    assert "high-fu" in hand["tags"]
+
+
+HANDS_WITHOUT_HIGH_FU = {
+    "40-fu": closed_honitsu(),
+    "30-fu": game(init(), closed_win()),
+}
+
+
+@pytest.mark.parametrize("xml", HANDS_WITHOUT_HIGH_FU.values(), ids=HANDS_WITHOUT_HIGH_FU.keys())
+def test_a_hand_with_less_than_50_fu_has_no_high_fu(xml):
+    hand = only_hand(xml)
+
+    assert hand["quarantineReasons"] == []
+    assert "high-fu" not in hand["tags"]

@@ -51,6 +51,14 @@ def _fu_mangan(hand: dict) -> bool:
     return (plain["han"] == 3 and plain["fu"] >= 70) or (plain["han"] == 4 and plain["fu"] >= 40)
 
 
+HIGH_FU = 50
+
+
+def _high_fu(hand: dict) -> bool:
+    """The hand's fu after rounding reach the high-fu threshold."""
+    return hand["plainValues"]["fu"] >= HIGH_FU
+
+
 # Every tag, by key, in the order a hand lists them.
 TAGS = {
     "kuisagari": _kuisagari,
@@ -58,6 +66,7 @@ TAGS = {
     "ambiguous-wait": _ambiguous_wait,
     "open-pinfu-shape": _open_pinfu_shape,
     "fu-mangan": _fu_mangan,
+    "high-fu": _high_fu,
 }
 
 
