@@ -50,6 +50,7 @@ class _Round:
     dealer: int
     wins: int = 0
     moves: RoundMoves = field(default_factory=RoundMoves)
+    unreadable_call: bool = False  # a call code in the moves could not be read, so they can't be replayed
 
 
 def parse_log(log_id: str, xml_text: str) -> ParsedLog:
@@ -80,7 +81,10 @@ def parse_log(log_id: str, xml_text: str) -> ParsedLog:
         elif discarded := DISCARD.fullmatch(event.tag):
             round_.moves.discard("DEFG".index(discarded[1]))
         elif event.tag == "N":
-            round_.moves.call(int(event.get("who")), decode_call(int(event.get("m"))).type)
+            try:
+                round_.moves.call(int(event.get("who")), decode_call(int(event.get("m"))).type)
+            except ValueError:
+                round_.unreadable_call = True
         elif event.tag == "AGARI":
             parsed.hands.append(_hand(log_id, round_, event))
             round_.wins += 1
@@ -121,6 +125,7 @@ def _hand(log_id: str, round_: _Round, agari: ET.Element) -> dict:
     reasons = quarantine_reasons(
         concealed=concealed,
         calls=calls,
+        unreadable_call_in_moves=round_.unreadable_call,
         situation=situation,
         yaku=[recorded["key"] for recorded in answer_key["yaku"]],
         unknown_yaku=[tenhou_id for tenhou_id, _ in yaku if tenhou_id not in TENHOU_YAKU_KEYS],

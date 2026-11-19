@@ -427,3 +427,12 @@ def test_a_yakuman_win_is_checked_only_for_tenhou_and_chiihou_because_tenhou_lis
     hand = only_hand(xml)
     assert (hand["situation"]["ippatsu"], hand["situation"]["lastTile"]) == (True, True)
     assert hand["quarantineReasons"] == []
+
+
+def test_a_hand_whose_round_has_a_call_code_that_is_no_four_player_call_is_quarantined():
+    # Seat 2 takes out a North, which only three-player games have, so the moves can't be replayed.
+    nuki = 120 << 8 | 0b100000
+    xml = game(init(), turns(2), draw(2, 120), call(2, nuki), draw(2, 135), discard(2, 135), turns(2, first_seat=3),
+               draw(1, 84), discard(1, 84), ron(who=2, from_who=1, yaku="7,1", ten="30,1000,0"))
+
+    assert only_hand(xml)["quarantineReasons"] == ["unreadable-call"]

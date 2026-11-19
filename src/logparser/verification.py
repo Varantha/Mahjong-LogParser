@@ -16,17 +16,18 @@ UNKNOWN_YAKU = "unknown-yaku"
 UNREADABLE_CALL = "unreadable-call"
 
 
-def quarantine_reasons(*, concealed: list[int], calls: list[Call] | None, situation: dict, yaku: list[str],
-                       unknown_yaku: list[int], recorded_score_changes: list[int],
+def quarantine_reasons(*, concealed: list[int], calls: list[Call] | None, unreadable_call_in_moves: bool,
+                       situation: dict, yaku: list[str], unknown_yaku: list[int], recorded_score_changes: list[int],
                        expected_score_changes: list[int] | None) -> list[str]:
     """`calls` is None when a call code in the win could not be read, so the tiles can't be checked.
-    `yaku` holds the contract keys of the yaku Tenhou gave."""
+    `unreadable_call_in_moves` says a call code in the round's moves could not be read, so the
+    situation can't be worked out. `yaku` holds the contract keys of the yaku Tenhou gave."""
     reasons = []
-    if calls is None:
+    if calls is None or unreadable_call_in_moves:
         reasons.append(UNREADABLE_CALL)
     elif not _tile_total_adds_up(concealed, calls):
         reasons.append(TILE_TOTAL)
-    if not _situation_agrees(situation, yaku):
+    if not unreadable_call_in_moves and not _situation_agrees(situation, yaku):
         reasons.append(SITUATION)
     if recorded_score_changes != expected_score_changes:
         # Check 5: Tenhou's recorded score changes are the answer key's payments, honba and riichi sticks.
