@@ -56,7 +56,7 @@ CREATE TABLE IF NOT EXISTS state (key TEXT PRIMARY KEY, value);
 CREATE TABLE IF NOT EXISTS lists_read (file TEXT PRIMARY KEY, size INTEGER NOT NULL);
 -- Every game those lists named. Only log IDs are kept, never the lines (they hold player names).
 CREATE TABLE IF NOT EXISTS listed (log_id TEXT PRIMARY KEY);
--- Listed games Tenhou could not give a log for. They are not asked for again.
+-- Games listed in an scc list or an ID list that Tenhou could not give a log for. They are not asked for again.
 CREATE TABLE IF NOT EXISTS failed (log_id TEXT PRIMARY KEY, reason TEXT NOT NULL);
 """
 
@@ -142,12 +142,15 @@ class Downloader:
                 listed.add(log_id)
             else:
                 summary.not_log_ids.append((number, log_id))
+        failed = {log_id for (log_id,) in self._db.execute("SELECT log_id FROM failed")}
         to_fetch = []
         for log_id in sorted(listed):
             if log_id in self._log_store:
                 summary.already_stored += 1
             elif reason := _skip_reason(log_id):
                 skipped[reason] += 1
+            elif log_id in failed:
+                skipped["failed before"] += 1
             else:
                 to_fetch.append(log_id)
         summary.skipped = dict(skipped)

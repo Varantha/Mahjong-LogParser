@@ -321,3 +321,17 @@ def test_a_listed_log_the_log_store_already_holds_is_never_fetched(tenhou, log_s
 
     assert tenhou.urls() == [tenhou.log_url(GAME_B)]
     assert (summary.already_stored, log_store.read(GAME_A)) == (1, log(0))
+
+
+@pytest.mark.parametrize("reply", [(404, b"Not Found"), (200, b"<html><body>no such log</body></html>")])
+def test_a_listed_log_tenhou_cannot_give_is_recorded_as_failed_and_not_asked_for_again(tenhou, log_store, download_ids,
+                                                                                      reply):
+    tenhou.reply(tenhou.log_url(GAME_A), *reply)
+    tenhou.add_log(GAME_B, log(1))
+
+    first = download_ids(GAME_A, GAME_B)
+    second = download_ids(GAME_A, GAME_B)
+
+    assert tenhou.urls() == [tenhou.log_url(GAME_A), tenhou.log_url(GAME_B)]
+    assert list(log_store.log_ids()) == [GAME_B]
+    assert (first.failed, second.skipped) == (1, {"failed before": 1})
