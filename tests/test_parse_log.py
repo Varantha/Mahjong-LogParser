@@ -92,6 +92,7 @@ def test_situation_of_a_non_dealer_ron():
         "riichiSticks": 2,
         "tsumo": False,
         "riichi": True,
+        "lastTile": False,
     }
 
 
@@ -113,6 +114,7 @@ def test_situation_of_a_dealer_tsumo_without_riichi():
         "riichiSticks": 1,
         "tsumo": True,
         "riichi": False,
+        "lastTile": False,
     }
 
 

@@ -11,11 +11,13 @@ Every win (AGARI) in a taken game becomes a hand record, a JSON-ready dict:
     quarantineReasons  one reason code per failed check; empty when verified
 """
 
+import re
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass, field
 
 from logparser.calls import Call, decode_call
 from logparser.payments import payments, score_changes
+from logparser.situation import RoundMoves
 from logparser.tiles import mpsz, tile
 from logparser.verification import quarantine_reasons
 from logparser.yaku import TENHOU_YAKU_KEYS, YAKUMAN_HAN
@@ -27,6 +29,9 @@ WINDS = ("east", "south", "west", "north")
 NO_RED_FIVES = 0x02
 NO_OPEN_TANYAO = 0x04
 SANMA = 0x10
+
+# Draws are tagged T, U, V and W for seats 0-3, followed by the tile drawn.
+DRAW = re.compile(r"([TUVW])\d+")
 
 
 @dataclass
@@ -44,6 +49,7 @@ class _Round:
     dealer: int
     wins: int = 0
     riichi: set[int] = field(default_factory=set)  # seats whose riichi was accepted
+    moves: RoundMoves = field(default_factory=RoundMoves)
 
 
 def parse_log(log_id: str, xml_text: str) -> ParsedLog:
@@ -66,6 +72,10 @@ def parse_log(log_id: str, xml_text: str) -> ParsedLog:
             )
         elif event.tag == "REACH" and event.get("step") == "2":
             round_.riichi.add(int(event.get("who")))
+        elif drawn := DRAW.fullmatch(event.tag):
+            round_.moves.draw("TUVW".index(drawn[1]))
+        elif event.tag == "N":
+            round_.moves.call(int(event.get("who")), decode_call(int(event.get("m"))).type)
         elif event.tag == "AGARI":
             parsed.hands.append(_hand(log_id, round_, event))
             round_.wins += 1
@@ -113,6 +123,7 @@ def _hand(log_id: str, round_: _Round, agari: ET.Element) -> dict:
             "riichiSticks": sticks,
             "tsumo": tsumo,
             "riichi": winner in round_.riichi,
+            **round_.moves.situation(winner=winner, tsumo=tsumo),
         },
         "tiles": {
             "concealed": mpsz(concealed),
