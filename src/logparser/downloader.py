@@ -14,6 +14,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from logparser.log_store import LOG_ID, LogStore
+from logparser.tenhou import NO_OPEN_TANYAO, NO_RED_FIVES, SANMA
 
 TENHOU = "https://tenhou.net"
 FILE_INDEXES = (f"{TENHOU}/sc/raw/list.cgi", f"{TENHOU}/sc/raw/list.cgi?old")
@@ -68,8 +69,11 @@ class Downloader:
         summary = DownloadSummary()
         for index_url in FILE_INDEXES:
             for file, _size in INDEX_ENTRY.findall(self._http_get(index_url).body.decode("ascii")):
-                self._read_list(file)
+                if _is_phoenix_list(file):
+                    self._read_list(file)
         for (log_id,) in self._db.execute("SELECT log_id FROM listed ORDER BY log_id").fetchall():
+            if not _ingest_takes(log_id) or log_id in self._log_store:
+                continue
             reply = self._http_get(LOG_URL.format(log_id=log_id))
             self._log_store.add(log_id, reply.body.decode("utf-8"))
             summary.fetched += 1
@@ -81,3 +85,17 @@ class Downloader:
         log_ids = [log_id for _start, log_id in LISTED_GAME.findall(text) if LOG_ID.fullmatch(log_id)]
         with self._db:
             self._db.executemany("INSERT OR IGNORE INTO listed (log_id) VALUES (?)", [(i,) for i in log_ids])
+
+
+def _is_phoenix_list(file: str) -> bool:
+    """`scc` files list Phoenix-room games; the old index names them `YYYY/scc...`."""
+    return file.rsplit("/", 1)[-1].startswith("scc")
+
+
+def _ingest_takes(log_id: str) -> bool:
+    """Only 4-player games with open tanyao and red fives are worth fetching: ingest skips the rest.
+
+    The game type is the hex field after "gm-" in the log ID, the same value as the log's GO tag.
+    """
+    game_type = int(log_id[13:17], 16)
+    return not game_type & (SANMA | NO_RED_FIVES | NO_OPEN_TANYAO)
