@@ -14,6 +14,7 @@ uses the network.
 
 import argparse
 import sys
+import time
 from pathlib import Path
 
 from logparser.downloader import DEFAULT_INTERVAL, Downloader, DownloadStopped
@@ -111,7 +112,7 @@ def _skipped(skipped: dict[str, int]) -> str:
 def _download(args) -> None:
     id_list = None if args.ids is None else _read_id_list(args.ids)
     try:
-        with Downloader(LogStore(args.log_store), args.state, interval=args.interval) as downloader:
+        with Downloader(LogStore(args.log_store), args.state, interval=args.interval, progress=_progress) as downloader:
             if id_list is None:
                 summary = downloader.run(max_logs=args.max_logs)
             else:
@@ -126,6 +127,11 @@ def _download(args) -> None:
         print(f"{args.ids}:{number}: not a log ID: {line!r}", file=sys.stderr)
     print(f"Fetched {summary.fetched} logs ({summary.failed} failed); {summary.already_stored} already stored, "
           f"{_skipped(summary.skipped)}; {summary.remaining} left to fetch")
+
+
+def _progress(line: str) -> None:
+    """A timestamped progress line on stderr, so a long download shows how far it has got."""
+    print(f"{time.strftime('%Y-%m-%d %H:%M:%S')} {line}", file=sys.stderr, flush=True)
 
 
 def _read_id_list(path: Path) -> list[str]:

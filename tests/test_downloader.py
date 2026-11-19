@@ -382,6 +382,17 @@ def test_an_empty_reply_stops_the_download_without_marking_the_log_failed_and_it
     assert summary.failed == 0
 
 
+def test_a_download_reports_its_progress_every_so_many_logs_counting_failures(tenhou, download_ids):
+    for n, log_id in enumerate([GAME_A, GAME_B, GAME_C]):
+        tenhou.add_log(log_id, log(n))
+    tenhou.reply(tenhou.log_url(GAME_B), 404, b"Not Found")
+    lines = []
+
+    download_ids(GAME_A, GAME_B, GAME_C, progress=lines.append, progress_every=2)
+
+    assert lines == ["3 logs to fetch", "2/3 done: 1 fetched, 1 failed", "3/3 done: 2 fetched, 1 failed"]
+
+
 def test_an_id_list_download_can_be_limited_to_a_number_of_logs_and_says_how_many_are_left(tenhou, log_store,
                                                                                            download_ids):
     for n, log_id in enumerate([GAME_A, GAME_B, GAME_C]):

@@ -60,7 +60,7 @@ From Tenhou:
 uv run logparser download
 ```
 
-The downloader reads Tenhou's FileIndex and the `scc` lists of Phoenix-room games it names, then fetches every listed log the log store lacks. It skips games that ingest would skip (sanma, other rulesets). It follows Tenhou's rules for automatic downloads (https://tenhou.net/sc/raw/): one request at a time, the FileIndex at most every 20 minutes, and an scc list again only when its size has changed. Requests start 2 s apart by default; `--interval` changes that, and `--max-logs` caps how many logs one run fetches. It stops when Tenhou asks it to wait, and running it again carries on where it stopped.
+The downloader reads Tenhou's FileIndex and the `scc` lists of Phoenix-room games it names, then fetches every listed log the log store lacks. It skips games that ingest would skip (sanma, other rulesets). It follows Tenhou's rules for automatic downloads (https://tenhou.net/sc/raw/): one request at a time, the FileIndex at most every 20 minutes, and an scc list again only when its size has changed. Requests start 2 s apart by default; `--interval` changes that, and `--max-logs` caps how many logs one run fetches. It stops when Tenhou asks it to wait, and running it again carries on where it stopped. While it runs it prints a timestamped progress line to stderr every 500 logs, such as `2026-11-20 03:15:02 1500/175480 done: 1500 fetched, 0 failed`.
 
 From a list of log IDs:
 
