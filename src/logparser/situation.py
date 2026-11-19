@@ -12,6 +12,10 @@ Tenhou logs a riichi in two steps: the declaration, before its discard, and
 the acceptance once nobody wins on that discard. A riichi that is declared
 with the player's first discard of the round, before any call (closed kans
 included), is a double riichi.
+
+The ippatsu window opens when a riichi is accepted. It closes at the player's
+next discard, or at any call by anyone, closed kans included. An added kan
+closes it only after the chance to rob the kan has passed.
 """
 
 from logparser.calls import ADDED_KAN, KANS
@@ -32,9 +36,10 @@ class RoundMoves:
         self._discarded: set[int] = set()  # seats that have discarded this round
         self._riichi: set[int] = set()  # seats whose riichi was accepted
         self._double_riichi: set[int] = set()  # seats that declared riichi with their first discard
+        self._ippatsu: set[int] = set()  # seats in their ippatsu window
 
     def draw(self, seat: int) -> None:
-        self._added_kan_robbable = False
+        self._next_move()
         self._last_draw_from_dead_wall = seat == self._dead_wall_draw_due
         if self._last_draw_from_dead_wall:
             self._dead_wall_draw_due = None
@@ -42,12 +47,17 @@ class RoundMoves:
             self._draws += 1
 
     def discard(self, seat: int) -> None:
-        self._added_kan_robbable = False
+        self._next_move()
         self._discarded.add(seat)
+        self._ippatsu.discard(seat)
 
     def call(self, seat: int, call_type: str) -> None:
-        self._added_kan_robbable = call_type == ADDED_KAN
+        self._next_move()
         self._called = True
+        if call_type == ADDED_KAN:
+            self._added_kan_robbable = True
+        else:
+            self._ippatsu.clear()
         if call_type in KANS:
             self._kans += 1
             self._dead_wall_draw_due = seat
@@ -58,6 +68,13 @@ class RoundMoves:
 
     def accept_riichi(self, seat: int) -> None:
         self._riichi.add(seat)
+        self._ippatsu.add(seat)
+
+    def _next_move(self) -> None:
+        """Nobody robbed the last added kan, so it closes every ippatsu window now."""
+        if self._added_kan_robbable:
+            self._added_kan_robbable = False
+            self._ippatsu.clear()
 
     def situation(self, *, winner: int, tsumo: bool) -> dict:
         """The situation flags of a win by `winner` now."""
@@ -67,6 +84,7 @@ class RoundMoves:
         return {
             "riichi": riichi,
             "doubleRiichi": riichi and winner in self._double_riichi,
+            "ippatsu": winner in self._ippatsu,
             # The last tile is a draw from the live wall, or the discard after it.
             "lastTile": self._draws + self._kans == LIVE_WALL and not (rinshan or chankan),
             "rinshan": rinshan,

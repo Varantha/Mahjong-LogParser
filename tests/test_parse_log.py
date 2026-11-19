@@ -77,11 +77,13 @@ def test_each_hand_records_a_replay_link_to_its_round_from_the_winners_seat():
 
 def test_situation_of_a_non_dealer_ron():
     # East 2 (seat 1 deals), 2 honba, 1 stick carried in; seat 2 declares riichi on its second turn
-    # and rons seat 0.
+    # and rons seat 0 a turn later.
     xml = game(
         init(round_number=1, honba=2, sticks=1, oya=1),
         turns(5, first_seat=1),
         '<V30/><REACH who="2" step="1"/><F30/><REACH who="2" step="2" ten="250,250,240,250"/>',
+        turns(5, first_seat=3),
+        "<T84/><D84/>",
         agari(who=2, from_who=0, ba="2,2", hai=CLOSED_HAND, machi=84, ten="40,1300,0", yaku="1,1,53,0", ura="40"),
     )
 
@@ -96,6 +98,7 @@ def test_situation_of_a_non_dealer_ron():
         "tsumo": False,
         "riichi": True,
         "doubleRiichi": False,
+        "ippatsu": False,
         "lastTile": False,
         "rinshan": False,
         "chankan": False,
@@ -121,6 +124,7 @@ def test_situation_of_a_dealer_tsumo_without_riichi():
         "tsumo": True,
         "riichi": False,
         "doubleRiichi": False,
+        "ippatsu": False,
         "lastTile": False,
         "rinshan": False,
         "chankan": False,

@@ -97,7 +97,7 @@
     "situation": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["roundWind", "seatWind", "dealer", "honba", "riichiSticks", "tsumo", "riichi", "doubleRiichi", "lastTile", "rinshan", "chankan"],
+      "required": ["roundWind", "seatWind", "dealer", "honba", "riichiSticks", "tsumo", "riichi", "doubleRiichi", "ippatsu", "lastTile", "rinshan", "chankan"],
       "properties": {
         "roundWind": { "$ref": "#/$defs/wind" },
         "seatWind": { "$ref": "#/$defs/wind" },
@@ -108,6 +108,10 @@
         "riichi": { "description": "True when the hand wins in riichi, double riichi included.", "type": "boolean" },
         "doubleRiichi": {
           "description": "True when the hand's riichi was declared with its first discard of the round, before any call (closed kans included).",
+          "type": "boolean"
+        },
+        "ippatsu": {
+          "description": "True when the hand wins in its ippatsu window: after its riichi is accepted, before its next discard and before any call (closed kans included). Robbing an added kan is still in the window.",
           "type": "boolean"
         },
         "lastTile": {

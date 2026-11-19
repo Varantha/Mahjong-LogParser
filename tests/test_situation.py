@@ -15,6 +15,7 @@ from tenhou_xml import (
     added_kan,
     agari,
     call,
+    chi,
     closed_kan,
     discard,
     draw,
@@ -215,3 +216,93 @@ def test_a_riichi_declared_with_the_players_first_discard_after_a_call_is_not_a_
 
     situation = only_hand(xml)["situation"]
     assert (situation["riichi"], situation["doubleRiichi"]) == (True, False)
+
+
+def riichi_tsumo(who: int, yaku: str, ten: str = "20,7800,0") -> str:
+    """CLOSED_HAND won in riichi by `who` on a draw of 4s (84), without ura dora."""
+    return agari(who=who, from_who=who, hai=CLOSED_HAND, machi=84, ten=ten, yaku=yaku + ",53,0", ura="40")
+
+
+# Seat 0 declares riichi on its second turn; the riichi is accepted before seat 1's turn.
+SEAT_0_RIICHI = turns(4) + draw(0, 135) + riichi(0)
+
+
+def test_a_tsumo_on_the_first_draw_after_the_riichi_is_in_the_ippatsu_window():
+    # Riichi, ippatsu, menzen tsumo, pinfu.
+    xml = game(init(), SEAT_0_RIICHI, turns(3, first_seat=1), draw(0, 84), riichi_tsumo(who=0, yaku="1,1,2,1,0,1,7,1"))
+
+    assert only_hand(xml)["situation"]["ippatsu"] is True
+
+
+def test_a_ron_before_the_winners_next_discard_is_in_the_ippatsu_window():
+    # Seat 2 discards the 4s: riichi, ippatsu, pinfu.
+    xml = game(init(), SEAT_0_RIICHI, turns(1, first_seat=1), draw(2, 84), discard(2, 84),
+               riichi_ron(who=0, from_who=2, yaku="1,1,2,1,7,1", ten="30,5800,0"))
+
+    assert only_hand(xml)["situation"]["ippatsu"] is True
+
+
+def test_the_winners_next_discard_closes_the_ippatsu_window():
+    xml = game(init(), SEAT_0_RIICHI, turns(4, first_seat=1), draw(1, 84), discard(1, 84),
+               riichi_ron(who=0, from_who=1, yaku="1,1,7,1", ten="30,2900,0"))
+
+    assert only_hand(xml)["situation"]["ippatsu"] is False
+
+
+@pytest.mark.parametrize(
+    "call_after_riichi",
+    [
+        # Seat 1 discards 2p and seat 2 calls a pon of it.
+        draw(1, 41) + discard(1, 41) + call(2, pon((40, 41, 42), called=41, from_seat=KAMICHA)) + discard(2, 135)
+        + turns(1, first_seat=3),
+        # Seat 1 discards 2p and seat 2 calls a chi of it.
+        draw(1, 41) + discard(1, 41) + call(2, chi((37, 41, 44), called=41)) + discard(2, 135)
+        + turns(1, first_seat=3),
+        # Seat 1 discards East and seat 3 calls an open kan of it.
+        draw(1, 108) + discard(1, 108) + call(3, open_kan(108, from_seat=TOIMEN)) + draw(3, 135) + discard(3, 135),
+        # Seat 1 draws the fourth East and makes a closed kan.
+        draw(1, 108) + call(1, EAST_KAN) + draw(1, 135) + discard(1, 135) + turns(2, first_seat=2),
+    ],
+    ids=["pon", "chi", "open-kan", "closed-kan"],
+)
+def test_any_call_closes_the_ippatsu_window(call_after_riichi):
+    xml = game(init(), SEAT_0_RIICHI, call_after_riichi, draw(0, 84), riichi_tsumo(who=0, yaku="1,1,0,1,7,1",
+                                                                                    ten="20,3900,0"))
+
+    assert only_hand(xml)["situation"]["ippatsu"] is False
+
+
+def test_the_winners_own_closed_kan_closes_the_ippatsu_window():
+    # Seat 0 draws the fourth East after its riichi and makes a closed kan, then wins on its draw
+    # from the dead wall: riichi, menzen tsumo, rinshan, seat and round wind East.
+    win = agari(who=0, from_who=0, hai=BESIDE_EAST_KAN, m=m(EAST_KAN), machi=105, ten="70,18000,2",
+                yaku="1,1,0,1,4,1,10,1,14,1,53,0", ura="40")
+    xml = game(init(), SEAT_0_RIICHI, turns(3, first_seat=1), draw(0, 108), call(0, EAST_KAN), draw(0, 105), win)
+
+    assert only_hand(xml)["situation"]["ippatsu"] is False
+
+
+# Seat 0 calls a pon of 4s from seat 3, then seat 2 declares riichi on its next turn, accepted
+# before seat 3's turn. Then seat 0 draws the fourth 4s and adds it to its pon.
+RIICHI_BETWEEN_PON_AND_ADDED_KAN = (
+    turns(3) + draw(3, 85) + discard(3, 85) + call(0, pon((85, 86, 87), called=85, from_seat=KAMICHA))
+    + discard(0, 135) + turns(1, first_seat=1) + draw(2, 135) + riichi(2) + turns(1, first_seat=3)
+    + draw(0, 84) + call(0, added_kan((85, 86, 87), called=85, from_seat=KAMICHA))
+)
+
+
+def test_a_ron_robbing_a_kan_is_still_in_the_ippatsu_window():
+    # Seat 2 robs the kan: riichi, ippatsu, chankan, pinfu.
+    xml = game(init(), RIICHI_BETWEEN_PON_AND_ADDED_KAN,
+               riichi_ron(who=2, from_who=0, yaku="1,1,2,1,3,1,7,1", ten="30,7700,0"))
+
+    situation = only_hand(xml)["situation"]
+    assert (situation["ippatsu"], situation["chankan"]) == (True, True)
+
+
+def test_the_draw_after_an_added_kan_closes_the_ippatsu_window():
+    # Seat 0 draws from the dead wall and discards a 4s, which seat 2 wins on: riichi, pinfu.
+    xml = game(init(), RIICHI_BETWEEN_PON_AND_ADDED_KAN, draw(0, 130), discard(0, 84),
+               riichi_ron(who=2, from_who=0, yaku="1,1,7,1", ten="30,2000,0"))
+
+    assert only_hand(xml)["situation"]["ippatsu"] is False
