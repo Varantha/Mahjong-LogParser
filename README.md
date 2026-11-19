@@ -10,11 +10,12 @@ Terms such as *hand*, *answer key*, *quarantined hand* and *tag* are defined in 
 
 ```
 Tenhou scc lists ─── download ──────┐
+Log ID lists ─────── download --ids ┤
 Database dumps ───── import-dump ───┼─► Log store ──(stage 1: ingest)──► Hand store ──(stage 2: export)──► Trainer bundle
 <logId>.xml files ── add-logs ──────┘
 ```
 
-**Log store.** The unparsed Tenhou logs, one `<logId>.xml` file per game, exactly as Tenhou serves it. A log ID such as `2012060420gm-0009-10011-acfd4b57` names one game, and Tenhou's replay viewer plays it at `https://tenhou.net/0/?log=<logId>`. That ID is the example game in Tenhou's manual, and its [replay link](https://tenhou.net/0/?log=2012060420gm-0009-10011-acfd4b57) still plays. Three commands fill the log store: `download` fetches Phoenix-room games from Tenhou, `import-dump` reads an existing database dump, and `add-logs` adds log files you already have.
+**Log store.** The unparsed Tenhou logs, one `<logId>.xml` file per game, exactly as Tenhou serves it. A log ID such as `2012060420gm-0009-10011-acfd4b57` names one game, and Tenhou's replay viewer plays it at `https://tenhou.net/0/?log=<logId>`. That ID is the example game in Tenhou's manual, and its [replay link](https://tenhou.net/0/?log=2012060420gm-0009-10011-acfd4b57) still plays. Three commands fill the log store: `download` fetches Phoenix-room games from Tenhou, or the games a list of log IDs names, `import-dump` reads an existing database dump, and `add-logs` adds log files you already have.
 
 **Stage 1: ingest** parses every win in the log store into a hand and keeps it in the hand store. Only 4-player games with open tanyao and red fives are taken; sanma and other rulesets are skipped. Each hand records:
 
@@ -60,6 +61,16 @@ uv run logparser download
 ```
 
 The downloader reads Tenhou's FileIndex and the `scc` lists of Phoenix-room games it names, then fetches every listed log the log store lacks. It skips games that ingest would skip (sanma, other rulesets). It follows Tenhou's rules for automatic downloads (https://tenhou.net/sc/raw/): one request at a time, the FileIndex at most every 20 minutes, and an scc list again only when its size has changed. Requests start 2 s apart by default; `--interval` changes that, and `--max-logs` caps how many logs one run fetches. It stops when Tenhou asks it to wait, and running it again carries on where it stopped.
+
+From a list of log IDs:
+
+```
+uv run logparser download --ids local/log-ids.txt
+```
+
+`--ids FILE` fetches the logs a file names, one log ID per line, instead of reading the scc lists. Blank lines and spaces around an ID are ignored; a line that is not a log ID is reported with its line number and skipped. The logs are fetched in log ID order, oldest game first, and the same logs are skipped as above: those the log store already holds, games ingest would skip, and logs Tenhou could not give in an earlier run. Everything else works as above too: one request at a time, `--interval` and `--max-logs`, the same downloader state and lock, so it never runs alongside another download, and stopping when Tenhou asks it to wait.
+
+Keep an ID list under `local/`, which git ignores, and never commit one: a list of log IDs is an index of Tenhou's logs, and Tenhou doesn't allow redistributing those.
 
 From a database dump:
 

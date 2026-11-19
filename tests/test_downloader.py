@@ -262,3 +262,122 @@ def test_an_scc_list_tenhou_cannot_give_is_skipped_and_read_again_next_time(tenh
     download()
 
     assert (first.fetched, list(log_store.log_ids())) == (1, [GAME_A, GAME_C])
+
+
+# Downloading from a list of log IDs, one per line, instead of Tenhou's scc lists.
+
+
+@pytest.fixture
+def download_ids(state, log_store, tenhou, clock, no_network):
+    """Runs the downloader once on an ID list of these lines against the fake Tenhou and returns its summary."""
+
+    def run(*lines, max_logs=None, **options):
+        with Downloader(log_store, state, http_get=tenhou, clock=clock, sleep=clock.sleep, **options) as downloader:
+            return downloader.run_id_list(lines, max_logs=max_logs)
+
+    return run
+
+
+def test_the_logs_in_an_id_list_are_fetched_in_log_id_order_without_reading_tenhous_lists(tenhou, log_store, download_ids):
+    tenhou.add_list("scc2026110605.html.gz", GAME_C)
+    for n, log_id in enumerate([GAME_A, GAME_B, GAME_C]):
+        tenhou.add_log(log_id, log(n))
+
+    download_ids(GAME_B, GAME_A)
+
+    assert tenhou.urls() == [tenhou.log_url(GAME_A), tenhou.log_url(GAME_B)]
+    assert {log_id: log_store.read(log_id) for log_id in log_store.log_ids()} == {GAME_A: log(0), GAME_B: log(1)}
+
+
+def test_blank_lines_and_spaces_in_an_id_list_are_ignored_and_a_line_that_is_not_a_log_id_is_reported_and_skipped(
+        tenhou, log_store, download_ids):
+    tenhou.add_log(GAME_A, log(0))
+    tenhou.add_log(GAME_B, log(1))
+
+    summary = download_ids("", f"  {GAME_A}\t", "   ", "my game", f"https://tenhou.net/0/?log={GAME_C}", GAME_B)
+
+    assert tenhou.urls() == [tenhou.log_url(GAME_A), tenhou.log_url(GAME_B)]
+    assert summary.not_log_ids == [(4, "my game"), (5, f"https://tenhou.net/0/?log={GAME_C}")]
+
+
+def test_only_listed_games_ingest_takes_are_fetched(tenhou, download_ids):
+    hanchan, sanma, no_aka = "2026110604gm-00a9-0000-00000001", "2026110604gm-00b9-0000-00000004", "2026110604gm-00ab-0000-00000005"
+    for n, log_id in enumerate([hanchan, sanma, no_aka]):
+        tenhou.add_log(log_id, log(n))
+
+    summary = download_ids(sanma, hanchan, no_aka)
+
+    assert tenhou.urls() == [tenhou.log_url(hanchan)]
+    assert summary.skipped == {"sanma": 1, "ruleset": 1}
+
+
+def test_a_listed_log_the_log_store_already_holds_is_never_fetched(tenhou, log_store, download_ids):
+    log_store.add(GAME_A, log(0))
+    tenhou.add_log(GAME_B, log(1))
+
+    summary = download_ids(GAME_A, GAME_B)
+
+    assert tenhou.urls() == [tenhou.log_url(GAME_B)]
+    assert (summary.already_stored, log_store.read(GAME_A)) == (1, log(0))
+
+
+@pytest.mark.parametrize("reply", [(404, b"Not Found"), (200, b"<html><body>no such log</body></html>")])
+def test_a_listed_log_tenhou_cannot_give_is_recorded_as_failed_and_not_asked_for_again(tenhou, log_store, download_ids,
+                                                                                      reply):
+    tenhou.reply(tenhou.log_url(GAME_A), *reply)
+    tenhou.add_log(GAME_B, log(1))
+
+    first = download_ids(GAME_A, GAME_B)
+    second = download_ids(GAME_A, GAME_B)
+
+    assert tenhou.urls() == [tenhou.log_url(GAME_A), tenhou.log_url(GAME_B)]
+    assert list(log_store.log_ids()) == [GAME_B]
+    assert (first.failed, second.skipped) == (1, {"failed before": 1})
+
+
+def test_the_logs_in_an_id_list_are_fetched_at_the_interval_set_and_the_gap_holds_into_the_next_run(tenhou, download_ids):
+    for n, log_id in enumerate([GAME_A, GAME_B, GAME_C]):
+        tenhou.add_log(log_id, log(n))
+
+    download_ids(GAME_A, GAME_B, interval=7.5)
+    download_ids(GAME_C, interval=7.5)
+
+    assert request_gaps(tenhou) == [7.5, 7.5]
+
+
+@pytest.mark.parametrize("status", [408, 429, 503])
+def test_an_id_list_download_tenhou_asks_to_wait_stops_at_once_and_resumes_where_it_stopped(tenhou, clock, log_store,
+                                                                                            download_ids, status):
+    for n, log_id in enumerate([GAME_A, GAME_B, GAME_C]):
+        tenhou.add_log(log_id, log(n))
+    tenhou.reply(tenhou.log_url(GAME_B), status, b"busy")
+    with pytest.raises(DownloadStopped, match=str(status)):
+        download_ids(GAME_A, GAME_B, GAME_C)
+    tenhou.replies_reset()
+    clock.advance(5 * MINUTE)
+    tenhou.requests.clear()
+
+    download_ids(GAME_A, GAME_B, GAME_C)
+
+    assert tenhou.urls() == [tenhou.log_url(GAME_B), tenhou.log_url(GAME_C)]
+    assert list(log_store.log_ids()) == [GAME_A, GAME_B, GAME_C]
+
+
+def test_an_id_list_download_can_be_limited_to_a_number_of_logs_and_says_how_many_are_left(tenhou, log_store,
+                                                                                           download_ids):
+    for n, log_id in enumerate([GAME_A, GAME_B, GAME_C]):
+        tenhou.add_log(log_id, log(n))
+
+    summary = download_ids(GAME_C, GAME_B, GAME_A, max_logs=2)
+
+    assert (summary.fetched, summary.remaining, list(log_store.log_ids())) == (2, 1, [GAME_A, GAME_B])
+
+
+def test_an_id_list_download_cannot_start_while_another_download_is_running(state, log_store, tenhou, clock, no_network):
+    tenhou.add_log(GAME_A, log(0))
+
+    with Downloader(log_store, state, http_get=tenhou, clock=clock, sleep=clock.sleep):
+        with pytest.raises(DownloadStopped, match="another download"):
+            Downloader(log_store, state, http_get=tenhou, clock=clock, sleep=clock.sleep).run_id_list([GAME_A])
+
+    assert tenhou.urls() == []

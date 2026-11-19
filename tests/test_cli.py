@@ -195,6 +195,30 @@ def test_a_download_can_be_limited_and_given_other_locations(tmp_path, capsys, t
     assert list(LogStore(logs).log_ids()) == [LOG_ID] and state.is_file()
 
 
+def test_the_logs_in_an_id_list_are_downloaded_and_lines_that_are_not_log_ids_are_reported(tmp_path, capsys, tenhou):
+    stored, sanma = "2024010112gm-00a9-0000-0123abce", "2024010112gm-00b9-0000-0123abcf"
+    tenhou.add_log(LOG_ID, game(init(), closed_win()))
+    logs, ids = tmp_path / "logs", tmp_path / "ids.txt"
+    LogStore(logs).add(stored, game(init(), closed_win()))
+    ids.write_text(f"{LOG_ID}\n\n{stored}\nmy game\n{sanma}\n")
+
+    main(["download", "--ids", str(ids), "--log-store", str(logs), "--state", str(tmp_path / "state.sqlite"),
+          "--interval", "0"])
+
+    out, err = capsys.readouterr()
+    assert err == f"{ids}:4: not a log ID: 'my game'\n"
+    assert out == "Fetched 1 logs (0 failed); 1 already stored, 2 skipped: 1 not a log ID, 1 sanma; 0 left to fetch\n"
+    assert tenhou.urls() == [tenhou.log_url(LOG_ID)]
+
+
+def test_a_download_from_an_id_list_that_cannot_be_read_stops_with_an_error(tmp_path, tenhou):
+    with pytest.raises(SystemExit, match="ID list") as stopped:
+        main(["download", "--ids", str(tmp_path / "missing.txt"), "--state", str(tmp_path / "state.sqlite"),
+              "--log-store", str(tmp_path / "logs")])
+
+    assert stopped.value.code not in (0, None)
+
+
 def test_a_stopped_download_says_why_and_that_it_can_be_run_again(tmp_path, tenhou):
     tenhou.reply(FILE_INDEXES[0], 503, headers={"retry-after": "600"})
 
