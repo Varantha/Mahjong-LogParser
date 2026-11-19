@@ -37,3 +37,14 @@ def test_every_log_in_a_dump_is_kept_in_the_log_store_under_its_log_id(tmp_path)
     import_dump(dump, store)
 
     assert {log_id: store.read(log_id) for log_id in store.log_ids()} == {LOG_A: log_a, LOG_B: log_b}
+
+
+def test_importing_the_same_dump_again_adds_nothing_and_keeps_one_copy_of_each_log(tmp_path):
+    dump = make_dump(tmp_path / "dump.db", [(LOG_A, compressed(game(init()))), (LOG_B, compressed(game(init())))])
+    store = LogStore(tmp_path / "log-store")
+    first = import_dump(dump, store)
+
+    again = import_dump(dump, store)
+
+    assert ((first.added, first.already_stored), (again.added, again.already_stored), list(store.log_ids())) == (
+        (2, 0), (0, 2), [LOG_A, LOG_B])
