@@ -60,9 +60,25 @@ _Avoid_: indicator (clashes with dora indicator), category, flag
 A set of hands a player picks to practise one scoring skill. Drills are built from tags and plain values.
 _Avoid_: category, mode, challenge, quiz
 
+**Drill catalogue**:
+The configuration in this repo listing every drill: its key, its target number of hands, its pool, and how it mixes the pool. Export builds each drill from it by searching the whole hand store.
+_Avoid_: drill config, drill list
+
+**Pool**:
+The hands a drill may take, described by plain values and tags. A drill with no pool may take any verified hand.
+_Avoid_: filter, candidates
+
+**Trap**:
+What a hand in a drill must have for a player to fall into the mistake the drill practises, such as being open in a drill on the han lost when open.
+_Avoid_: target (a drill's target is its number of hands)
+
 **Lookalike**:
 A hand in a drill that comes from the same pool as the drill's trap hands but does not have the trap, so the drill doesn't give the answer away.
 _Avoid_: decoy, filler
+
+**Quota**:
+A share of a drill kept for the pool hands that also meet some conditions, so they appear more often than in real games.
+_Avoid_: weight, boost
 
 ### Verification
 
