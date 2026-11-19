@@ -311,3 +311,13 @@ def test_only_listed_games_ingest_takes_are_fetched(tenhou, download_ids):
 
     assert tenhou.urls() == [tenhou.log_url(hanchan)]
     assert summary.skipped == {"sanma": 1, "ruleset": 1}
+
+
+def test_a_listed_log_the_log_store_already_holds_is_never_fetched(tenhou, log_store, download_ids):
+    log_store.add(GAME_A, log(0))
+    tenhou.add_log(GAME_B, log(1))
+
+    summary = download_ids(GAME_A, GAME_B)
+
+    assert tenhou.urls() == [tenhou.log_url(GAME_B)]
+    assert (summary.already_stored, log_store.read(GAME_A)) == (1, log(0))

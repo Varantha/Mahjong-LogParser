@@ -82,6 +82,7 @@ class DownloadSummary:
     fetched: int = 0  # logs added to the log store this run
     failed: int = 0  # logs Tenhou could not give this run
     remaining: int = 0  # listed logs still to fetch, for a later run
+    already_stored: int = 0  # ID-list entries the log store already held
     skipped: dict[str, int] = field(default_factory=dict)  # ID-list entries not fetched, by reason
     not_log_ids: list[tuple[int, str]] = field(default_factory=list)  # (line number, line) of each ID-list line skipped
 
@@ -143,7 +144,9 @@ class Downloader:
                 summary.not_log_ids.append((number, log_id))
         to_fetch = []
         for log_id in sorted(listed):
-            if reason := _skip_reason(log_id):
+            if log_id in self._log_store:
+                summary.already_stored += 1
+            elif reason := _skip_reason(log_id):
                 skipped[reason] += 1
             else:
                 to_fetch.append(log_id)
