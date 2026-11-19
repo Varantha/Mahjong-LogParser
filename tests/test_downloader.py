@@ -93,3 +93,28 @@ def test_a_log_the_log_store_already_holds_is_never_fetched(tenhou, log_store, d
 
     assert tenhou.log_url(GAME_A) not in tenhou.urls()
     assert log_store.read(GAME_A) == log(1)
+
+
+def request_gaps(tenhou) -> list[float]:
+    times = [time for time, _ in tenhou.requests]
+    return [later - earlier for earlier, later in zip(times, times[1:])]
+
+
+def test_by_default_requests_start_at_least_two_seconds_apart(tenhou, download):
+    tenhou.add_list("scc2026110604.html.gz", GAME_A, GAME_B)
+    tenhou.add_log(GAME_A, log(1))
+    tenhou.add_log(GAME_B, log(2))
+
+    download()
+
+    assert len(tenhou.requests) == 5 and min(request_gaps(tenhou)) >= 2.0
+
+
+def test_the_gap_between_requests_can_be_set(tenhou, download):
+    tenhou.add_list("scc2026110604.html.gz", GAME_A, GAME_B)
+    tenhou.add_log(GAME_A, log(1))
+    tenhou.add_log(GAME_B, log(2))
+
+    download(interval=7.5)
+
+    assert request_gaps(tenhou) == [7.5, 7.5, 7.5, 7.5]
