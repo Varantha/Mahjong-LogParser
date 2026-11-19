@@ -9,6 +9,7 @@ V2 lives in `src/logparser` and is run with [uv](https://docs.astral.sh/uv/):
 ```
 uv sync
 uv run logparser add-logs path/to/<logId>.xml ...   # fill the log store
+uv run logparser import-dump path/to/dump.db        # or fill it from a database dump
 uv run logparser ingest                             # log store -> hand store
 uv run logparser export                             # hand store -> trainer bundle
 uv run pytest

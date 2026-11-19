@@ -34,6 +34,9 @@ class LogStore:
         if self.folder.exists():
             yield from sorted(path.stem for path in self.folder.glob("*.xml") if LOG_ID.fullmatch(path.stem))
 
+    def __contains__(self, log_id: str) -> bool:
+        return self._path(log_id).is_file()
+
     def read(self, log_id: str) -> str:
         return self._path(log_id).read_text(encoding="utf-8")
 

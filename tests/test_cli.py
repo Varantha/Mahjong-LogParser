@@ -2,6 +2,7 @@
 
 import json
 
+from dumps import compressed, make_dump
 from logparser.cli import main
 from tenhou_xml import called_win, closed_win, game, init
 
@@ -42,3 +43,27 @@ def test_ingest_reports_what_it_did(tmp_path, capsys):
     main(["ingest", "--log-store", str(logs), "--hand-store", str(hands)])
 
     assert capsys.readouterr().out.splitlines()[-1] == "1 logs (0 skipped), 2 hands (1 verified, 1 quarantined)"
+
+
+def test_a_dump_is_imported_into_the_log_store_under_local_and_ingested_without_the_network(tmp_path, monkeypatch, capsys,
+                                                                                            no_network):
+    make_dump(tmp_path / "dump.db", [(LOG_ID, compressed(game(init(), closed_win())))])
+    monkeypatch.chdir(tmp_path)
+
+    main(["import-dump", "dump.db"])
+    main(["ingest"])
+
+    assert capsys.readouterr().out.splitlines()[-1] == "1 logs (0 skipped), 1 hands (1 verified, 0 quarantined)"
+
+
+def test_importing_a_dump_reports_what_it_added_kept_and_skipped(tmp_path, capsys):
+    dump = make_dump(tmp_path / "dump.db", [(LOG_ID, compressed(game(init()))), ("my-game", compressed(game(init())))])
+    logs = tmp_path / "logs"
+    main(["import-dump", "--log-store", str(logs), str(dump)])
+
+    main(["import-dump", "--log-store", str(logs), str(dump)])
+
+    assert capsys.readouterr().out.splitlines() == [
+        f"Added 1 logs to {logs} (0 already stored, 1 skipped: 1 not a log ID)",
+        f"Added 0 logs to {logs} (1 already stored, 1 skipped: 1 not a log ID)",
+    ]
