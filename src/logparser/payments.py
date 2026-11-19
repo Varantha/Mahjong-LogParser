@@ -15,24 +15,37 @@ RIICHI_STICK_POINTS = 1000
 
 
 def payments(points: int, *, tsumo: bool, dealer: bool, honba: int, riichi_sticks: int) -> dict:
-    if not tsumo:
-        base = {"fromDiscarder": points}
-    elif dealer:
-        base = {"fromEachPlayer": points // 3}
-    else:
-        # Each non-dealer pays a quarter of the points rounded up to 100; the dealer pays the rest.
-        each_non_dealer = -(-points // 400) * 100
-        base = {"fromDealer": points - 2 * each_non_dealer, "fromEachNonDealer": each_non_dealer}
+    """The winner's payments. `base` is None when no hand's points split that way."""
     return {
-        "base": base,
+        "base": _base(points, tsumo=tsumo, dealer=dealer),
         "honbaBonus": HONBA_POINTS * honba,
         "riichiSticksCollected": RIICHI_STICK_POINTS * riichi_sticks,
     }
 
 
-def score_changes(payments: dict, *, winner: int, discarder: int, dealer: int) -> list[int]:
-    """How much each seat's score changes, in points, when the winner is paid `payments`."""
+def _base(points: int, *, tsumo: bool, dealer: bool) -> dict | None:
+    if not tsumo:
+        return {"fromDiscarder": points}
+    if dealer:
+        return {"fromEachPlayer": points // 3} if points % 300 == 0 else None
+    # Each non-dealer pays a quarter of the points rounded up to 100; the dealer pays the rest.
+    # Both shares are rounded up from the hand's base points, so the dealer's is twice a
+    # non-dealer's or 100 less.
+    each_non_dealer = -(-points // 400) * 100
+    from_dealer = points - 2 * each_non_dealer
+    if from_dealer not in (2 * each_non_dealer, 2 * each_non_dealer - 100):
+        return None
+    return {"fromDealer": from_dealer, "fromEachNonDealer": each_non_dealer}
+
+
+def score_changes(payments: dict, *, winner: int, discarder: int, dealer: int) -> list[int] | None:
+    """How much each seat's score changes, in points, when the winner is paid `payments`.
+
+    None when the payments have no base split.
+    """
     base = payments["base"]
+    if base is None:
+        return None
     others = [seat for seat in range(4) if seat != winner]
     if "fromDiscarder" in base:
         owed = {discarder: base["fromDiscarder"]}

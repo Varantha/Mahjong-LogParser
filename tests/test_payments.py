@@ -106,3 +106,12 @@ def test_a_hand_whose_recorded_score_changes_disagree_with_its_payments_is_quara
     xml = ron_8000(sc="250,0,250,77,250,0,250,-77")
 
     assert only_hand(xml)["quarantineReasons"] == ["payments"]
+
+
+def test_a_tsumo_whose_points_cannot_be_split_between_the_payers_is_quarantined():
+    # 1000 points from a non-dealer tsumo would be 400 / 300 / 300, but the dealer always pays
+    # twice a non-dealer's share or 100 less (both are rounded up to 100), so no hand is worth 1000.
+    xml = game(init(), agari(who=1, from_who=1, hai=CLOSED_HAND, machi=84, ten="30,1000,0", yaku="0,1",
+                             sc="250,-4,250,10,250,-3,250,-3"))
+
+    assert only_hand(xml)["quarantineReasons"] == ["payments"]

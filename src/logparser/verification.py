@@ -13,7 +13,7 @@ CALLS_NOT_SUPPORTED = "calls-not-supported"
 
 
 def quarantine_reasons(*, concealed: list[int], call_codes: list[int], unknown_yaku: list[int],
-                       recorded_score_changes: list[int], expected_score_changes: list[int]) -> list[str]:
+                       recorded_score_changes: list[int], expected_score_changes: list[int] | None) -> list[str]:
     reasons = []
     if call_codes:
         reasons.append(CALLS_NOT_SUPPORTED)
