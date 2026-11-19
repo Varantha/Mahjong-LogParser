@@ -2,7 +2,9 @@
 
 The drill catalogue (drills.toml) is configuration, so drills can be added or retuned
 without code changes (see docs/adr/0001). A drill names its pool: the hands it may take,
-described by their plain values and tags.
+described by their plain values and tags. It may mix lookalikes in with its trap hands, or
+keep quotas for rarer pool hands. Each part of a drill draws on the newest year of logs
+first and reaches back only while it is short; a drill is never shrunk to fit.
 """
 
 import random
@@ -172,7 +174,7 @@ def _drill(entry: dict) -> Drill:
             raise refuse(f"unknown quota field {', '.join(unknown)}")
         quotas.append(Quota(quota["share"], conditions(quota["where"])))
     if not all(0 <= quota.share for quota in quotas) or sum(quota.share for quota in quotas) > 1:
-        raise refuse("the shares of the quotas must add up to no more than the whole drill")
+        raise refuse("each of the quotas must have a share from 0 to 1, together no more than the whole drill")
     return Drill(
         key=key,
         target=entry["target"],
