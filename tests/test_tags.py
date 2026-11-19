@@ -5,7 +5,7 @@ import pytest
 from logparser.tags import TAGS
 from logparser.tenhou import parse_log
 from logparser.yaku import TENHOU_YAKU_KEYS
-from tenhou_xml import KAMICHA, TOIMEN, Wall, agari, called_win, chi, closed_kan, game, ids, init, m, pon
+from tenhou_xml import KAMICHA, TOIMEN, Wall, agari, called_win, chi, closed_kan, closed_win, game, ids, init, m, pon
 
 LOG_ID = "2024010112gm-00a9-0000-0123abcd"
 
@@ -140,6 +140,33 @@ HANDS_WITH_AN_AMBIGUOUS_WAIT = {
 @pytest.mark.parametrize("xml", HANDS_WITH_AN_AMBIGUOUS_WAIT.values(), ids=HANDS_WITH_AN_AMBIGUOUS_WAIT.keys())
 def test_a_hand_whose_splits_into_sets_and_a_pair_give_different_fu_has_ambiguous_wait(xml):
     assert "ambiguous-wait" in only_hand(xml)["tags"]
+
+
+def ryanmen_or_tanki_at_the_same_fu() -> str:
+    # 456m 66m 555z 234s 789s, won on 6m: read as 45m waiting on 3m-6m it has raw fu 38; read as 66m
+    # waiting on the 6m, raw fu 40. Both are haku, 1 han 40 fu.
+    return wall_ron(Wall(), concealed="4566m234789s555z", winning="6m", ten="40,1300,0", yaku="18,1")
+
+
+def ryanpeikou() -> str:
+    # 112233m 445566p 77s, won on 7s: ryanpeikou, 3 han 40 fu. Read as seven pairs it would be
+    # chiitoitsu at 25 fu, but seven pairs is no split into sets and a pair.
+    return wall_ron(Wall(), concealed="112233m445566p7s", winning="7s", ten="40,5200,0", yaku="32,3")
+
+
+HANDS_WITHOUT_AN_AMBIGUOUS_WAIT = {
+    "one-split": game(init(), closed_win()),
+    "several-splits-at-the-same-fu": ryanmen_or_tanki_at_the_same_fu(),
+    "seven-pairs-is-no-split": ryanpeikou(),
+}
+
+
+@pytest.mark.parametrize("xml", HANDS_WITHOUT_AN_AMBIGUOUS_WAIT.values(), ids=HANDS_WITHOUT_AN_AMBIGUOUS_WAIT.keys())
+def test_a_hand_whose_splits_into_sets_and_a_pair_all_give_the_same_fu_has_no_ambiguous_wait(xml):
+    hand = only_hand(xml)
+
+    assert hand["quarantineReasons"] == []
+    assert "ambiguous-wait" not in hand["tags"]
 
 
 def test_a_hand_lists_its_tags_once_each_in_a_fixed_order():
