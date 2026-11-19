@@ -17,6 +17,7 @@ from pathlib import Path
 from jsonschema import Draft202012Validator
 
 from logparser.hand_store import HandStore
+from logparser.tags import TAGS
 
 SCHEMA_VERSION = "1.0.0"
 SCHEMA_PATH = Path(__file__).parent / "schema" / "trainer-bundle.schema.json"
@@ -62,6 +63,7 @@ def export_bundle(hands: HandStore, folder: Path, catalogue: list[Drill], *,
         "counts": {
             "hands": len(bundle_hands),
             "drills": {drill["key"]: len(drill["handIds"]) for drill in drills},
+            "tags": {tag: sum(tag in hand["tags"] for hand in bundle_hands) for tag in TAGS},
         },
         "chunks": list(chunks),
         "drills": drills,

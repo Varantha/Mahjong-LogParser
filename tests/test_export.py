@@ -64,7 +64,7 @@ def test_the_manifest_lists_each_drill_with_the_ids_of_its_hands_and_counts_them
     manifest = json.loads((tmp_path / "bundle" / "manifest.json").read_text())
 
     assert manifest["drills"] == [{"key": "everything", "handIds": [f"{LOG_ID}/0/0", f"{LOG_ID}/2/0", f"{LOG_ID}/3/0"]}]
-    assert manifest["counts"] == {"hands": 3, "drills": {"everything": 3}}
+    assert (manifest["counts"]["hands"], manifest["counts"]["drills"]) == (3, {"everything": 3})
     assert manifest["build"] == {"builtAt": "2026-01-02T03:04:05Z", "generator": "mahjong-logparser 2.0.0.dev0", "seed": 7}
 
 
@@ -182,6 +182,19 @@ def test_each_hand_in_the_bundle_carries_its_tags(tagged_hand_store, tmp_path):
     tags = {hand["id"]: hand["tags"] for hand in bundle_hands(tmp_path / "bundle")}
 
     assert tags == {f"{LOG_ID}/0/0": ["kuisagari"], f"{LOG_ID}/1/0": ["wraparound-dora"], f"{LOG_ID}/2/0": []}
+
+
+def test_the_manifest_counts_the_hands_with_each_tag(tagged_hand_store, tmp_path):
+    manifest = export_bundle(tagged_hand_store, tmp_path / "bundle", EVERYTHING, built_at=BUILT_AT)
+
+    assert manifest["counts"]["tags"] == {"kuisagari": 1, "wraparound-dora": 1}
+
+
+def test_the_manifest_counts_a_tag_no_bundle_hand_has_as_0(hand_store, tmp_path):
+    manifest = export_bundle(hand_store, tmp_path / "bundle", EVERYTHING, built_at=BUILT_AT)
+
+    tag_counts = manifest["counts"]["tags"]
+    assert (set(tag_counts), tag_counts["kuisagari"], tag_counts["wraparound-dora"]) == (set(TAGS), 0, 0)
 
 
 def test_the_schema_requires_a_closed_kan_to_have_no_called_tile_and_other_calls_to_have_one():

@@ -29,13 +29,19 @@
         "counts": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["hands", "drills"],
+          "required": ["hands", "drills", "tags"],
           "properties": {
             "hands": { "description": "Hands in the bundle, each counted once.", "type": "integer", "minimum": 0 },
             "drills": {
               "description": "Hands per drill, by drill key.",
               "type": "object",
               "propertyNames": { "$ref": "#/$defs/key" },
+              "additionalProperties": { "type": "integer", "minimum": 0 }
+            },
+            "tags": {
+              "description": "Hands in the bundle with each tag, by tag key. Every tag is listed, with 0 when no hand has it.",
+              "type": "object",
+              "propertyNames": { "$ref": "#/$defs/tagKey" },
               "additionalProperties": { "type": "integer", "minimum": 0 }
             }
           }
