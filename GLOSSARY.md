@@ -36,6 +36,10 @@ _Avoid_: unrounded fu, base fu (base is one fu component)
 Where a hand's raw fu come from: the base, a closed ron or a tsumo, each set, the pair and the wait, each under a contract key with its fu. Only a hand whose cross-check matched has one.
 _Avoid_: fu details, fu reasons (the `mahjong` library's terms)
 
+**Split**:
+One way of reading a hand's tiles as four sets and a pair, its calls kept as they were made, together with the concealed set or pair the winning tile completed. A hand can have several splits with different fu; Tenhou scores the one worth the most points. Seven pairs is not a split.
+_Avoid_: decomposition, interpretation, hand division (the `mahjong` library's terms)
+
 **Limit tier**:
 The named payment cap a hand reaches: none, mangan, haneman, baiman, sanbaiman, kazoe yakuman or yakuman.
 _Avoid_: limit, limit hand level

@@ -33,10 +33,17 @@ def _wraparound_dora(hand: dict) -> bool:
     return any(WRAPAROUND_DORA.get(indicator) in held for indicator in kinds(tiles["doraIndicators"]))
 
 
+def _ambiguous_wait(hand: dict) -> bool:
+    """The hand's tiles split into sets and a pair in more than one way, and the split chosen changes
+    the fu. Tenhou scores the split worth the most points."""
+    return len(set(hand["splitFu"] or [])) > 1
+
+
 # Every tag, by key, in the order a hand lists them.
 TAGS = {
     "kuisagari": _kuisagari,
     "wraparound-dora": _wraparound_dora,
+    "ambiguous-wait": _ambiguous_wait,
 }
 
 
