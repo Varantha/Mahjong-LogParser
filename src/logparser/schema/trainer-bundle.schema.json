@@ -115,16 +115,50 @@
       "description": "Tiles in mpsz notation: m, p, s for the suits, z for honours (1z East ... 7z Chun), 0 for a red five.",
       "type": "object",
       "additionalProperties": false,
-      "required": ["concealed", "winningTile", "doraIndicators", "uraDoraIndicators"],
+      "required": ["concealed", "calls", "winningTile", "doraIndicators", "uraDoraIndicators"],
       "properties": {
         "concealed": { "description": "The tiles not part of any call, winning tile included.", "$ref": "#/$defs/tileGroup" },
-        "winningTile": { "type": "string", "pattern": "^([0-9][mps]|[1-7]z)$" },
+        "calls": {
+          "description": "The hand's calls in the order they were made; empty when it has none. Concealed tiles plus call tiles come to 14, plus one per kan.",
+          "type": "array",
+          "maxItems": 4,
+          "items": { "$ref": "#/$defs/call" }
+        },
+        "winningTile": { "$ref": "#/$defs/tile" },
         "doraIndicators": { "$ref": "#/$defs/tileGroup" },
         "uraDoraIndicators": { "description": "Empty unless the hand won with riichi.", "type": "string", "pattern": "^([0-9]+[mps]|[1-7]+z)*$" }
       }
     },
 
     "tileGroup": { "type": "string", "pattern": "^([0-9]+[mps]|[1-7]+z)+$" },
+
+    "tile": { "type": "string", "pattern": "^([0-9][mps]|[1-7]z)$" },
+
+    "call": {
+      "description": "One call. A hand whose only calls are closed kans is closed. Drawing the turned tile is the trainer's job.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "tiles", "calledTile", "calledFrom"],
+      "properties": {
+        "type": { "enum": ["chi", "pon", "open-kan", "closed-kan", "added-kan"] },
+        "tiles": {
+          "description": "All the call's tiles, 3 or 4 of one suit, called and added tiles included. A red five is 0.",
+          "type": "string",
+          "pattern": "^([0-9]{3,4}[mps]|[1-7]{3,4}z)$"
+        },
+        "calledTile": {
+          "description": "The tile taken from another player's discard. For an added kan, the tile its pon called. Null for a closed kan.",
+          "oneOf": [{ "$ref": "#/$defs/tile" }, { "type": "null" }]
+        },
+        "calledFrom": {
+          "description": "Whose discard the called tile was, seen from the winner: kamicha (the player before, on the left), toimen (across) or shimocha (the player after, on the right). A chi is always from kamicha. Null for a closed kan.",
+          "enum": ["kamicha", "toimen", "shimocha", null]
+        }
+      },
+      "if": { "properties": { "type": { "const": "closed-kan" } } },
+      "then": { "properties": { "calledTile": { "type": "null" }, "calledFrom": { "type": "null" } } },
+      "else": { "properties": { "calledTile": { "type": "string" }, "calledFrom": { "type": "string" } } }
+    },
 
     "answerKey": {
       "description": "The result Tenhou recorded for the hand, under Tenhou rules.",

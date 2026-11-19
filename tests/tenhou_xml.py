@@ -78,7 +78,59 @@ def closed_win(who: int = 1, from_who: int = 0) -> str:
     return agari(who=who, from_who=from_who, hai=CLOSED_HAND, machi=84, ten="30,1000,0", yaku="7,1")
 
 
+def short_win(who: int = 1, from_who: int = 0) -> str:
+    """A closed win with 13 tiles, CLOSED_HAND without its 1m: quarantined for its tile total."""
+    hai = ids(4, 8, 48, 53, 56, 68, 69, 76, 80, 84, 96, 100, 104)
+    return agari(who=who, from_who=from_who, hai=hai, machi=84, ten="30,1000,0", yaku="7,1")
+
+
+# Where a called tile came from, relative to the caller (bits 0-1 of a call code).
+SHIMOCHA, TOIMEN, KAMICHA = 1, 2, 3
+
+
+def chi(tiles: tuple[int, int, int], called: int) -> int:
+    """Tenhou's call code for a chi of three tile IDs in a run, calling `called` from kamicha."""
+    tiles = tuple(sorted(tiles))
+    suit, rank = divmod(tiles[0] // 4, 9)
+    code = ((suit * 7 + rank) * 3 + tiles.index(called)) << 10 | 0b100 | KAMICHA
+    for k, tile_id in enumerate(tiles):
+        code |= tile_id % 4 << (3 + 2 * k)
+    return code
+
+
+def pon(tiles: tuple[int, int, int], called: int, from_seat: int) -> int:
+    """Tenhou's call code for a pon of three copies of one kind."""
+    tiles = tuple(sorted(tiles))
+    (left_out,) = {0, 1, 2, 3} - {tile_id % 4 for tile_id in tiles}
+    return ((tiles[0] // 4) * 3 + tiles.index(called)) << 9 | left_out << 5 | 0b1000 | from_seat
+
+
+def added_kan(pon_tiles: tuple[int, int, int], called: int, from_seat: int) -> int:
+    """Tenhou's call code for an added kan: the pon's code with bit 4 in place of bit 3."""
+    return pon(pon_tiles, called, from_seat) ^ 0b11000
+
+
+def open_kan(called: int, from_seat: int) -> int:
+    return called << 8 | from_seat
+
+
+def closed_kan(tile_id: int) -> int:
+    return tile_id // 4 * 4 << 8
+
+
+def m(*codes_in_call_order: int) -> str:
+    """AGARI's `m` attribute: Tenhou lists the winner's calls latest first."""
+    return ids(*reversed(codes_in_call_order))
+
+
+# CALLED_HAND: a chi of 3m 4m red-5m calling the red 5m (8 12 16), then a pon of Chun
+# from toimen (132 133 134). Concealed: 4p 5p 6p = 48 53 56; 9p 9p = 68 69;
+# 2s 3s 4s = 76 80 84.
+CALLED_HAND_CALLS = m(chi((8, 12, 16), called=16), pon((132, 133, 134), called=133, from_seat=TOIMEN))
+CALLED_HAND = ids(48, 53, 56, 68, 69, 76, 80, 84)
+
+
 def called_win(who: int = 1, from_who: int = 0) -> str:
-    """A win with calls (made-up call codes): quarantined until calls are decoded."""
-    hai = ids(0, 4, 8, 48, 53, 56, 108, 109)
-    return agari(who=who, from_who=from_who, hai=hai, m="40426,52279", machi=56, ten="30,1000,0", yaku="8,1")
+    """CALLED_HAND ron on 4s by a non-dealer: chun and aka dora, 2 han 30 fu, 2000 points."""
+    return agari(who=who, from_who=from_who, hai=CALLED_HAND, m=CALLED_HAND_CALLS, machi=84,
+                 ten="30,2000,0", yaku="20,1,54,1")
