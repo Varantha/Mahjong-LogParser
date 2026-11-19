@@ -3,7 +3,23 @@
 import pytest
 
 from logparser.tenhou import parse_log
-from tenhou_xml import CLOSED_HAND, agari, chi, closed_kan, game, ids, init, m, pon, TOIMEN
+from tenhou_xml import (
+    CLOSED_HAND,
+    KAMICHA,
+    TOIMEN,
+    added_kan,
+    agari,
+    call,
+    chi,
+    closed_kan,
+    discard,
+    draw,
+    game,
+    ids,
+    init,
+    m,
+    pon,
+)
 
 LOG_ID = "2024010112gm-00a9-0000-0123abcd"
 
@@ -61,3 +77,98 @@ def test_four_copies_of_a_tile_and_one_red_five_per_suit_are_within_the_tile_lim
                 dora="70,88", ura="71,120")
 
     assert only_hand(game(init(), win))["quarantineReasons"] == []
+
+
+@pytest.mark.parametrize(
+    "machi",
+    [
+        pytest.param(85, id="another-copy-of-a-concealed-tile"),  # CLOSED_HAND holds 4s as 84
+        pytest.param(120, id="a-tile-the-hand-lacks"),  # North
+    ],
+)
+def test_a_hand_whose_winning_tile_is_not_among_its_concealed_tiles_is_quarantined(machi):
+    win = agari(who=1, from_who=0, hai=CLOSED_HAND, machi=machi, ten="30,1000,0", yaku="7,1")
+
+    assert only_hand(game(init(), win))["quarantineReasons"] == ["winning-tile"]
+
+
+def ron(*moves: str) -> str:
+    """CLOSED_HAND: seat 1 rons seat 0 on 4s (84), after the given moves and nothing else."""
+    return game(init(), *moves, agari(who=1, from_who=0, hai=CLOSED_HAND, machi=84, ten="30,1000,0", yaku="7,1",
+                                      winning_move=False))
+
+
+def tsumo(*moves: str) -> str:
+    """CLOSED_HAND: seat 1 wins by tsumo on 4s (84), after the given moves and nothing else."""
+    return game(init(), *moves, agari(who=1, from_who=1, hai=CLOSED_HAND, machi=84, ten="20,1500,0", yaku="0,1,7,1",
+                                      winning_move=False))
+
+
+@pytest.mark.parametrize(
+    "xml",
+    [
+        pytest.param(ron(draw(0, 120), discard(0, 84)), id="ron-on-the-discard"),
+        pytest.param(tsumo(discard(0, 120), draw(1, 84)), id="tsumo-on-the-draw"),
+    ],
+)
+def test_a_hand_won_on_the_tile_its_last_move_handed_over_passes_the_winning_tile_check(xml):
+    assert only_hand(xml)["quarantineReasons"] == []
+
+
+@pytest.mark.parametrize(
+    "xml",
+    [
+        pytest.param(ron(draw(0, 85), discard(0, 68)), id="ron-on-another-tile-than-the-discard"),
+        pytest.param(ron(discard(3, 84)), id="ron-on-a-discard-by-another-seat"),
+        pytest.param(ron(discard(0, 84), draw(1, 120)), id="ron-on-an-earlier-discard"),
+        pytest.param(ron(draw(0, 84)), id="ron-on-a-draw"),
+        pytest.param(ron(), id="ron-without-a-move"),
+        pytest.param(tsumo(draw(1, 68)), id="tsumo-on-another-tile-than-the-draw"),
+        pytest.param(tsumo(draw(0, 84)), id="tsumo-on-a-draw-by-another-seat"),
+        pytest.param(tsumo(draw(1, 84), discard(1, 120)), id="tsumo-on-an-earlier-draw"),
+        pytest.param(tsumo(discard(0, 84)), id="tsumo-on-a-discard"),
+    ],
+)
+def test_a_hand_whose_winning_tile_is_not_the_tile_its_last_move_handed_over_is_quarantined(xml):
+    assert only_hand(xml)["quarantineReasons"] == ["winning-tile"]
+
+
+@pytest.mark.parametrize(
+    "xml",
+    [
+        pytest.param(ron(draw(0, 120), '<REACH who="0" step="1"/>', discard(0, 84)), id="ron-on-a-riichi-declaration"),
+        pytest.param(ron(draw(0, 120), discard(0, 84), '<BYE who="0"/>'), id="ron-after-the-discarder-disconnects"),
+        pytest.param(tsumo(draw(1, 84), '<UN n0="Alice"/>'), id="tsumo-after-a-player-reconnects"),
+        # Seat 0 adds 4s (84) to its pon of 4s (85 86 87) and seat 1 robs it.
+        pytest.param(ron(draw(0, 84), call(0, added_kan((85, 86, 87), called=86, from_seat=KAMICHA))),
+                     id="ron-on-the-tile-added-to-a-kan"),
+    ],
+)
+def test_tags_that_are_no_moves_do_not_hide_the_move_that_handed_over_the_winning_tile(xml):
+    assert only_hand(xml)["quarantineReasons"] == []
+
+
+@pytest.mark.parametrize(
+    "xml",
+    [
+        # Seat 0 adds 4s (85) to its pon of 4s (84 86 87): the pon's tiles were never on offer.
+        pytest.param(ron(draw(0, 85), call(0, added_kan((84, 86, 87), called=86, from_seat=KAMICHA))),
+                     id="ron-on-a-tile-of-the-pon-a-kan-was-added-to"),
+        pytest.param(ron(draw(2, 84), call(2, added_kan((85, 86, 87), called=86, from_seat=KAMICHA))),
+                     id="ron-on-a-kan-added-by-another-seat"),
+        pytest.param(ron(discard(3, 84), call(0, pon((84, 85, 86), called=84, from_seat=KAMICHA))),
+                     id="ron-on-a-tile-called-for-a-pon"),
+    ],
+)
+def test_a_ron_on_a_call_other_than_the_tile_added_to_a_kan_is_quarantined(xml):
+    assert only_hand(xml)["quarantineReasons"] == ["winning-tile"]
+
+
+def test_both_winners_of_a_double_ron_win_on_the_one_discard():
+    xml = game(
+        init(), draw(0, 120), discard(0, 84),
+        agari(who=1, from_who=0, hai=CLOSED_HAND, machi=84, ten="30,1000,0", yaku="7,1", winning_move=False),
+        agari(who=3, from_who=0, hai=CLOSED_HAND, machi=84, ten="30,1000,0", yaku="7,1", winning_move=False),
+    )
+
+    assert [hand["quarantineReasons"] for hand in parse_log(LOG_ID, xml).hands] == [[], []]
