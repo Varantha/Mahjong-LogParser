@@ -103,6 +103,11 @@ TAGS = {
 }
 
 
+# Tags that give the answer away when a player knows a hand has them: open-pinfu-shape gives the fu,
+# fu-mangan the points. A drill never takes only hands with one of them; it mixes in lookalikes.
+TAGS_GIVING_THE_ANSWER_AWAY = frozenset({"open-pinfu-shape", "fu-mangan"})
+
+
 def hand_tags(hand: dict, settings: TagSettings = TagSettings()) -> list[str]:
     """The keys of the tags the hand record has."""
     return [key for key, has_tag in TAGS.items() if has_tag(hand, settings)]

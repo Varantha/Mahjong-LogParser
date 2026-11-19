@@ -24,7 +24,9 @@
 #   trap        conditions for the pool hands with the trap. A share of the drill
 #   lookalikes  goes to lookalikes, pool hands without the trap, so the drill doesn't
 #               give the answer away: 0.5 (about half) unless `lookalikes` says
-#               otherwise.
+#               otherwise. A tag that gives the answer away (open-pinfu-shape,
+#               fu-mangan) never gets a drill of its own: it can only be a trap, and
+#               its drill mixes in lookalikes.
 #   quotas      a list of { share = ..., where = { conditions } }: each keeps its share
 #               of the drill for the pool hands that also meet `where`, so they turn up
 #               more often than in real games. The rest is drawn from the whole pool.

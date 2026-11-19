@@ -265,10 +265,28 @@ def test_a_quota_the_hand_store_cannot_fill_is_not_made_up_from_the_rest_of_the_
     ('lookalikes = 0.5', "lookalikes"),
     ('quotas = [{ share = 0.6, where = { dealer = true } }, { share = 0.6, where = { honba = 1 } }]', "quotas"),
     ('trap = { open = true }\nquotas = [{ share = 0.5, where = { dealer = true } }]', "quotas"),
+    # A tag that gives the answer away never gets a drill of its own: it can only be a trap, with lookalikes.
+    ('pool = { tags = "fu-mangan" }', "fu-mangan gives the answer away"),
+    ('pool = { open = true }\nquotas = [{ share = 0.5, where = { tags = ["kuisagari", "open-pinfu-shape"] } }]',
+     "open-pinfu-shape gives the answer away"),
+    ('pool = { han = [3, 4] }\ntrap = { tags = "fu-mangan" }\nlookalikes = 0', "fu-mangan gives the answer away"),
 ])
 def test_a_drill_the_engine_cannot_follow_is_refused_naming_the_drill_and_the_problem(tmp_path, entry, problem):
     with pytest.raises(CatalogueError, match=f"'payments'.*{problem}"):
         catalogue(tmp_path, f'[[drill]]\nkey = "payments"\ntarget = 500\n{entry}\n')
+
+
+def test_a_tag_that_gives_the_answer_away_can_be_the_trap_of_a_drill_that_mixes_in_lookalikes(tmp_path):
+    [drill] = catalogue(tmp_path, """
+        [[drill]]
+        key = "mangan-or-not"
+        target = 500
+        pool = { han = [3, 4] }
+        trap = { tags = "fu-mangan" }
+        lookalikes = 0.3
+    """)
+
+    assert (drill.trap.conditions, drill.lookalikes) == ({"tags": "fu-mangan"}, 0.3)
 
 
 def test_a_catalogue_with_two_drills_under_one_key_is_refused(tmp_path):
