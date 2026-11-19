@@ -53,13 +53,21 @@ def test_an_open_hand_with_a_yaku_worth_a_han_less_when_open_has_kuisagari(xml):
     assert "kuisagari" in only_hand(xml)["tags"]
 
 
-HANDS_WITHOUT_KUISAGARI = {
+def closed_honitsu() -> str:
     # 123m 567m 78m+9m 444z 33z, all concealed: honitsu at its full 3 han, 40 fu.
-    "closed": ron(hai=ids(0, 4, 8, 17, 20, 24, 25, 28, 32, 116, 117, 120, 121, 122),
-                  machi=32, ten="40,5200,0", yaku="34,3"),
+    return ron(hai=ids(0, 4, 8, 17, 20, 24, 25, 28, 32, 116, 117, 120, 121, 122), machi=32, ten="40,5200,0",
+               yaku="34,3")
+
+
+def honitsu_with_a_closed_kan(dora: str = "130", ten: str = "70,8000,1", yaku: str = "34,3") -> str:
     # The same honitsu with the North as a closed kan, which leaves the hand closed: 3 han 70 fu, mangan.
-    "closed-kan": ron(calls=m(closed_kan(120)), hai=ids(0, 4, 8, 17, 20, 24, 25, 28, 32, 116, 117),
-                      machi=32, ten="70,8000,1", yaku="34,3"),
+    return ron(calls=m(closed_kan(120)), hai=ids(0, 4, 8, 17, 20, 24, 25, 28, 32, 116, 117), machi=32, ten=ten,
+               yaku=yaku, dora=dora)
+
+
+HANDS_WITHOUT_KUISAGARI = {
+    "closed": closed_honitsu(),
+    "closed-kan": honitsu_with_a_closed_kan(),
     # Chi 340m and a pon of Chun: chun and aka dora, neither worth less when open.
     "open-without-such-yaku": game(init(), called_win()),
     # Pons of 2m and 2p; 222s 45p+6p 99s: sanshoku doukou is 2 han open or closed.
@@ -276,3 +284,30 @@ def test_a_hand_that_is_closed_or_has_raw_fu_other_than_20_has_no_open_pinfu_sha
 
     assert hand["quarantineReasons"] == []
     assert "open-pinfu-shape" not in hand["tags"]
+
+
+def tanyao_kanchan(*, dora: str = "1z", ten: str = "40,2600,0", yaku: str = "8,1,54,1") -> str:
+    # 234m 22p 406p 35s+4s 678s: tanyao and aka dora, 2 han. Won by ron on the 4s, a kanchan, it has
+    # raw fu 32 and 40 fu.
+    return game(init(), win(Wall(), concealed="234m22406p35678s", winning="4s", dora=dora, ten=ten, yaku=yaku))
+
+
+def pinfu_tanyao_iipeikou() -> str:
+    # 234m 234m 406p 67s+5s 88s: pinfu, tanyao, iipeikou and aka dora, 4 han 30 fu.
+    return game(init(), win(Wall(), concealed="234234m406p6788s", winning="5s", ten="30,7700,0",
+                            yaku="7,1,8,1,9,1,54,1"))
+
+
+HANDS_WITH_FU_MANGAN = {
+    "3-han-70-fu": honitsu_with_a_closed_kan(),
+    # The 1p names the pair of 2p as dora: 4 han 40 fu.
+    "4-han-40-fu": tanyao_kanchan(dora="1p", ten="40,8000,1", yaku="8,1,52,2,54,1"),
+}
+
+
+@pytest.mark.parametrize("xml", HANDS_WITH_FU_MANGAN.values(), ids=HANDS_WITH_FU_MANGAN.keys())
+def test_a_hand_with_3_han_70_fu_or_4_han_40_fu_has_fu_mangan(xml):
+    hand = only_hand(xml)
+
+    assert (hand["quarantineReasons"], hand["answerKey"]["limitTier"]) == ([], "mangan")
+    assert "fu-mangan" in hand["tags"]

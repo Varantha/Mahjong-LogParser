@@ -45,12 +45,19 @@ def _open_pinfu_shape(hand: dict) -> bool:
     return plain["open"] and plain["rawFu"] == 20
 
 
+def _fu_mangan(hand: dict) -> bool:
+    """The hand reaches mangan at 3 or 4 han because of its fu: 3 han with 70 fu or more, or 4 han with 40 or more."""
+    plain = hand["plainValues"]
+    return (plain["han"] == 3 and plain["fu"] >= 70) or (plain["han"] == 4 and plain["fu"] >= 40)
+
+
 # Every tag, by key, in the order a hand lists them.
 TAGS = {
     "kuisagari": _kuisagari,
     "wraparound-dora": _wraparound_dora,
     "ambiguous-wait": _ambiguous_wait,
     "open-pinfu-shape": _open_pinfu_shape,
+    "fu-mangan": _fu_mangan,
 }
 
 
