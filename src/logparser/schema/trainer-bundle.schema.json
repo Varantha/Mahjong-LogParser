@@ -29,7 +29,7 @@
         "counts": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["hands", "drills", "tags"],
+          "required": ["hands", "drills", "tags", "limitTiers"],
           "properties": {
             "hands": { "description": "Hands in the bundle, each counted once.", "type": "integer", "minimum": 0 },
             "drills": {
@@ -42,6 +42,12 @@
               "description": "Hands in the bundle with each tag, by tag key. Every tag is listed, with 0 when no hand has it.",
               "type": "object",
               "propertyNames": { "$ref": "#/$defs/tagKey" },
+              "additionalProperties": { "type": "integer", "minimum": 0 }
+            },
+            "limitTiers": {
+              "description": "Hands in the bundle at each limit tier, by limit tier. Every tier is listed, with 0 when no hand reaches it.",
+              "type": "object",
+              "propertyNames": { "$ref": "#/$defs/limitTier" },
               "additionalProperties": { "type": "integer", "minimum": 0 }
             }
           }

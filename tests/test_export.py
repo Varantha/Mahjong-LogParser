@@ -14,8 +14,8 @@ from logparser.log_store import LogStore
 from logparser.recalculation import FU_KEYS
 from logparser.tags import TAGS
 from logparser.yaku import TENHOU_YAKU_KEYS
-from tenhou_xml import (CLOSED_HAND, KAMICHA, added_kan, agari, called_win, chi, closed_kan, closed_win, game, ids,
-                        init, m, short_win, turns)
+from tenhou_xml import (CLOSED_HAND, KAMICHA, Wall, added_kan, agari, called_win, chi, closed_kan, closed_win, game,
+                        ids, init, m, short_win, turns, win)
 
 SCHEMA_PATH = Path(__file__).parents[1] / "src" / "logparser" / "schema" / "trainer-bundle.schema.json"
 LOG_ID = "2024010112gm-00a9-0000-0123abcd"
@@ -222,6 +222,26 @@ def test_the_manifest_counts_a_tag_no_bundle_hand_has_as_0(hand_store, tmp_path)
 
     tag_counts = manifest["counts"]["tags"]
     assert (set(tag_counts), tag_counts["kuisagari"], tag_counts["wraparound-dora"]) == (set(TAGS), 0, 0)
+
+
+def test_the_manifest_counts_the_hands_at_each_limit_tier_listing_every_tier(tmp_path):
+    logs = LogStore(tmp_path / "log-store")
+    logs.add(LOG_ID, game(
+        init(round_number=0), closed_win(who=1),  # pinfu, 1 han 30 fu
+        # A closed kan of North; 123m 567m 78m 33z, won on 9m: honitsu, 3 han 70 fu, mangan.
+        init(round_number=1), agari(who=2, from_who=0, hai=ids(0, 4, 8, 17, 20, 24, 25, 28, 32, 116, 117),
+                                    m=m(closed_kan(120)), machi=32, ten="70,8000,1", yaku="34,3"),
+        # Triplets of Haku, Hatsu and Chun with 123m, won on 9p: daisangen.
+        init(round_number=2), win(Wall(), who=3, concealed="555z666z777z123m9p", winning="9p", dora="1p",
+                                  ten="60,32000,5", yakuman="39"),
+        init(round_number=3), short_win(who=0, from_who=3),  # quarantined, so not in the bundle
+    ))
+    with HandStore(tmp_path / "hand-store.sqlite") as hands:
+        ingest(logs, hands)
+        manifest = export_bundle(hands, tmp_path / "bundle", EVERYTHING, built_at=BUILT_AT)
+
+    assert manifest["counts"]["limitTiers"] == {
+        "none": 1, "mangan": 1, "haneman": 0, "baiman": 0, "sanbaiman": 0, "kazoe-yakuman": 0, "yakuman": 1}
 
 
 def test_the_schema_requires_a_closed_kan_to_have_no_called_tile_and_other_calls_to_have_one():
