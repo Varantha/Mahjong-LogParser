@@ -311,3 +311,19 @@ def test_a_hand_with_3_han_70_fu_or_4_han_40_fu_has_fu_mangan(xml):
 
     assert (hand["quarantineReasons"], hand["answerKey"]["limitTier"]) == ([], "mangan")
     assert "fu-mangan" in hand["tags"]
+
+
+HANDS_WITHOUT_FU_MANGAN = {
+    "3-han-40-fu": closed_honitsu(),
+    "4-han-30-fu": pinfu_tanyao_iipeikou(),
+    # The open chinitsu: 5 han make it mangan whatever its fu.
+    "mangan-by-han": OPEN_HANDS_LOSING_A_HAN["chinitsu"],
+}
+
+
+@pytest.mark.parametrize("xml", HANDS_WITHOUT_FU_MANGAN.values(), ids=HANDS_WITHOUT_FU_MANGAN.keys())
+def test_a_hand_below_mangan_or_at_mangan_by_han_alone_has_no_fu_mangan(xml):
+    hand = only_hand(xml)
+
+    assert hand["quarantineReasons"] == []
+    assert "fu-mangan" not in hand["tags"]
