@@ -172,3 +172,14 @@ def test_both_winners_of_a_double_ron_win_on_the_one_discard():
     )
 
     assert [hand["quarantineReasons"] for hand in parse_log(LOG_ID, xml).hands] == [[], []]
+
+
+def test_a_hand_that_fails_several_checks_records_a_reason_code_for_each():
+    # CLOSED_HAND without its 1m (13 tiles), a fifth 9p among the dora indicators, a winning tile
+    # the hand lacks, and a discarder who paid 7700 for a 1000-point hand.
+    thirteen_tiles = ids(4, 8, 48, 53, 56, 68, 69, 76, 80, 84, 96, 100, 104)
+    win = agari(who=1, from_who=0, hai=thirteen_tiles, machi=85, ten="30,1000,0", yaku="7,1", dora="70,71,69",
+                sc="250,-77,250,77,250,0,250,0")
+
+    assert only_hand(game(init(), win))["quarantineReasons"] == ["tile-total", "tile-limits", "winning-tile",
+                                                                 "payments"]
