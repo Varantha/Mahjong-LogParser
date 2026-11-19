@@ -14,6 +14,7 @@ the schema's `tagKey` enum.
 
 from dataclasses import dataclass
 
+from logparser.recalculation import points
 from logparser.tiles import kinds
 
 # Yaku worth 1 han less when the hand is open (kuisagari).
@@ -66,6 +67,27 @@ def _high_fu(hand: dict, settings: TagSettings) -> bool:
     return hand["plainValues"]["fu"] >= settings.high_fu
 
 
+def _knife_edge_fu(hand: dict, settings: TagSettings) -> bool:
+    """Re-scoring the hand with raw fu 2 higher or 2 lower changes its points. Hands with fixed fu,
+    chiitoitsu and pinfu tsumo, never have it, nor does a hand with no raw fu."""
+    plain = hand["plainValues"]
+    if plain["rawFu"] is None or "chiitoitsu" in plain["yaku"] or ("pinfu" in plain["yaku"] and plain["tsumo"]):
+        return False
+
+    def scored(raw_fu: int) -> int:
+        return points(han=plain["han"], fu=_rounded_fu(raw_fu, open_hand=plain["open"]), dealer=plain["dealer"],
+                      tsumo=plain["tsumo"])
+
+    return any(scored(plain["rawFu"] + step) != scored(plain["rawFu"]) for step in (-2, 2))
+
+
+def _rounded_fu(raw_fu: int, *, open_hand: bool) -> int:
+    """Raw fu rounded up to the next 10. An open hand scores at least 30 fu: Tenhou scores the 20 raw fu
+    of the open pinfu shape as 30."""
+    fu = -(-raw_fu // 10) * 10
+    return max(fu, 30) if open_hand else fu
+
+
 # Every tag, by key, in the order a hand lists them.
 TAGS = {
     "kuisagari": _kuisagari,
@@ -74,6 +96,7 @@ TAGS = {
     "open-pinfu-shape": _open_pinfu_shape,
     "fu-mangan": _fu_mangan,
     "high-fu": _high_fu,
+    "knife-edge-fu": _knife_edge_fu,
 }
 
 

@@ -5,8 +5,8 @@ import pytest
 from logparser.tags import TAGS, TagSettings
 from logparser.tenhou import parse_log
 from logparser.yaku import TENHOU_YAKU_KEYS
-from tenhou_xml import (KAMICHA, TOIMEN, Wall, agari, called_win, chi, closed_kan, closed_win, game, ids, init, m, pon,
-                        turns, win)
+from tenhou_xml import (CLOSED_HAND, KAMICHA, TOIMEN, Wall, agari, called_win, chi, closed_kan, closed_win, game, ids,
+                        init, m, pon, turns, win)
 
 LOG_ID = "2024010112gm-00a9-0000-0123abcd"
 
@@ -369,3 +369,75 @@ def test_the_high_fu_threshold_can_be_set(xml, high_fu, tagged):
     (hand,) = parse_log(LOG_ID, xml, TagSettings(high_fu=high_fu)).hands
 
     assert ("high-fu" in hand["tags"]) == tagged
+
+
+def haku_kanchan() -> str:
+    # 234m 22p 456p 35s+4s 555z: haku, 1 han. The closed triplet of Haku and the kanchan give raw fu 40.
+    return game(init(), win(Wall(), concealed="234m22456p35s555z", winning="4s", ten="40,1300,0", yaku="18,1"))
+
+
+@pytest.mark.parametrize(
+    ("xml", "raw_fu"),
+    [
+        # 2 han 40 fu, 2600; at raw fu 30 it would be 30 fu, 2000.
+        pytest.param(tanyao_kanchan(), 32, id="2-lower-drops-to-30-fu"),
+        # 1 han 40 fu, 1300; at raw fu 42 it would be 50 fu, 1600.
+        pytest.param(haku_kanchan(), 40, id="2-higher-rises-to-50-fu"),
+        # 4 han 40 fu, mangan; at raw fu 30 it would be 30 fu, 7700.
+        pytest.param(tanyao_kanchan(dora="1p", ten="40,8000,1", yaku="8,1,52,2,54,1"), 32,
+                     id="mangan-drops-to-7700"),
+    ],
+)
+def test_a_hand_whose_points_change_with_raw_fu_2_higher_or_lower_has_knife_edge_fu(xml, raw_fu):
+    hand = only_hand(xml)
+
+    assert (hand["quarantineReasons"], hand["answerKey"]["rawFu"]) == ([], raw_fu)
+    assert "knife-edge-fu" in hand["tags"]
+
+
+def tanyao_with_a_closed_triplet() -> str:
+    # 222m 345p 678p 34s+2s 88s: tanyao, 1 han. The closed triplet of 2m gives raw fu 34 and 40 fu.
+    return game(init(), win(Wall(), concealed="222m345678p3488s", winning="2s", ten="40,1300,0", yaku="8,1"))
+
+
+@pytest.mark.parametrize(
+    ("xml", "raw_fu"),
+    [
+        # Raw fu 32 and 36 both round to 40 fu, as 34 does.
+        pytest.param(tanyao_with_a_closed_triplet(), 34, id="same-fu-either-side"),
+        # The closed honitsu: raw fu 36 and 40 both round to 40 fu, as 38 does.
+        pytest.param(closed_honitsu(), 38, id="same-fu-either-side-below-40"),
+        # An open hand scores at least 30 fu: raw fu 18 and 22 both give 30 fu, as 20 does.
+        pytest.param(open_tanyao(), 20, id="open-pinfu-shape"),
+        # Raw fu 20 and 24 give 30 fu, as 22 does.
+        pytest.param(open_tanyao(tsumo=True, ten="30,1100,0"), 22, id="open-hand-won-by-tsumo"),
+        # Two 1p indicators make the pair of 2p dora 4: 6 han, haneman at any fu.
+        pytest.param(tanyao_kanchan(dora="11p", ten="40,12000,2", yaku="8,1,52,4,54,1"), 32, id="haneman"),
+    ],
+)
+def test_a_hand_whose_points_stay_the_same_with_raw_fu_2_higher_or_lower_has_no_knife_edge_fu(xml, raw_fu):
+    hand = only_hand(xml)
+
+    assert (hand["quarantineReasons"], hand["answerKey"]["rawFu"]) == ([], raw_fu)
+    assert "knife-edge-fu" not in hand["tags"]
+
+
+def pinfu_tsumo() -> str:
+    # 123m 456p 99p 23s+4s 789s won by tsumo a few turns in: menzen tsumo and pinfu, 2 han, fixed at 20 fu.
+    return game(init(), turns(4), agari(who=1, from_who=1, hai=CLOSED_HAND, machi=84, ten="20,1500,0", yaku="0,1,7,1"))
+
+
+@pytest.mark.parametrize(
+    ("xml", "fu"),
+    [
+        # 4 han, fixed at 25 fu, 6400; scored at 30 fu it would be 7700.
+        pytest.param(seven_pairs(dora=ids(28)), 25, id="chiitoitsu"),
+        # 2 han, fixed at 20 fu, 1500; scored at 30 fu it would be 2000.
+        pytest.param(pinfu_tsumo(), 20, id="pinfu-tsumo"),
+    ],
+)
+def test_a_hand_with_fixed_fu_has_no_knife_edge_fu(xml, fu):
+    hand = only_hand(xml)
+
+    assert (hand["quarantineReasons"], hand["answerKey"]["fu"]) == ([], fu)
+    assert "knife-edge-fu" not in hand["tags"]
