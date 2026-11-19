@@ -15,6 +15,7 @@ from logparser.calls import KANS, Call
 from logparser.recalculation import Recalculation, recalculate
 from logparser.situation import FIRST_DRAW_YAKU, SITUATIONAL_YAKU, situational_yaku
 from logparser.tiles import RED_FIVES
+from logparser.winning_hand import WinningHand
 from logparser.yaku import YAKUMAN_KEYS
 
 TILE_TOTAL = "tile-total"
@@ -37,45 +38,41 @@ class Verification:
     recalculation: Recalculation | None  # the cross-check's recalculation, only when it matched the answer key
 
 
-def verify(*, concealed: list[int], calls: list[Call] | None, unreadable_call_in_moves: bool,
-           winning_tile: int, tile_from_moves: int | None, dora_indicators: list[int],
-           ura_dora_indicators: list[int], situation: dict, answer_key: dict, unknown_yaku: list[int],
-           recorded_score_changes: list[int], expected_score_changes: list[int] | None) -> Verification:
-    """Tiles are Tenhou tile IDs.
+def verify(hand: WinningHand, *, unreadable_call_in_moves: bool, tile_from_moves: int | None, answer_key: dict,
+           unknown_yaku: list[int], recorded_score_changes: list[int],
+           expected_score_changes: list[int] | None) -> Verification:
+    """Checks a hand read from its log against its answer key.
 
-    `calls` is None when a call code in the win could not be read, so the tile total can't be
-    checked. The tile limits are still checked on the other tiles: leaving tiles out can hide a
-    fifth copy but never make one up. `unreadable_call_in_moves` says a call code in the round's
-    moves could not be read, so the situation can't be worked out.
+    The hand's `calls` are None when a call code in the win could not be read, so the tile total
+    can't be checked. The tile limits are still checked on the other tiles: leaving tiles out can
+    hide a fifth copy but never make one up. `unreadable_call_in_moves` says a call code in the
+    round's moves could not be read, so the situation can't be worked out.
 
-    `winning_tile` is Tenhou's `machi`. `tile_from_moves` is the tile the game's moves handed the
-    winner: drawn on a tsumo; discarded, or added to a kan, on a ron. It is None if the last move
-    handed over none.
+    `tile_from_moves` is the tile the game's moves handed the winner: drawn on a tsumo; discarded,
+    or added to a kan, on a ron. It is None if the last move handed over none.
 
     `answer_key` is Tenhou's recorded result, with the yaku Tenhou gave under their contract keys.
     """
     yaku = [recorded["key"] for recorded in answer_key["yaku"]]
     reasons = []
-    if calls is None or unreadable_call_in_moves:
+    if hand.calls is None or unreadable_call_in_moves:
         reasons.append(UNREADABLE_CALL)
-    elif not _tile_total_adds_up(concealed, calls):
+    elif not _tile_total_adds_up(hand.concealed, hand.calls):
         reasons.append(TILE_TOTAL)
-    if not _within_tile_limits([*concealed, *(tile for call in calls or [] for tile in call.tiles),
-                                *dora_indicators, *ura_dora_indicators]):
+    if not _within_tile_limits([*hand.concealed, *(tile for call in hand.calls or [] for tile in call.tiles),
+                                *hand.dora_indicators, *hand.ura_dora_indicators]):
         reasons.append(TILE_LIMITS)
-    if winning_tile not in concealed or winning_tile != tile_from_moves:
+    if hand.winning_tile not in hand.concealed or hand.winning_tile != tile_from_moves:
         # Check 3: the winning tile is among the concealed tiles, and it is the tile the moves handed over.
         reasons.append(WINNING_TILE)
-    if not unreadable_call_in_moves and not _situation_agrees(situation, yaku):
+    if not unreadable_call_in_moves and not _situation_agrees(hand.situation, yaku):
         reasons.append(SITUATION)
     if recorded_score_changes != expected_score_changes:
         # Check 5: Tenhou's recorded score changes are the answer key's payments, honba and riichi sticks.
         reasons.append(PAYMENTS)
     recalculation = None
     if not UNSOUND_TILES.intersection(reasons):
-        recalculation = recalculate(concealed=concealed, calls=calls, winning_tile=winning_tile,
-                                    dora_indicators=dora_indicators, ura_dora_indicators=ura_dora_indicators,
-                                    situation=situation)
+        recalculation = recalculate(hand)
         if recalculation is None:
             reasons.append(CROSS_CHECK_REFUSED)
         elif not _recalculation_matches(recalculation, answer_key):

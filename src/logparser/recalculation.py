@@ -34,6 +34,7 @@ from mahjong.meld import Meld
 
 from logparser.calls import ADDED_KAN, CHI, CLOSED_KAN, OPEN_KAN, PON, Call
 from logparser.situation import situational_yaku
+from logparser.winning_hand import WinningHand
 from logparser.yaku import TENHOU_YAKU_KEYS
 
 TENHOU_RULES = OptionalRules(
@@ -136,26 +137,22 @@ class Recalculation:
     split_fu: list[int]  # the fu of each split of the hand that has a yaku, ascending (see _SplitFu)
 
 
-def recalculate(*, concealed: list[int], calls: list[Call], winning_tile: int, dora_indicators: list[int],
-                ura_dora_indicators: list[int], situation: dict) -> Recalculation | None:
-    """The library's score for a hand, or None when the library refuses to score it.
-
-    Tiles are Tenhou tile IDs, which are the library's own. `concealed` holds the winning tile.
-    `situation` is the hand record's situation, worked out from the game's moves.
-    """
+def recalculate(hand: WinningHand) -> Recalculation | None:
+    """The library's score for a hand whose calls could all be read, or None when the library refuses to
+    score it. Tenhou tile IDs are the library's own."""
     split_fu = _SplitFu()
     result = HandCalculator.estimate_hand_value(
-        tiles=[*concealed, *(tile for call in calls for tile in call.tiles)],
-        win_tile=winning_tile,
-        melds=[_meld(call) for call in calls],
-        dora_indicators=dora_indicators,
-        ura_dora_indicators=ura_dora_indicators,
-        config=_config(situation),  # a new one per hand: the library changes it while scoring
+        tiles=[*hand.concealed, *(tile for call in hand.calls for tile in call.tiles)],
+        win_tile=hand.winning_tile,
+        melds=[_meld(call) for call in hand.calls],
+        dora_indicators=hand.dora_indicators,
+        ura_dora_indicators=hand.ura_dora_indicators,
+        config=_config(hand.situation),  # a new one per hand: the library changes it while scoring
         scores_calculator_factory=lambda: split_fu,
     )
     if result.error:
         return None
-    fu_breakdown = _fu_breakdown(result.fu_details or [], tsumo=situation["tsumo"])
+    fu_breakdown = _fu_breakdown(result.fu_details or [], tsumo=hand.situation["tsumo"])
     return Recalculation(
         yaku=[{"key": _yaku_key(y), "han": _han(y, open_hand=result.is_open_hand)} for y in result.yaku],
         han=result.han,

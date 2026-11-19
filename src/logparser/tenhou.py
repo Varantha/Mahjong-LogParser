@@ -31,7 +31,8 @@ from logparser.plain_values import plain_values
 from logparser.situation import CALL, DISCARD, DRAW, Move, RoundMoves
 from logparser.tags import TagSettings, hand_tags
 from logparser.tiles import mpsz, tile
-from logparser.verification import verify
+from logparser.verification import Verification, verify
+from logparser.winning_hand import WinningHand
 from logparser.yaku import TENHOU_YAKU_KEYS, YAKUMAN_HAN
 
 REPLAY_URL = "https://tenhou.net/0/?log={log_id}&ts={round_index}&tw={seat}"
@@ -127,68 +128,77 @@ def _skip_reason(game_type: int) -> str | None:
 
 
 def _hand(log_id: str, round_: _Round, agari: ET.Element, tag_settings: TagSettings) -> dict:
-    winner = int(agari.get("who"))
-    discarder = int(agari.get("fromWho"))
-    honba, sticks = _ints(agari.get("ba"))
-    tsumo = winner == discarder
-    concealed = _ints(agari.get("hai"))
-    calls = _calls(agari)
-    winning_tile = int(agari.get("machi"))
-    dora_indicators = _ints(agari.get("doraHai"))
-    ura_dora_indicators = _ints(agari.get("doraHaiUra", ""))
+    """The hand record of one win. The winning hand and its answer key are read from the AGARI tag and
+    the round's moves; verification checks one against the other; plain values and tags follow from
+    the record."""
+    winner, discarder = int(agari.get("who")), int(agari.get("fromWho"))
+    winning_hand = WinningHand(
+        concealed=_ints(agari.get("hai")),
+        calls=_calls(agari),
+        winning_tile=int(agari.get("machi")),
+        dora_indicators=_ints(agari.get("doraHai")),
+        ura_dora_indicators=_ints(agari.get("doraHaiUra", "")),
+        situation=_situation(round_, agari, winner=winner, discarder=discarder),
+    )
     yaku = _recorded_yaku(agari)
-    # In a double ron Tenhou pays the honba and the riichi sticks to the first winner only. The
-    # second winner's `ba` still shows the honba, but its score change leaves them out.
-    first_win = round_.wins == 0
-    answer_key = _answer_key(agari, yaku, tsumo=tsumo, dealer=winner == round_.dealer,
-                             honba=honba if first_win else 0, riichi_sticks=sticks if first_win else 0)
-    situation = {
-        "roundWind": WINDS[round_.number // 4],
-        "seatWind": WINDS[(winner - round_.dealer) % 4],
-        "dealer": winner == round_.dealer,
-        "honba": honba,
-        "riichiSticks": sticks,
-        "secondWinner": not first_win,
-        "tsumo": tsumo,
-        **round_.moves.situation(winner=winner, discarder=discarder),
-    }
+    answer_key = _answer_key(agari, yaku, winning_hand.situation)
     verification = verify(
-        concealed=concealed,
-        calls=calls,
+        winning_hand,
         unreadable_call_in_moves=round_.moves.unreadable_call,
-        winning_tile=winning_tile,
         tile_from_moves=round_.moves.tile_handed_over(winner=winner, discarder=discarder),
-        dora_indicators=dora_indicators,
-        ura_dora_indicators=ura_dora_indicators,
-        situation=situation,
         answer_key=answer_key,
         unknown_yaku=[tenhou_id for tenhou_id, _ in yaku if tenhou_id not in TENHOU_YAKU_KEYS],
         recorded_score_changes=_recorded_score_changes(agari),
         expected_score_changes=score_changes(answer_key["payments"], winner=winner, discarder=discarder,
                                              dealer=round_.dealer),
     )
-    matched = verification.recalculation  # None unless the cross-check matched
-    answer_key["rawFu"] = None if matched is None else matched.raw_fu
-    answer_key["fuBreakdown"] = None if matched is None else matched.fu_breakdown
     hand = {
         "id": f"{log_id}/{round_.index}/{round_.wins}",
         "replayUrl": REPLAY_URL.format(log_id=log_id, round_index=round_.index, seat=winner),
-        "situation": situation,
-        "tiles": {
-            "concealed": mpsz(concealed),
-            "calls": [_call_record(call) for call in calls or []],
-            "winningTile": tile(winning_tile),
-            "doraIndicators": mpsz(dora_indicators),
-            "uraDoraIndicators": mpsz(ura_dora_indicators),
-        },
-        "answerKey": answer_key,
-        "splitFu": None if matched is None else matched.split_fu,
-        "quarantineReasons": verification.reasons,
+        **_record(winning_hand, answer_key, verification),
     }
     hand["plainValues"] = plain_values(hand)
     hand["tags"] = hand_tags(hand, tag_settings)
     return hand
 
+
+def _situation(round_: _Round, agari: ET.Element, *, winner: int, discarder: int) -> dict:
+    """The situation of a win by `winner` on `discarder`'s tile (their own on a tsumo): the round and seat,
+    the sticks on the table from `ba`, and what the round's moves say."""
+    honba, sticks = _ints(agari.get("ba"))
+    return {
+        "roundWind": WINDS[round_.number // 4],
+        "seatWind": WINDS[(winner - round_.dealer) % 4],
+        "dealer": winner == round_.dealer,
+        "honba": honba,
+        "riichiSticks": sticks,
+        "secondWinner": round_.wins > 0,
+        "tsumo": winner == discarder,
+        **round_.moves.situation(winner=winner, discarder=discarder),
+    }
+
+
+def _record(hand: WinningHand, answer_key: dict, verification: Verification) -> dict:
+    """The parts of a hand record that come from the winning hand and its verification. Only a hand whose
+    cross-check matched has a raw fu, a fu breakdown and the fu of its splits."""
+    matched = verification.recalculation
+    return {
+        "situation": hand.situation,
+        "tiles": {
+            "concealed": mpsz(hand.concealed),
+            "calls": [_call_record(call) for call in hand.calls or []],
+            "winningTile": tile(hand.winning_tile),
+            "doraIndicators": mpsz(hand.dora_indicators),
+            "uraDoraIndicators": mpsz(hand.ura_dora_indicators),
+        },
+        "answerKey": {
+            **answer_key,
+            "rawFu": None if matched is None else matched.raw_fu,
+            "fuBreakdown": None if matched is None else matched.fu_breakdown,
+        },
+        "splitFu": None if matched is None else matched.split_fu,
+        "quarantineReasons": verification.reasons,
+    }
 
 
 def _calls(agari: ET.Element) -> list[Call] | None:
@@ -216,8 +226,7 @@ def _recorded_yaku(agari: ET.Element) -> list[tuple[int, int]]:
     return [(tenhou_id, han) for tenhou_id, han in zip(values[::2], values[1::2]) if han > 0]
 
 
-def _answer_key(agari: ET.Element, yaku: list[tuple[int, int]], *, tsumo: bool, dealer: bool,
-                honba: int, riichi_sticks: int) -> dict:
+def _answer_key(agari: ET.Element, yaku: list[tuple[int, int]], situation: dict) -> dict:
     """Tenhou's recorded result, with yaku under their contract keys."""
     fu, points, limit = _ints(agari.get("ten"))
     return {
@@ -226,8 +235,17 @@ def _answer_key(agari: ET.Element, yaku: list[tuple[int, int]], *, tsumo: bool, 
         "fu": fu,
         "limitTier": _limit_tier(limit, yakuman=bool(agari.get("yakuman"))),
         "points": points,
-        "payments": payments(points, tsumo=tsumo, dealer=dealer, honba=honba, riichi_sticks=riichi_sticks),
+        "payments": _payments(points, situation),
     }
+
+
+def _payments(points: int, situation: dict) -> dict:
+    """The winner's payments. In a double ron Tenhou pays the honba and the riichi sticks to the first
+    winner only: the second winner's `ba` still shows the honba, but its score change leaves them out."""
+    collects = not situation["secondWinner"]
+    return payments(points, tsumo=situation["tsumo"], dealer=situation["dealer"],
+                    honba=situation["honba"] if collects else 0,
+                    riichi_sticks=situation["riichiSticks"] if collects else 0)
 
 
 def _limit_tier(limit: int, *, yakuman: bool) -> str | None:
