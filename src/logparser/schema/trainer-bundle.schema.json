@@ -146,7 +146,7 @@
           "type": "boolean"
         },
         "chankan": {
-          "description": "True when the hand wins by ron on the tile another player adds to an added kan, robbing the kan, or wins with kokushi musou on a tile of another player's closed kan.",
+          "description": "True when the hand wins by ron on the tile another player adds to an added kan, robbing the kan.",
           "type": "boolean"
         },
         "firstDraw": {

@@ -181,30 +181,6 @@ def test_a_ron_from_another_player_than_the_one_adding_to_a_kan_does_not_rob_a_k
     assert only_hand(xml)["situation"]["chankan"] is False
 
 
-# Kokushi musou waiting on the 1m: 9m 1p 9p 1s 9s and every honour, with a second Chun.
-KOKUSHI_WAITING_ON_1M = (32, 36, 68, 72, 104, 108, 112, 116, 120, 124, 128, 132, 133)
-
-
-def test_kokushi_musou_won_on_a_tile_of_a_closed_kan_robs_the_kan_and_is_verified():
-    # Seat 0 draws the last 1m and makes a closed kan of 1m (0-3). Seat 1 wins on one of its tiles
-    # with kokushi musou, which alone may rob a closed kan: 32000.
-    xml = game(init(), turns(4), draw(0, 3), call(0, closed_kan(0)),
-               agari(who=1, from_who=0, hai=ids(*KOKUSHI_WAITING_ON_1M, 2), machi=2, ten="0,32000,5", yakuman="47",
-                     winning_move=False))
-
-    hand = only_hand(xml)
-
-    assert (hand["situation"]["chankan"], hand["quarantineReasons"]) == (True, [])
-
-
-def test_a_hand_other_than_kokushi_musou_said_to_win_on_a_tile_of_a_closed_kan_is_quarantined():
-    # Seat 0 makes a closed kan of 4s, and Tenhou's record says seat 1 won on one of its tiles with pinfu.
-    xml = game(init(), turns(4), draw(0, 87), call(0, closed_kan(84)), ron(who=1, from_who=0, yaku="7,1",
-                                                                          ten="30,1000,0"))
-
-    assert "situation" in only_hand(xml)["quarantineReasons"]
-
-
 def test_a_ron_robbing_a_kan_is_not_on_the_last_tile_even_when_the_kan_empties_the_live_wall():
     # After 69 draws seat 1's added kan moves the live wall's last tile to the dead wall.
     # Seat 3 robs the kan: chankan, pinfu.

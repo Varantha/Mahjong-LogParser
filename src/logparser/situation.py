@@ -6,8 +6,8 @@ say what situation it won in.
 The live wall holds 70 tiles once the hands are dealt. Each kan moves one more
 of them to the dead wall, and the player who made the kan draws their next tile
 from the dead wall. Before that draw, another player can win on the tile added
-to an added kan, which robs the kan (chankan). Kokushi musou can also rob a
-closed kan, winning on one of its tiles.
+to an added kan, which robs the kan (chankan). Tenhou lets no hand rob a closed
+kan, not even kokushi musou, so a win on a closed kan's tile is bad data.
 
 Tenhou logs a riichi in two steps: the declaration, before its discard, and
 the acceptance once nobody wins on that discard. A riichi that is declared
@@ -24,12 +24,9 @@ closes it only after the chance to rob the kan has passed.
 
 from dataclasses import dataclass
 
-from logparser.calls import ADDED_KAN, CLOSED_KAN, KANS
+from logparser.calls import ADDED_KAN, KANS
 
 LIVE_WALL = 70
-# Kans another player can win on before the kan's draw from the dead wall: the tile added to an added
-# kan, or, with kokushi musou only, a tile of a closed kan.
-ROBBABLE_KANS = frozenset({ADDED_KAN, CLOSED_KAN})
 DRAW, DISCARD, CALL = "draw", "discard", "call"
 SITUATIONAL_YAKU = frozenset({"double-riichi", "ippatsu", "haitei", "houtei", "rinshan", "chankan", "tenhou", "chiihou"})
 FIRST_DRAW_YAKU = frozenset({"tenhou", "chiihou"})
@@ -56,9 +53,7 @@ class Move:
 
     kind: str  # DRAW, DISCARD or CALL
     seat: int
-    # The tile drawn or discarded. For a call, the tiles another player can rob: the tile an added kan
-    # adds, or the four of a closed kan, which only kokushi musou can rob; none for any other call.
-    tiles: tuple[int, ...]
+    tile: int | None  # the tile drawn or discarded; for a call, the tile an added kan adds, else None
     call_type: str | None = None  # for a call, its type; None if its code is no four-player call
 
 
@@ -107,9 +102,9 @@ class RoundMoves:
 
     def _call(self, seat: int, call_type: str) -> None:
         self._called = True
-        if call_type in ROBBABLE_KANS:
+        if call_type == ADDED_KAN:
             self._robbable_kan_by = seat
-        if call_type != ADDED_KAN:
+        else:
             self._ippatsu.clear()
         if call_type in KANS:
             self._kans += 1
@@ -146,19 +141,18 @@ class RoundMoves:
             "firstDraw": tsumo and winner not in self._discarded and not self._called,
         }
 
-    def tiles_handed_over(self, *, winner: int, discarder: int) -> tuple[int, ...]:
-        """The tiles the last move handed the winner, any one of which it may win on; none if it
-        handed over none.
+    def tile_handed_over(self, *, winner: int, discarder: int) -> int | None:
+        """The tile the last move handed the winner, or None if it handed over none.
 
-        On a tsumo that is the winner's own draw. On a ron it is the discarder's discard, or the tile
-        the discarder added to a kan, or any tile of the discarder's closed kan (robbing a kan). Both
-        wins of a double ron are on the same discard: a win is no move.
+        On a tsumo that is the winner's own draw. On a ron it is the discarder's discard, or the
+        tile the discarder added to a kan (robbing a kan). Both wins of a double ron are on the same
+        discard: a win is no move.
         """
         move = self._last_move
         if move is None:
-            return ()
+            return None
         if winner == discarder:
             handed_over = move.kind == DRAW and move.seat == winner
         else:
             handed_over = move.kind in (DISCARD, CALL) and move.seat == discarder
-        return move.tiles if handed_over else ()
+        return move.tile if handed_over else None
