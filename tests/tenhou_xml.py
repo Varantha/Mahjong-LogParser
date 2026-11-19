@@ -42,7 +42,8 @@ def init(round_number: int = 0, honba: int = 0, sticks: int = 0, oya: int | None
 
 def agari(*, who: int, from_who: int, hai: str, machi: int, ten: str,
           yaku: str | None = None, yakuman: str | None = None, ba: str = "0,0",
-          dora: str = "130", ura: str | None = None, m: str | None = None) -> str:
+          dora: str = "130", ura: str | None = None, m: str | None = None,
+          sc: str = "250,0,250,0,250,0,250,0") -> str:
     attrs = [f'ba="{ba}"', f'hai="{hai}"']
     if m is not None:
         attrs.append(f'm="{m}"')
@@ -54,7 +55,7 @@ def agari(*, who: int, from_who: int, hai: str, machi: int, ten: str,
     attrs.append(f'doraHai="{dora}"')
     if ura is not None:
         attrs.append(f'doraHaiUra="{ura}"')
-    attrs += [f'who="{who}"', f'fromWho="{from_who}"', 'sc="250,0,250,0,250,0,250,0"']
+    attrs += [f'who="{who}"', f'fromWho="{from_who}"', f'sc="{sc}"']
     return f"<AGARI {' '.join(attrs)}/>"
 
 

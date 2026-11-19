@@ -130,7 +130,7 @@
       "description": "The result Tenhou recorded for the hand, under Tenhou rules.",
       "type": "object",
       "additionalProperties": false,
-      "required": ["yaku", "han", "fu", "points"],
+      "required": ["yaku", "han", "fu", "points", "payments"],
       "properties": {
         "yaku": {
           "description": "Each yaku with its han. Every yakuman counts 13 han.",
@@ -148,9 +148,62 @@
         },
         "han": { "type": "integer", "minimum": 1 },
         "fu": { "type": "integer", "minimum": 0 },
-        "points": { "description": "What the winner receives, before honba and riichi sticks.", "type": "integer", "minimum": 1000 }
+        "points": { "description": "What the winner receives, before honba and riichi sticks.", "type": "integer", "minimum": 1000 },
+        "payments": { "$ref": "#/$defs/payments" }
       }
     },
+
+    "payments": {
+      "description": "Who pays the winner what, in points, as Tenhou recorded it. The base payments add up to the points; the honba bonus and the riichi sticks collected are kept apart from them.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["base", "honbaBonus", "riichiSticksCollected"],
+      "properties": {
+        "base": {
+          "description": "The base payments, split the way the trainer asks for them.",
+          "oneOf": [
+            {
+              "description": "Ron: one amount from the discarder.",
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["fromDiscarder"],
+              "properties": { "fromDiscarder": { "$ref": "#/$defs/payment" } }
+            },
+            {
+              "description": "Dealer tsumo: one amount from each player.",
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["fromEachPlayer"],
+              "properties": { "fromEachPlayer": { "$ref": "#/$defs/payment" } }
+            },
+            {
+              "description": "Non-dealer tsumo: one amount from the dealer and one from each non-dealer.",
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["fromDealer", "fromEachNonDealer"],
+              "properties": {
+                "fromDealer": { "$ref": "#/$defs/payment" },
+                "fromEachNonDealer": { "$ref": "#/$defs/payment" }
+              }
+            }
+          ]
+        },
+        "honbaBonus": {
+          "description": "The honba bonus the winner collects on top of the base payments: 300 per honba, paid by the discarder on a ron or 100 per honba by each player on a tsumo. In a double ron only the first winner collects it, so the second winner's is 0 even though honba are on the table.",
+          "type": "integer",
+          "minimum": 0,
+          "multipleOf": 300
+        },
+        "riichiSticksCollected": {
+          "description": "Points from the riichi sticks the winner collects, 1000 per stick. In a double ron only the first winner collects them.",
+          "type": "integer",
+          "minimum": 0,
+          "multipleOf": 1000
+        }
+      }
+    },
+
+    "payment": { "type": "integer", "minimum": 100, "multipleOf": 100 },
 
     "key": { "type": "string", "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$" },
 

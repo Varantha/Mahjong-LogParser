@@ -90,7 +90,13 @@ def test_each_hand_appears_once_with_its_id_situation_tiles_and_answer_key(hand_
             "doraIndicators": "6z",
             "uraDoraIndicators": "",
         },
-        "answerKey": {"yaku": [{"key": "pinfu", "han": 1}], "han": 1, "fu": 30, "points": 1000},
+        "answerKey": {
+            "yaku": [{"key": "pinfu", "han": 1}],
+            "han": 1,
+            "fu": 30,
+            "points": 1000,
+            "payments": {"base": {"fromDiscarder": 1000}, "honbaBonus": 0, "riichiSticksCollected": 0},
+        },
     }
 
 

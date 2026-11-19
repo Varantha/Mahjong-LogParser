@@ -13,6 +13,7 @@ Every win (AGARI) in a taken game becomes a hand record, a JSON-ready dict:
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass, field
 
+from logparser.payments import payments
 from logparser.tiles import mpsz, tile
 from logparser.verification import quarantine_reasons
 from logparser.yaku import TENHOU_YAKU_KEYS, YAKUMAN_HAN
@@ -81,6 +82,7 @@ def _skip_reason(game_type: int) -> str | None:
 def _hand(log_id: str, round_: _Round, agari: ET.Element) -> dict:
     winner = int(agari.get("who"))
     honba, sticks = _ints(agari.get("ba"))
+    tsumo = winner == int(agari.get("fromWho"))
     concealed = _ints(agari.get("hai"))
     yaku = _recorded_yaku(agari)
     reasons = quarantine_reasons(
@@ -97,7 +99,7 @@ def _hand(log_id: str, round_: _Round, agari: ET.Element) -> dict:
             "dealer": winner == round_.dealer,
             "honba": honba,
             "riichiSticks": sticks,
-            "tsumo": winner == int(agari.get("fromWho")),
+            "tsumo": tsumo,
             "riichi": winner in round_.riichi,
         },
         "tiles": {
@@ -106,7 +108,8 @@ def _hand(log_id: str, round_: _Round, agari: ET.Element) -> dict:
             "doraIndicators": mpsz(_ints(agari.get("doraHai"))),
             "uraDoraIndicators": mpsz(_ints(agari.get("doraHaiUra", ""))),
         },
-        "answerKey": _answer_key(agari, yaku),
+        "answerKey": _answer_key(agari, yaku, tsumo=tsumo, dealer=winner == round_.dealer,
+                                 honba=honba, riichi_sticks=sticks),
         "quarantineReasons": reasons,
     }
 
@@ -119,7 +122,8 @@ def _recorded_yaku(agari: ET.Element) -> list[tuple[int, int]]:
     return [(tenhou_id, han) for tenhou_id, han in zip(values[::2], values[1::2]) if han > 0]
 
 
-def _answer_key(agari: ET.Element, yaku: list[tuple[int, int]]) -> dict:
+def _answer_key(agari: ET.Element, yaku: list[tuple[int, int]], *, tsumo: bool, dealer: bool,
+                honba: int, riichi_sticks: int) -> dict:
     """Tenhou's recorded result, with yaku under their contract keys."""
     fu, points, _limit = _ints(agari.get("ten"))
     return {
@@ -127,6 +131,7 @@ def _answer_key(agari: ET.Element, yaku: list[tuple[int, int]]) -> dict:
         "han": sum(han for _, han in yaku),
         "fu": fu,
         "points": points,
+        "payments": payments(points, tsumo=tsumo, dealer=dealer, honba=honba, riichi_sticks=riichi_sticks),
     }
 
 
