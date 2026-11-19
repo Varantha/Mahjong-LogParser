@@ -51,3 +51,19 @@ def test_a_non_dealer_tsumo_is_one_amount_from_the_dealer_and_one_from_each_non_
     xml = game(init(), agari(who=1, from_who=1, hai=CLOSED_HAND, machi=84, ten=ten, yaku="0,1,7,1,52,1", sc=sc))
 
     assert only_hand(xml)["answerKey"]["payments"]["base"] == base
+
+
+def test_the_honba_bonus_and_the_riichi_sticks_collected_are_kept_apart_from_the_base_payments():
+    # East 1 with 2 honba and 1 stick carried in; seat 2 declares riichi (a second stick) and rons seat 3.
+    xml = game(
+        init(honba=2, sticks=1),
+        '<REACH who="2" step="1"/><F30/><REACH who="2" step="2" ten="250,250,240,250"/>',
+        agari(who=2, from_who=3, ba="2,2", hai=CLOSED_HAND, machi=84, ten="40,1300,0", yaku="1,1,53,0", ura="40",
+              sc="250,0,250,0,240,39,250,-19"),
+    )
+
+    assert only_hand(xml)["answerKey"]["payments"] == {
+        "base": {"fromDiscarder": 1300},
+        "honbaBonus": 600,
+        "riichiSticksCollected": 2000,
+    }

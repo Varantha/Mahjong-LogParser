@@ -10,6 +10,9 @@ The honba bonus and the riichi sticks collected are kept apart from the base
 payments, in points.
 """
 
+HONBA_POINTS = 300  # per honba: all from the discarder on a ron, 100 from each player on a tsumo
+RIICHI_STICK_POINTS = 1000
+
 
 def payments(points: int, *, tsumo: bool, dealer: bool, honba: int, riichi_sticks: int) -> dict:
     if not tsumo:
@@ -22,6 +25,6 @@ def payments(points: int, *, tsumo: bool, dealer: bool, honba: int, riichi_stick
         base = {"fromDealer": points - 2 * each_non_dealer, "fromEachNonDealer": each_non_dealer}
     return {
         "base": base,
-        "honbaBonus": 0,
-        "riichiSticksCollected": 0,
+        "honbaBonus": HONBA_POINTS * honba,
+        "riichiSticksCollected": RIICHI_STICK_POINTS * riichi_sticks,
     }
