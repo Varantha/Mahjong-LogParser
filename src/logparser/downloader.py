@@ -123,6 +123,18 @@ class Downloader:
         listed = self._db.execute(
             "SELECT log_id FROM listed WHERE log_id NOT IN (SELECT log_id FROM failed) ORDER BY log_id").fetchall()
         to_fetch = [log_id for (log_id,) in listed if _ingest_takes(log_id) and log_id not in self._log_store]
+        self._fetch_logs(to_fetch, max_logs, summary)
+        return summary
+
+    def run_id_list(self, id_list: Path, max_logs: int | None = None) -> DownloadSummary:
+        """Fetches the logs an ID list names, one log ID per line, instead of reading Tenhou's scc lists."""
+        summary = DownloadSummary()
+        to_fetch = sorted(Path(id_list).read_text(encoding="utf-8").split())
+        self._fetch_logs(to_fetch, max_logs, summary)
+        return summary
+
+    def _fetch_logs(self, to_fetch: list[str], max_logs: int | None, summary: DownloadSummary) -> None:
+        """Fetches each log in turn, up to max_logs of them, recording those Tenhou cannot give as failed."""
         summary.remaining = len(to_fetch)
         for log_id in to_fetch[:max_logs]:
             summary.remaining -= 1
@@ -134,7 +146,6 @@ class Downloader:
             else:
                 self._log_store.add(log_id, xml)
                 summary.fetched += 1
-        return summary
 
     def _get(self, url: str) -> Response:
         """One request to Tenhou, started no sooner than the interval after the previous one."""

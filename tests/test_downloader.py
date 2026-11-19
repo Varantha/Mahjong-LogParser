@@ -262,3 +262,30 @@ def test_an_scc_list_tenhou_cannot_give_is_skipped_and_read_again_next_time(tenh
     download()
 
     assert (first.fetched, list(log_store.log_ids())) == (1, [GAME_A, GAME_C])
+
+
+# Downloading from a list of log IDs, one per line, instead of Tenhou's scc lists.
+
+
+@pytest.fixture
+def download_ids(state, log_store, tenhou, clock, tmp_path, no_network):
+    """Writes these lines to an ID list, runs the downloader on it once against the fake Tenhou and returns its summary."""
+
+    def run(*lines, max_logs=None, **options):
+        id_list = tmp_path / "ids.txt"
+        id_list.write_text("".join(line + "\n" for line in lines), encoding="utf-8")
+        with Downloader(log_store, state, http_get=tenhou, clock=clock, sleep=clock.sleep, **options) as downloader:
+            return downloader.run_id_list(id_list, max_logs=max_logs)
+
+    return run
+
+
+def test_the_logs_in_an_id_list_are_fetched_in_log_id_order_without_reading_tenhous_lists(tenhou, log_store, download_ids):
+    tenhou.add_list("scc2026110605.html.gz", GAME_C)
+    for n, log_id in enumerate([GAME_A, GAME_B, GAME_C]):
+        tenhou.add_log(log_id, log(n))
+
+    download_ids(GAME_B, GAME_A)
+
+    assert tenhou.urls() == [tenhou.log_url(GAME_A), tenhou.log_url(GAME_B)]
+    assert {log_id: log_store.read(log_id) for log_id in log_store.log_ids()} == {GAME_A: log(0), GAME_B: log(1)}
