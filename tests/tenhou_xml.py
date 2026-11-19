@@ -190,6 +190,9 @@ CALLED_HAND = ids(48, 53, 56, 68, 69, 76, 80, 84)
 
 
 def called_win(who: int = 1, from_who: int = 0) -> str:
-    """CALLED_HAND ron on 4s by a non-dealer: chun and aka dora, 2 han 30 fu, 2000 points."""
+    """CALLED_HAND ron on 4s by a non-dealer: chun and aka dora, 2 han 30 fu, 2000 points.
+
+    The dora indicator is West (116), so North is dora and the hand holds none.
+    """
     return agari(who=who, from_who=from_who, hai=CALLED_HAND, m=CALLED_HAND_CALLS, machi=84,
-                 ten="30,2000,0", yaku="20,1,54,1")
+                 ten="30,2000,0", yaku="20,1,54,1", dora="116")

@@ -9,7 +9,9 @@ Every win (AGARI) in a taken game becomes a hand record, a JSON-ready dict:
                        round's moves (see `logparser.situation`)
     tiles              concealed tiles, calls, winning tile and dora indicators, in mpsz.
                        Each call is {type, tiles, calledTile, calledFrom}, in the order made.
-    answerKey          Tenhou's recorded yaku (contract keys), han, fu, points and payments
+    answerKey          Tenhou's recorded yaku (contract keys), han, fu, points and payments, plus the
+                       raw fu and fu breakdown (contract keys) of a hand whose cross-check matched;
+                       both are None for any other hand
     quarantineReasons  one reason code per failed check; empty when verified
     tags               the keys of the hand's tags (see `logparser.tags`)
 """
@@ -23,7 +25,7 @@ from logparser.payments import payments, score_changes
 from logparser.situation import RoundMoves
 from logparser.tags import hand_tags
 from logparser.tiles import mpsz, tile
-from logparser.verification import quarantine_reasons
+from logparser.verification import verify
 from logparser.yaku import TENHOU_YAKU_KEYS, YAKUMAN_HAN
 
 REPLAY_URL = "https://tenhou.net/0/?log={log_id}&ts={round_index}&tw={seat}"
@@ -165,7 +167,7 @@ def _hand(log_id: str, round_: _Round, agari: ET.Element) -> dict:
         "tsumo": tsumo,
         **round_.moves.situation(winner=winner, discarder=discarder),
     }
-    reasons = quarantine_reasons(
+    verification = verify(
         concealed=concealed,
         calls=calls,
         unreadable_call_in_moves=round_.unreadable_call,
@@ -174,12 +176,15 @@ def _hand(log_id: str, round_: _Round, agari: ET.Element) -> dict:
         dora_indicators=dora_indicators,
         ura_dora_indicators=ura_dora_indicators,
         situation=situation,
-        yaku=[recorded["key"] for recorded in answer_key["yaku"]],
+        answer_key=answer_key,
         unknown_yaku=[tenhou_id for tenhou_id, _ in yaku if tenhou_id not in TENHOU_YAKU_KEYS],
         recorded_score_changes=_recorded_score_changes(agari),
         expected_score_changes=score_changes(answer_key["payments"], winner=winner, discarder=discarder,
                                              dealer=round_.dealer),
     )
+    matched = verification.recalculation  # None unless the cross-check matched
+    answer_key["rawFu"] = None if matched is None else matched.raw_fu
+    answer_key["fuBreakdown"] = None if matched is None else matched.fu_breakdown
     hand = {
         "id": f"{log_id}/{round_.index}/{round_.wins}",
         "replayUrl": REPLAY_URL.format(log_id=log_id, round_index=round_.index, seat=winner),
@@ -192,7 +197,7 @@ def _hand(log_id: str, round_: _Round, agari: ET.Element) -> dict:
             "uraDoraIndicators": mpsz(ura_dora_indicators),
         },
         "answerKey": answer_key,
-        "quarantineReasons": reasons,
+        "quarantineReasons": verification.reasons,
     }
     hand["tags"] = hand_tags(hand)
     return hand

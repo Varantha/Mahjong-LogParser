@@ -11,6 +11,7 @@ from logparser.export import Drill, export_bundle, load_catalogue
 from logparser.hand_store import HandStore
 from logparser.ingest import ingest
 from logparser.log_store import LogStore
+from logparser.recalculation import FU_KEYS
 from logparser.tags import TAGS
 from logparser.yaku import TENHOU_YAKU_KEYS
 from tenhou_xml import (CLOSED_HAND, KAMICHA, added_kan, agari, called_win, chi, closed_kan, closed_win, game, ids,
@@ -105,6 +106,8 @@ def test_each_hand_appears_once_with_its_id_situation_tiles_answer_key_and_tags(
             "fu": 30,
             "points": 1000,
             "payments": {"base": {"fromDiscarder": 1000}, "honbaBonus": 0, "riichiSticksCollected": 0},
+            "rawFu": 30,
+            "fuBreakdown": [{"key": "base", "fu": 20}, {"key": "closed-ron", "fu": 10}],
         },
         "tags": [],
     }
@@ -113,12 +116,14 @@ def test_each_hand_appears_once_with_its_id_situation_tiles_answer_key_and_tags(
 def test_the_bundle_carries_each_kind_of_payment_with_the_honba_and_riichi_sticks_apart(tmp_path):
     logs = LogStore(tmp_path / "log-store")
     logs.add(LOG_ID, game(
-        # Dealer tsumo on its second draw: 3 han 30 fu, 2000 all.
+        # Dealer tsumo on its second draw: menzen tsumo and pinfu, 2 han 20 fu, 700 all.
         init(round_number=0), turns(4),
-        agari(who=0, from_who=0, hai=CLOSED_HAND, machi=84, ten="30,6000,0", yaku="0,1,52,2"),
-        # Non-dealer tsumo on its second draw, with 1 honba and 1 stick: 3 han 40 fu, 1300 / 2600.
+        agari(who=0, from_who=0, hai=CLOSED_HAND, machi=84, ten="20,2100,0", yaku="0,1,7,1"),
+        # Non-dealer tsumo on its second draw, with 1 honba and 1 stick, and 8p as dora indicator so
+        # the pair of 9p is dora: menzen tsumo, pinfu and dora 2, 4 han 20 fu, 1300 / 2600.
         init(round_number=1, honba=1, sticks=1), turns(5, first_seat=1),
-        agari(who=2, from_who=2, ba="1,1", hai=CLOSED_HAND, machi=84, ten="40,5200,0", yaku="0,1,52,2", dealer=1),
+        agari(who=2, from_who=2, ba="1,1", hai=CLOSED_HAND, machi=84, ten="20,5200,0", yaku="0,1,7,1,52,2",
+              dora=ids(64), dealer=1),
         # Ron: 1 han 30 fu, 1000 from the discarder.
         init(round_number=2), closed_win(who=3, from_who=0),
     ))
@@ -129,7 +134,7 @@ def test_the_bundle_carries_each_kind_of_payment_with_the_honba_and_riichi_stick
     payments = {hand["id"]: hand["answerKey"]["payments"] for hand in bundle_hands(tmp_path / "bundle")}
 
     assert payments == {
-        f"{LOG_ID}/0/0": {"base": {"fromEachPlayer": 2000}, "honbaBonus": 0, "riichiSticksCollected": 0},
+        f"{LOG_ID}/0/0": {"base": {"fromEachPlayer": 700}, "honbaBonus": 0, "riichiSticksCollected": 0},
         f"{LOG_ID}/1/0": {"base": {"fromDealer": 2600, "fromEachNonDealer": 1300},
                           "honbaBonus": 300, "riichiSticksCollected": 1000},
         f"{LOG_ID}/2/0": {"base": {"fromDiscarder": 1000}, "honbaBonus": 0, "riichiSticksCollected": 0},
@@ -264,3 +269,9 @@ def test_the_schema_knows_every_tag_key_the_parser_can_write():
     schema = json.loads(SCHEMA_PATH.read_text())
 
     assert set(schema["$defs"]["tagKey"]["enum"]) == set(TAGS)
+
+
+def test_the_schema_knows_every_fu_key_the_parser_can_write():
+    schema = json.loads(SCHEMA_PATH.read_text())
+
+    assert schema["$defs"]["fuKey"]["enum"] == list(FU_KEYS)

@@ -52,9 +52,10 @@ def ron(who: int, from_who: int, yaku: str, ten: str = "30,2000,0") -> str:
     return agari(who=who, from_who=from_who, hai=CLOSED_HAND, machi=84, ten=ten, yaku=yaku, winning_move=False)
 
 
-# A closed kan of East beside 123p 789p 123s and a 9s, won on the other 9s (105).
+# A closed kan of East beside 345p 789p 123s and a 9s, won on the other 9s (105). For the dealer
+# with a rinshan tsumo: menzen tsumo, rinshan, seat and round wind East, 4 han 60 fu.
 EAST_KAN = closed_kan(108)
-BESIDE_EAST_KAN = ids(36, 40, 44, 60, 64, 68, 72, 76, 80, 104, 105)
+BESIDE_EAST_KAN = ids(44, 48, 53, 60, 64, 68, 72, 76, 80, 104, 105)
 
 
 def tsumo_after_east_kan(who: int, yaku: str, ten: str = "60,12000,1", dealer: int = 0) -> str:
@@ -369,6 +370,8 @@ def test_a_tsumo_on_the_players_first_draw_after_a_call_is_not_on_the_first_draw
 
 
 # Check 4: the situation worked out from the moves agrees with the situational yaku Tenhou gave.
+# The cross-check (check 6) recalculates the hand in that same situation, so a hand that fails
+# check 4 fails the cross-check too.
 
 AGREEING = {
     "haitei": game(init(), turns(69), draw(1, 84), tsumo(who=1, yaku="0,1,5,1,7,1")),
@@ -410,7 +413,7 @@ LEFT_OUT = {
 
 @pytest.mark.parametrize("xml", LEFT_OUT.values(), ids=LEFT_OUT.keys())
 def test_a_hand_whose_moves_give_a_situational_yaku_tenhou_left_out_is_quarantined(xml):
-    assert only_hand(xml)["quarantineReasons"] == ["situation"]
+    assert only_hand(xml)["quarantineReasons"] == ["situation", "cross-check"]
 
 
 # Plain moves, with no riichi, no kan, and no first or last draw, yet Tenhou gives a situational yaku.
@@ -430,13 +433,15 @@ NOT_FROM_THE_MOVES = {
 
 @pytest.mark.parametrize("xml", NOT_FROM_THE_MOVES.values(), ids=NOT_FROM_THE_MOVES.keys())
 def test_a_hand_given_a_situational_yaku_its_moves_dont_give_is_quarantined(xml):
-    assert only_hand(xml)["quarantineReasons"] == ["situation"]
+    assert only_hand(xml)["quarantineReasons"] == ["situation", "cross-check"]
 
 
 def test_a_yakuman_win_is_checked_only_for_tenhou_and_chiihou_because_tenhou_lists_nothing_else():
-    # Seat 1 wins in its ippatsu window on the last tile, but Tenhou lists only the yakuman (suuankou).
-    xml = game(init(), turns(65), draw(1, 135), riichi(1), turns(3, first_seat=2), draw(1, 84),
-               agari(who=1, from_who=1, hai=CLOSED_HAND, machi=84, ten="40,32000,5", yakuman="40", ura="40",
+    # Seat 1 wins in its ippatsu window on the last tile, but Tenhou lists only the yakuman
+    # (suuankou): triplets of 1m, 5p, 2s and 7s and a pair of 9p, won on 7s.
+    hai = ids(0, 1, 2, 53, 54, 55, 76, 77, 78, 96, 97, 98, 68, 69)
+    xml = game(init(), turns(65), draw(1, 135), riichi(1), turns(3, first_seat=2), draw(1, 98),
+               agari(who=1, from_who=1, hai=hai, machi=98, ten="50,32000,5", yakuman="40", ura="40",
                      winning_move=False))
 
     hand = only_hand(xml)
