@@ -74,11 +74,11 @@ def _knife_edge_fu(hand: dict, settings: TagSettings) -> bool:
     if plain["rawFu"] is None or "chiitoitsu" in plain["yaku"] or ("pinfu" in plain["yaku"] and plain["tsumo"]):
         return False
 
-    def scored(raw_fu: int) -> int:
-        return points(han=plain["han"], fu=_rounded_fu(raw_fu, open_hand=plain["open"]), dealer=plain["dealer"],
-                      tsumo=plain["tsumo"])
+    def scored(fu: int) -> int:
+        return points(han=plain["han"], fu=fu, dealer=plain["dealer"], tsumo=plain["tsumo"])
 
-    return any(scored(plain["rawFu"] + step) != scored(plain["rawFu"]) for step in (-2, 2))
+    return any(scored(_rounded_fu(plain["rawFu"] + step, open_hand=plain["open"])) != scored(plain["fu"])
+               for step in (-2, 2))
 
 
 def _rounded_fu(raw_fu: int, *, open_hand: bool) -> int:
