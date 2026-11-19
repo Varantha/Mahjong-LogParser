@@ -25,8 +25,8 @@ from dataclasses import dataclass, field
 
 from logparser.calls import Call, decode_call
 from logparser.payments import payments, score_changes
-from logparser.situation import RoundMoves
 from logparser.plain_values import plain_values
+from logparser.situation import RoundMoves
 from logparser.tags import hand_tags
 from logparser.tiles import mpsz, tile
 from logparser.verification import verify
