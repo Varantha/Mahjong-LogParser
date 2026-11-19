@@ -12,8 +12,9 @@ Every win (AGARI) in a taken game becomes a hand record, a JSON-ready dict:
     answerKey          Tenhou's recorded yaku (contract keys), han, fu, limit tier, points and
                        payments, plus the raw fu and fu breakdown (contract keys) of a hand whose
                        cross-check matched; both are None for any other hand
-    splitFu            the fu of each way of splitting the hand into sets and a pair, ascending,
-                       for a hand whose cross-check matched; None for any other (hand store only)
+    splitFu            the fu of each way of splitting the hand into sets and a pair that has a yaku,
+                       ascending, for a hand whose cross-check matched; None for any other (hand
+                       store only)
     quarantineReasons  one reason code per failed check; empty when verified
     plainValues        the facts drills filter on directly (see `logparser.plain_values`)
     tags               the keys of the hand's tags (see `logparser.tags`)

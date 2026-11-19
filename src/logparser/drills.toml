@@ -44,7 +44,8 @@ key = "fu-rounding-edge"
 target = 500
 pool = { tags = "knife-edge-fu" }
 
-# Hands whose tiles split into sets and a pair in more than one way, at different fu.
+# Hands whose tiles split into sets and a pair in more than one way, at different fu,
+# counting only the splits that have a yaku.
 # Skill: choosing the highest-scoring way to split the tiles.
 [[drill]]
 key = "tricky-waits"

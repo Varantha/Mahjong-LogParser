@@ -52,7 +52,8 @@ def _wraparound_dora(hand: dict, settings: TagSettings) -> bool:
 
 def _ambiguous_wait(hand: dict, settings: TagSettings) -> bool:
     """The hand's tiles split into sets and a pair in more than one way, and the split chosen changes
-    the fu. Tenhou scores the split worth the most points."""
+    the fu. Only splits that have a yaku count: a split without one can't win. Tenhou scores the split
+    worth the most points."""
     return len(set(hand["splitFu"] or [])) > 1
 
 

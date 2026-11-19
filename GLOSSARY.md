@@ -41,7 +41,7 @@ Where a hand's raw fu come from: the base, a closed ron or a tsumo, each set, th
 _Avoid_: fu details, fu reasons (the `mahjong` library's terms)
 
 **Split**:
-One way of reading a hand's tiles as four sets and a pair, its calls kept as they were made, together with the concealed set or pair the winning tile completed. A hand can have several splits with different fu; Tenhou scores the one worth the most points. Seven pairs is not a split.
+One way of reading a hand's tiles as four sets and a pair, its calls kept as they were made, together with the concealed set or pair the winning tile completed. A hand can have several splits with different fu; Tenhou scores the one worth the most points. A split without a yaku can't win, so it is never scored. Seven pairs is not a split.
 _Avoid_: decomposition, interpretation, hand division (the `mahjong` library's terms)
 
 **Limit tier**:
