@@ -86,6 +86,12 @@ def _change(previous: dict | None, hand: dict) -> dict | None:
     if previous is None:
         return None
     change = {}
+    for part in ("answerKey", "plainValues"):
+        before, after = previous[part], hand[part]
+        values = {key: {"before": before.get(key), "after": after.get(key)}
+                  for key in {**before, **after} if before.get(key) != after.get(key)}
+        if values:
+            change[part] = values
     added = [tag for tag in hand["tags"] if tag not in previous["tags"]]
     removed = [tag for tag in previous["tags"] if tag not in hand["tags"]]
     if added or removed:

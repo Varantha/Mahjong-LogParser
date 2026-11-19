@@ -163,3 +163,23 @@ def test_the_diff_lists_by_hand_id_the_hands_that_changed_since_the_previous_run
 
     assert [change["id"] for change in diff(summary)] == [f"{PHOENIX_LOG}/0/0"]
     assert diff(summary)[0]["tags"] == {"added": ["kuisagari"], "removed": []}
+
+
+def test_the_diff_gives_each_changed_value_of_the_answer_key_and_plain_values_before_and_after(tmp_path):
+    logs = LogStore(tmp_path / "log-store")
+    logs.add(PHOENIX_LOG, game(init(), closed_win()))
+    with HandStore(tmp_path / "hand-store.sqlite") as hands:
+        ingest(logs, hands)
+        # The hand as an older parser stored it: it read the fu as 40 and knew no dora count.
+        older = hands.get(f"{PHOENIX_LOG}/0/0")
+        older["answerKey"]["fu"] = older["plainValues"]["fu"] = 40
+        del older["plainValues"]["doraCount"]
+        hands.replace_log(PHOENIX_LOG, [older])
+
+        summary = ingest(logs, hands, tmp_path / "reports")
+
+    assert diff(summary) == [{
+        "id": f"{PHOENIX_LOG}/0/0",
+        "answerKey": {"fu": {"before": 40, "after": 30}},
+        "plainValues": {"fu": {"before": 40, "after": 30}, "doraCount": {"before": None, "after": 0}},
+    }]
