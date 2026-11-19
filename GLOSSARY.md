@@ -14,6 +14,10 @@ _Avoid_: raw data, input, db
 Every hand parsed from the log store, each with its verification result and tags. The first stage's output.
 _Avoid_: raw dataset, master dataset
 
+**Ingest report**:
+What one ingest found: the hands parsed, the quarantined hands grouped by reason, and how many verified hands have each tag and reach each limit tier, with a diff listing the hands whose answer key, plain values or tags changed since the previous run.
+_Avoid_: ingest log, stats, summary
+
 **Trainer bundle**:
 The curated slice of the hand store that the Scoring Trainer ships. The second stage's output.
 _Avoid_: export, output, app data

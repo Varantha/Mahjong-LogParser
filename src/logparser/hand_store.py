@@ -46,6 +46,11 @@ class HandStore:
                 [(hand["id"], log_id, not hand["quarantineReasons"], json.dumps(hand)) for hand in hands],
             )
 
+    def log_hands(self, log_id: str) -> list[dict]:
+        """The hands stored from one log, in hand ID order."""
+        rows = self._db.execute("SELECT record FROM hands WHERE log_id = ? ORDER BY id", (log_id,))
+        return [json.loads(record) for (record,) in rows]
+
     def hand_ids(self) -> Iterator[str]:
         for (hand_id,) in self._db.execute("SELECT id FROM hands ORDER BY id"):
             yield hand_id

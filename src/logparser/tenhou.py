@@ -27,7 +27,7 @@ from logparser.calls import Call, decode_call
 from logparser.payments import payments, score_changes
 from logparser.plain_values import plain_values
 from logparser.situation import RoundMoves
-from logparser.tags import hand_tags
+from logparser.tags import TagSettings, hand_tags
 from logparser.tiles import mpsz, tile
 from logparser.verification import verify
 from logparser.yaku import TENHOU_YAKU_KEYS, YAKUMAN_HAN
@@ -80,7 +80,7 @@ class _Round:
     last_move: _Move | None = None
 
 
-def parse_log(log_id: str, xml_text: str) -> ParsedLog:
+def parse_log(log_id: str, xml_text: str, tag_settings: TagSettings = TagSettings()) -> ParsedLog:
     try:
         root = ET.fromstring(xml_text)
     except ET.ParseError:
@@ -104,7 +104,7 @@ def parse_log(log_id: str, xml_text: str) -> ParsedLog:
             elif event.get("step") == "2":
                 round_.moves.accept_riichi(int(event.get("who")))
         elif event.tag == "AGARI":
-            parsed.hands.append(_hand(log_id, round_, event))
+            parsed.hands.append(_hand(log_id, round_, event, tag_settings))
             round_.wins += 1
         elif (move := _move(event)) is not None:
             round_.last_move = move
@@ -150,7 +150,7 @@ def _skip_reason(game_type: int) -> str | None:
     return None
 
 
-def _hand(log_id: str, round_: _Round, agari: ET.Element) -> dict:
+def _hand(log_id: str, round_: _Round, agari: ET.Element, tag_settings: TagSettings) -> dict:
     winner = int(agari.get("who"))
     discarder = int(agari.get("fromWho"))
     honba, sticks = _ints(agari.get("ba"))
@@ -209,7 +209,7 @@ def _hand(log_id: str, round_: _Round, agari: ET.Element) -> dict:
         "quarantineReasons": verification.reasons,
     }
     hand["plainValues"] = plain_values(hand)
-    hand["tags"] = hand_tags(hand)
+    hand["tags"] = hand_tags(hand, tag_settings)
     return hand
 
 
