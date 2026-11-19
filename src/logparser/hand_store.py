@@ -56,6 +56,6 @@ class HandStore:
             raise KeyError(hand_id)
         return json.loads(row[0])
 
-    def verified_hands(self) -> Iterator[dict]:
-        for (record,) in self._db.execute("SELECT record FROM hands WHERE verified ORDER BY id"):
-            yield json.loads(record)
+    def verified_hand_ids(self) -> Iterator[str]:
+        for (hand_id,) in self._db.execute("SELECT id FROM hands WHERE verified ORDER BY id"):
+            yield hand_id

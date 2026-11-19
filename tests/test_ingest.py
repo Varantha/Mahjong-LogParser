@@ -29,7 +29,7 @@ def test_the_hand_store_keeps_each_hand_as_parsed_including_quarantined_hands(tm
         verified = hands.get(f"{PHOENIX_LOG}/0/0")
         quarantined = hands.get(f"{PHOENIX_LOG}/1/0")
 
-    assert (verified["tiles"]["concealed"], verified["quarantineReasons"]) == ("123m456p234789s11z", [])
+    assert (verified["tiles"]["concealed"], verified["quarantineReasons"]) == ("123m45699p234789s", [])
     assert quarantined["quarantineReasons"] == ["calls-not-supported"]
 
 

@@ -185,10 +185,10 @@ def test_a_yaku_without_a_contract_key_quarantines_the_hand():
 
 
 def test_concealed_tiles_are_written_in_mpsz_with_man_first():
-    xml = game(
-        init(),
-        agari(who=1, from_who=0, hai=CLOSED_HAND, machi=84, ten="40,1300,0", yaku="1,1,53,0", ura="40"),
-    )
+    # 1m 2m 3m = 0 4 8; 4p 5p 6p = 48 53 56; 2s 3s 4s = 76 80 84; 7s 8s 9s = 96 100 104;
+    # East East = 108 109.
+    hai = ids(0, 4, 8, 48, 53, 56, 76, 80, 84, 96, 100, 104, 108, 109)
+    xml = game(init(), agari(who=1, from_who=0, hai=hai, machi=84, ten="40,1300,0", yaku="1,1,53,0", ura="40"))
 
     hand = only_hand(xml)
 

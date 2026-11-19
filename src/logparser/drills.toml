@@ -1,0 +1,13 @@
+# The drill catalogue: the drills the trainer bundle holds (see docs/adr/0001).
+#
+# Each drill has:
+#   key     stable string key; the trainer translates it into a display name
+#   pool    where its hands come from:
+#             "all"  every verified hand, drawn at random, so each kind of hand
+#                    turns up at its real-game frequency
+#   target  how many hands the drill aims for
+
+[[drill]]
+key = "everything"
+pool = "all"
+target = 500

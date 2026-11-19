@@ -31,8 +31,10 @@ def un(names=("Alice", "Bob", "Carol", "Dave")) -> str:
     )
 
 
-def init(round_number: int = 0, honba: int = 0, sticks: int = 0, oya: int = 0,
+def init(round_number: int = 0, honba: int = 0, sticks: int = 0, oya: int | None = None,
          dora_indicator: int = 130) -> str:
+    """A round start. By default the dealer is the seat whose turn it is in that wind."""
+    oya = round_number % 4 if oya is None else oya
     seed = f"{round_number},{honba},{sticks},2,3,{dora_indicator}"
     hands = " ".join(f'hai{seat}="{ids(*range(seat * 13, seat * 13 + 13))}"' for seat in range(4))
     return f'<INIT seed="{seed}" ten="250,250,250,250" oya="{oya}" {hands}/>'
@@ -65,15 +67,15 @@ def game(*events: str, game_type: int = PHOENIX_HANCHAN) -> str:
     return f'<mjloggm ver="2.3">{go(game_type)}{un()}<TAIKYOKU oya="0"/>{body}</mjloggm>'
 
 
-# A closed hand used across tests: 123m 456p 234s 789s and a pair of East.
-# 1m 2m 3m = 0 4 8; 4p 5p 6p = 48 53 56; 2s 3s 4s = 76 80 84;
-# 7s 8s 9s = 96 100 104; East East = 108 109.
-CLOSED_HAND = ids(0, 4, 8, 48, 53, 56, 76, 80, 84, 96, 100, 104, 108, 109)
+# A closed hand used across tests: 123m 456p 234s 789s and a pair of 9p.
+# 1m 2m 3m = 0 4 8; 4p 5p 6p = 48 53 56; 9p 9p = 68 69; 2s 3s 4s = 76 80 84;
+# 7s 8s 9s = 96 100 104.
+CLOSED_HAND = ids(0, 4, 8, 48, 53, 56, 68, 69, 76, 80, 84, 96, 100, 104)
 
 
 def closed_win(who: int = 1, from_who: int = 0) -> str:
-    """A riichi win with CLOSED_HAND on 4s: riichi 1 han, 40 fu, 1300 points."""
-    return agari(who=who, from_who=from_who, hai=CLOSED_HAND, machi=84, ten="40,1300,0", yaku="1,1,53,0", ura="40")
+    """CLOSED_HAND ron on 4s by a non-dealer: pinfu, 1 han 30 fu, 1000 points."""
+    return agari(who=who, from_who=from_who, hai=CLOSED_HAND, machi=84, ten="30,1000,0", yaku="7,1")
 
 
 def called_win(who: int = 1, from_who: int = 0) -> str:
