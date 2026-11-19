@@ -124,7 +124,7 @@ def test_each_hand_appears_once_with_its_id_situation_tiles_answer_key_plain_val
             "riichiSticks": 0,
             "callTypes": [],
         },
-        "tags": [],
+        "tags": ["knife-edge-fu"],
     }
 
 
@@ -196,7 +196,9 @@ def tagged_hand_store(tmp_path):
         # Chiitoitsu with the 9m as indicator, so the pair of 1m is dora: 4 han 25 fu.
         init(round_number=1), agari(who=2, from_who=0, hai=ids(0, 1, 32, 33, 36, 37, 40, 41, 72, 73, 108, 109, 124, 125),
                                     machi=125, ten="25,6400,0", yaku="22,2,52,2", dora=ids(34)),
-        init(round_number=2), closed_win(who=3),
+        # 222m 345p 678p 34s+2s 88s: tanyao, 1 han. The closed triplet of 2m gives raw fu 34, so 40 fu either side.
+        init(round_number=2), agari(who=3, from_who=0, hai=ids(4, 5, 6, 44, 48, 53, 56, 60, 64, 76, 80, 84, 100, 101),
+                                    machi=76, ten="40,1300,0", yaku="8,1"),
     ))
     with HandStore(tmp_path / "hand-store.sqlite") as hands:
         ingest(logs, hands)
@@ -214,7 +216,8 @@ def test_each_hand_in_the_bundle_carries_its_tags(tagged_hand_store, tmp_path):
 def test_the_manifest_counts_the_hands_with_each_tag(tagged_hand_store, tmp_path):
     manifest = export_bundle(tagged_hand_store, tmp_path / "bundle", EVERYTHING, built_at=BUILT_AT)
 
-    assert manifest["counts"]["tags"] == {"kuisagari": 1, "wraparound-dora": 1, "ambiguous-wait": 0}
+    assert manifest["counts"]["tags"] == {"kuisagari": 1, "wraparound-dora": 1, "ambiguous-wait": 0, "open-pinfu-shape": 0,
+                                           "fu-mangan": 0, "high-fu": 0, "knife-edge-fu": 0}
 
 
 def test_the_manifest_counts_a_tag_no_bundle_hand_has_as_0(hand_store, tmp_path):

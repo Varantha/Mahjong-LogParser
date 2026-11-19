@@ -162,7 +162,8 @@ def test_the_diff_lists_by_hand_id_the_hands_that_changed_since_the_previous_run
         summary = ingest(logs, hands, tmp_path / "reports")
 
     assert [change["id"] for change in diff(summary)] == [f"{PHOENIX_LOG}/0/0"]
-    assert diff(summary)[0]["tags"] == {"added": ["kuisagari"], "removed": []}
+    # The pinfu ron's raw fu 30 sit on a knife edge; the open honitsu's raw fu 28 don't.
+    assert diff(summary)[0]["tags"] == {"added": ["kuisagari"], "removed": ["knife-edge-fu"]}
     assert summary.changed == report(summary)["hands"]["changed"] == 1
 
 

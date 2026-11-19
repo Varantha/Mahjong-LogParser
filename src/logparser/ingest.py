@@ -35,7 +35,7 @@ from pathlib import Path
 from logparser.hand_store import HandStore
 from logparser.log_store import LogStore
 from logparser.plain_values import LIMIT_TIERS
-from logparser.tags import TAGS
+from logparser.tags import TAGS, TagSettings
 from logparser.tenhou import parse_log
 
 
@@ -50,9 +50,10 @@ class IngestSummary:
 
 
 def ingest(logs: LogStore, hands: HandStore, reports: Path | None = None, *,
-           ingested_at: datetime | None = None) -> IngestSummary:
+           ingested_at: datetime | None = None, tag_settings: TagSettings = TagSettings()) -> IngestSummary:
     """Parses every log in the log store into the hand store, replacing the hands each log gave
-    before. With `reports`, writes this run's ingest report into a new folder there."""
+    before, and tags each hand under `tag_settings`. With `reports`, writes this run's ingest
+    report into a new folder there."""
     ingested_at = (ingested_at or datetime.now(timezone.utc)).astimezone(timezone.utc)
     summary = IngestSummary()
     skipped = Counter()
@@ -64,7 +65,7 @@ def ingest(logs: LogStore, hands: HandStore, reports: Path | None = None, *,
     diff_path = None if summary.report_folder is None else summary.report_folder / "diff.jsonl"
     with diff_path.open("w", encoding="utf-8") if diff_path else nullcontext() as diff:
         for log_id in logs.log_ids():
-            parsed = parse_log(log_id, logs.read(log_id))
+            parsed = parse_log(log_id, logs.read(log_id), tag_settings)
             previous = {hand["id"]: hand for hand in hands.log_hands(log_id)}
             hands.replace_log(log_id, parsed.hands)
             summary.logs += 1

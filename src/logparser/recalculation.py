@@ -17,6 +17,8 @@ contract's fu keys (FU_KEYS). Its fu reasons are turned into the fu a player cou
 
 It also works out the fu of every split of the hand. The library scores each split and keeps the
 one worth the most points, as Tenhou does, but it only reports that one.
+
+`points` scores a given han and fu on their own, for re-scoring a hand as if its fu were different.
 """
 
 from dataclasses import dataclass
@@ -26,6 +28,7 @@ from mahjong.hand_calculating.divider import HandDivider
 from mahjong.hand_calculating.fu import FuCalculator
 from mahjong.hand_calculating.hand import HandCalculator
 from mahjong.hand_calculating.hand_config import HandConfig, HandConstants, OptionalRules
+from mahjong.hand_calculating.scores import ScoresCalculator
 from mahjong.hand_calculating.yaku_config import YAKU_ID_TO_TENHOU_ID
 from mahjong.meld import Meld
 from mahjong.tile import TilesConverter
@@ -152,6 +155,16 @@ def recalculate(*, concealed: list[int], calls: list[Call], winning_tile: int, d
         fu_breakdown=fu_breakdown,
         split_fu=_split_fu(tiles, winning_tile, melds, config),
     )
+
+
+def points(*, han: int, fu: int, dealer: bool, tsumo: bool) -> int:
+    """The points of a hand of `han` and `fu` under Tenhou rules, before honba and riichi sticks.
+
+    The hand is taken to have no yakuman: 13 han or more make a kazoe yakuman.
+    """
+    config = HandConfig(is_tsumo=tsumo, player_wind=EAST if dealer else SOUTH, options=TENHOU_RULES)
+    cost = ScoresCalculator.calculate_scores(han, fu, config)
+    return cost["main"] + 2 * cost["additional"]
 
 
 def _split_fu(tiles: list[int], winning_tile: int, melds: list[Meld], config: HandConfig) -> list[int]:

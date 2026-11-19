@@ -92,6 +92,8 @@ Every ingest also writes an ingest report, in a folder of its own named after th
 
 A report shows how often each tag and limit tier occurs. After a parser change, the diff shows which hands it changed and how.
 
+`--high-fu` sets the fewest fu, after rounding, that a hand tagged `high-fu` has (default 50). The threshold is still being tuned against a year of logs: re-running ingest with another value retags every hand, the report counts the hands tagged at that value, and the diff lists the hands that gained or lost the tag.
+
 ### Stage 2: export
 
 ```

@@ -20,6 +20,7 @@ from logparser.export import CATALOGUE_PATH, DEFAULT_CHUNK_SIZE, export_bundle, 
 from logparser.hand_store import HandStore
 from logparser.ingest import ingest
 from logparser.log_store import LogStore
+from logparser.tags import TagSettings
 
 LOCAL = Path("local")
 LOG_STORE = LOCAL / "log-store"
@@ -66,6 +67,8 @@ def _parser() -> argparse.ArgumentParser:
     ingest_.add_argument("--hand-store", type=Path, default=HAND_STORE)
     ingest_.add_argument("--reports", type=Path, default=INGEST_REPORTS,
                          help="folder each ingest writes its report and diff into, in a folder named after the time it ran")
+    ingest_.add_argument("--high-fu", type=int, default=TagSettings.high_fu, metavar="FU",
+                         help=f"the fewest fu after rounding a hand tagged high-fu has (default {TagSettings.high_fu})")
     ingest_.set_defaults(run=_ingest)
 
     export = commands.add_parser("export", help="build the trainer bundle from the verified hands")
@@ -114,7 +117,7 @@ def _seconds(value: str) -> float:
 
 def _ingest(args) -> None:
     with HandStore(args.hand_store) as hands:
-        summary = ingest(LogStore(args.log_store), hands, args.reports)
+        summary = ingest(LogStore(args.log_store), hands, args.reports, tag_settings=TagSettings(high_fu=args.high_fu))
     skipped = sum(summary.skipped.values())
     reasons = ", ".join(f"{count} {reason}" for reason, count in sorted(summary.skipped.items()))
     print(
