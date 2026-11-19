@@ -91,7 +91,7 @@ def test_ingest_reports_what_it_did(tmp_path, capsys):
     [report_folder] = reports.iterdir()
     assert capsys.readouterr().out.splitlines()[-2:] == [
         "1 logs (0 skipped), 2 hands (1 verified, 1 quarantined)",
-        f"Wrote the ingest report to {report_folder} (0 hands changed since the previous run)",
+        f"Wrote the ingest report to {report_folder} (0 hands changed and 0 removed since the previous run)",
     ]
 
 

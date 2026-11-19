@@ -126,7 +126,8 @@ def _ingest(args) -> None:
         f"{summary.logs} logs ({skipped} skipped{': ' + reasons if reasons else ''}), "
         f"{summary.hands} hands ({summary.hands - summary.quarantined} verified, {summary.quarantined} quarantined)"
     )
-    print(f"Wrote the ingest report to {summary.report_folder} ({summary.changed} hands changed since the previous run)")
+    print(f"Wrote the ingest report to {summary.report_folder} "
+          f"({summary.changed} hands changed and {summary.removed} removed since the previous run)")
 
 
 def _export(args) -> None:

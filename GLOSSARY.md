@@ -15,7 +15,7 @@ Every hand parsed from the log store, each with its verification result and tags
 _Avoid_: raw dataset, master dataset
 
 **Ingest report**:
-What one ingest found: the hands parsed, the quarantined hands grouped by reason, and how many verified hands have each tag and reach each limit tier, with a diff listing the hands whose answer key, plain values or tags changed since the previous run.
+What one ingest found: the hands parsed, the quarantined hands grouped by reason, and how many verified hands have each tag and reach each limit tier, with a diff listing the hands whose answer key, plain values or tags changed since the previous run, and the hands removed since then.
 _Avoid_: ingest log, stats, summary
 
 **Trainer bundle**:

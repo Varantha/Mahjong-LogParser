@@ -7,7 +7,7 @@ from logparser.hand_store import HandStore
 from logparser.ingest import IngestSummary, ingest
 from logparser.log_store import LogStore
 from logparser.tags import TAGS
-from tenhou_xml import SANMA_HANCHAN, agari, called_win, chi, closed_win, game, ids, init, m, short_win
+from tenhou_xml import SANMA_HANCHAN, agari, called_win, chi, closed_win, game, ids, init, m, ryuukyoku, short_win
 
 PHOENIX_LOG = "2024010112gm-00a9-0000-0123abcd"
 SANMA_LOG = "2024010113gm-00b9-0000-4567cdef"
@@ -88,7 +88,7 @@ def test_the_report_gives_the_hands_parsed_and_the_quarantined_hands_grouped_by_
         summary = ingest(logs, hands, tmp_path / "reports")
 
     assert report(summary)["logs"] == {"read": 2, "skipped": {"sanma": 1}}
-    assert report(summary)["hands"] == {"parsed": 3, "verified": 1, "quarantined": 2, "changed": 0}
+    assert report(summary)["hands"] == {"parsed": 3, "verified": 1, "quarantined": 2, "changed": 0, "removed": 0}
     assert report(summary)["quarantined"] == {"payments": [f"{PHOENIX_LOG}/2/0"], "tile-total": [f"{PHOENIX_LOG}/1/0"]}
 
 
@@ -165,6 +165,38 @@ def test_the_diff_lists_by_hand_id_the_hands_that_changed_since_the_previous_run
     # The pinfu ron has no tags: its fu are fixed, so they never sit on a knife edge.
     assert diff(summary)[0]["tags"] == {"added": ["kuisagari"], "removed": []}
     assert summary.changed == report(summary)["hands"]["changed"] == 1
+
+
+def test_the_diff_lists_a_hand_a_log_no_longer_gives_as_removed(tmp_path):
+    logs = LogStore(tmp_path / "log-store")
+    logs.add(PHOENIX_LOG, game(init(round_number=0), closed_win(), init(round_number=1, oya=0), closed_win()))
+    with HandStore(tmp_path / "hand-store.sqlite") as hands:
+        ingest(logs, hands, tmp_path / "reports")
+        # The log's second round no longer gives a hand, as after a parser change.
+        logs.add(PHOENIX_LOG, game(init(round_number=0), closed_win(), init(round_number=1, oya=0), ryuukyoku()))
+
+        summary = ingest(logs, hands, tmp_path / "reports")
+        stored = [hand["id"] for hand in hands.log_hands(PHOENIX_LOG)]
+
+    assert diff(summary) == [{"id": f"{PHOENIX_LOG}/1/0", "removed": True}]
+    assert summary.removed == report(summary)["hands"]["removed"] == 1
+    assert stored == [f"{PHOENIX_LOG}/0/0"]
+
+
+def test_hands_whose_log_has_left_the_log_store_are_dropped_and_listed_as_removed(tmp_path):
+    logs = LogStore(tmp_path / "log-store")
+    logs.add(PHOENIX_LOG, game(init(round_number=0), closed_win(), init(round_number=1, oya=0), short_win()))
+    logs.add(OTHER_LOG, game(init(), closed_win()))
+    with HandStore(tmp_path / "hand-store.sqlite") as hands:
+        ingest(logs, hands, tmp_path / "reports")
+        (tmp_path / "log-store" / f"{PHOENIX_LOG}.xml").unlink()
+
+        summary = ingest(logs, hands, tmp_path / "reports")
+        left = ([hand["id"] for hand in hands.log_hands(PHOENIX_LOG)], [hand["id"] for hand in hands.verified_hands()])
+
+    assert diff(summary) == [{"id": f"{PHOENIX_LOG}/0/0", "removed": True}, {"id": f"{PHOENIX_LOG}/1/0", "removed": True}]
+    assert summary.removed == report(summary)["hands"]["removed"] == 2
+    assert left == ([], [f"{OTHER_LOG}/0/0"])
 
 
 def test_the_diff_gives_each_changed_value_of_the_answer_key_and_plain_values_before_and_after(tmp_path):

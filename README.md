@@ -83,12 +83,12 @@ Each file must be named after its log ID.
 uv run logparser ingest
 ```
 
-Parses every log in the log store and prints how many logs were skipped and why, and how many hands are verified and quarantined. Running it again replaces each log's hands, so a parser fix reaches every hand already stored.
+Parses every log in the log store and prints how many logs were skipped and why, and how many hands are verified and quarantined. Running it again replaces each log's hands, so a parser fix reaches every hand already stored. The hand store holds only hands parsed from logs still in the log store: the hands of a log that has left it are dropped.
 
 Every ingest also writes an ingest report, in a folder of its own named after the time it ran, under `local/ingest-reports/` (`--reports` picks another folder):
 
-- `report.json`: the logs read and skipped; the hands parsed, verified, quarantined and changed; the IDs of the quarantined hands, by reason code; and how many verified hands have each tag and reach each limit tier.
-- `diff.jsonl`: one line per hand whose answer key, plain values or tags changed since the previous run, by hand ID, with each changed value before and after and the tags added and removed. The previous run is what the hand store held, so the first run's diff is empty, and hands from logs new to the log store are not listed.
+- `report.json`: the logs read and skipped; the hands parsed, verified, quarantined, changed and removed; the IDs of the quarantined hands, by reason code; and how many verified hands have each tag and reach each limit tier.
+- `diff.jsonl`: one line per hand whose answer key, plain values or tags changed since the previous run, by hand ID, with each changed value before and after and the tags added and removed. It also lists each hand removed since the previous run, `{"id": ..., "removed": true}`: a hand its log no longer gives, after a parser or filter change, or whose log has left the log store. The previous run is what the hand store held, so the first run's diff is empty, and hands from logs new to the log store are not listed.
 
 A report shows how often each tag and limit tier occurs. After a parser change, the diff shows which hands it changed and how.
 
