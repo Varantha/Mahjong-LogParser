@@ -160,3 +160,38 @@ def test_a_drill_the_hand_store_can_fill_falls_short_by_nothing(tmp_path):
     [everything] = draw_drills(drills, [hand(number) for number in range(3)])
 
     assert everything.short_by == 0
+
+
+def test_lookalikes_from_the_same_pool_without_the_trap_make_up_their_share_of_the_drill(tmp_path):
+    drills = catalogue(tmp_path, """
+        [[drill]]
+        key = "open-hand-han"
+        target = 4
+        pool = { yaku = ["ittsu", "honitsu"] }
+        trap = { open = true }
+        lookalikes = 0.25
+    """)
+    open_ittsu = [hand(number, yaku=["ittsu"], open=True, callTypes=["chi"]) for number in range(5)]
+    closed_ittsu = [hand(number, yaku=["riichi", "ittsu"]) for number in range(5, 10)]
+    open_tanyao = [hand(number, yaku=["tanyao"], open=True, callTypes=["pon"]) for number in range(10, 15)]
+
+    [open_hand_han] = draw_drills(drills, open_ittsu + closed_ittsu + open_tanyao)
+
+    drawn = drawn_ids(open_hand_han)
+    assert (len(drawn & ids(open_ittsu)), len(drawn & ids(closed_ittsu)), len(drawn)) == (3, 1, 4)
+
+
+def test_lookalikes_make_up_about_half_a_drill_unless_the_catalogue_says_otherwise_and_a_tag_can_be_the_trap(tmp_path):
+    drills = catalogue(tmp_path, """
+        [[drill]]
+        key = "kuisagari"
+        target = 4
+        pool = { open = true }
+        trap = { tags = "kuisagari" }
+    """)
+    trap_hands = [hand(number, yaku=["honitsu"], open=True, tags=["kuisagari"]) for number in range(5)]
+    lookalikes = [hand(number, yaku=["haku"], open=True) for number in range(5, 10)]
+
+    [kuisagari] = draw_drills(drills, trap_hands + lookalikes)
+
+    assert (len(drawn_ids(kuisagari) & ids(trap_hands)), len(drawn_ids(kuisagari) & ids(lookalikes))) == (2, 2)

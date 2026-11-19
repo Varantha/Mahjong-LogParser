@@ -8,11 +8,13 @@ described by their plain values and tags.
 import random
 import tomllib
 from collections import defaultdict
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass, field
 from pathlib import Path
 
 CATALOGUE_PATH = Path(__file__).with_name("drills.toml")
+# The share of a drill with a trap given to lookalikes, unless the catalogue says otherwise.
+DEFAULT_LOOKALIKE_SHARE = 0.5
 
 
 @dataclass(frozen=True)
@@ -42,10 +44,34 @@ def _holds(value, wanted) -> bool:
 
 
 @dataclass(frozen=True)
+class Part:
+    """A share of a drill: how many hands it wants, and which hands it may take."""
+
+    name: str
+    wanted: int
+    takes: Callable[[dict], bool]
+
+
+@dataclass(frozen=True)
 class Drill:
+    """A drill in the catalogue. With a trap, `lookalikes` is the share of the drill given to pool hands
+    without the trap, so the drill doesn't give the answer away; the rest of the drill has the trap."""
+
     key: str
     target: int
     pool: Filter = Filter()
+    trap: Filter | None = None
+    lookalikes: float = DEFAULT_LOOKALIKE_SHARE
+
+    def parts(self) -> list[Part]:
+        pool, trap = self.pool, self.trap
+        if trap is None:
+            return [Part("pool", self.target, pool.matches)]
+        lookalikes = round(self.target * self.lookalikes)
+        return [
+            Part("trap hands", self.target - lookalikes, lambda hand: pool.matches(hand) and trap.matches(hand)),
+            Part("lookalikes", lookalikes, lambda hand: pool.matches(hand) and not trap.matches(hand)),
+        ]
 
 
 @dataclass(frozen=True)
@@ -65,18 +91,30 @@ class DrawnDrill:
 def load_catalogue(path: Path = CATALOGUE_PATH) -> list[Drill]:
     with open(path, "rb") as file:
         entries = tomllib.load(file)["drill"]
-    return [Drill(key=entry["key"], target=entry["target"], pool=Filter(entry.get("pool", {}))) for entry in entries]
+    return [_drill(entry) for entry in entries]
+
+
+def _drill(entry: dict) -> Drill:
+    return Drill(
+        key=entry["key"],
+        target=entry["target"],
+        pool=Filter(entry.get("pool", {})),
+        trap=Filter(entry["trap"]) if "trap" in entry else None,
+        lookalikes=entry.get("lookalikes", DEFAULT_LOOKALIKE_SHARE),
+    )
 
 
 def draw_drills(catalogue: list[Drill], hands: Iterable[dict], *, seed: int = 0) -> list[DrawnDrill]:
-    """Draws each drill's hands at random from its pool. Each drill has its own random draw, seeded
-    by `seed` and its key, so adding a drill to the catalogue never changes the hands of another."""
+    """Draws each part of each drill at random from the hands it may take. Each drill has its own random
+    draw, seeded by `seed` and its key, so adding a drill to the catalogue never changes another's hands."""
     hands = list(hands)
     drawn = []
     for drill in catalogue:
-        pool = [hand["id"] for hand in hands if drill.pool.matches(hand)]
         rng = random.Random(f"{seed}/{drill.key}")
-        drawn.append(DrawnDrill(drill.key, drill.target, _newest_first(pool, drill.target, rng)))
+        hand_ids = []
+        for part in drill.parts():
+            hand_ids += _newest_first([hand["id"] for hand in hands if part.takes(hand)], part.wanted, rng)
+        drawn.append(DrawnDrill(drill.key, drill.target, sorted(hand_ids)))
     return drawn
 
 
