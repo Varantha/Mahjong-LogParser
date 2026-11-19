@@ -37,7 +37,10 @@ class _Round:
 
 
 def parse_log(log_id: str, xml_text: str) -> ParsedLog:
-    root = ET.fromstring(xml_text)
+    try:
+        root = ET.fromstring(xml_text)
+    except ET.ParseError:
+        return ParsedLog(skipped="malformed")
     parsed = ParsedLog()
     round_ = None
     for event in root:

@@ -69,3 +69,14 @@ def game(*events: str, game_type: int = PHOENIX_HANCHAN) -> str:
 # 1m 2m 3m = 0 4 8; 4p 5p 6p = 48 53 56; 2s 3s 4s = 76 80 84;
 # 7s 8s 9s = 96 100 104; East East = 108 109.
 CLOSED_HAND = ids(0, 4, 8, 48, 53, 56, 76, 80, 84, 96, 100, 104, 108, 109)
+
+
+def closed_win(who: int = 1, from_who: int = 0) -> str:
+    """A riichi win with CLOSED_HAND on 4s: riichi 1 han, 40 fu, 1300 points."""
+    return agari(who=who, from_who=from_who, hai=CLOSED_HAND, machi=84, ten="40,1300,0", yaku="1,1,53,0", ura="40")
+
+
+def called_win(who: int = 1, from_who: int = 0) -> str:
+    """A win with calls (made-up call codes): quarantined until calls are decoded."""
+    hai = ids(0, 4, 8, 48, 53, 56, 108, 109)
+    return agari(who=who, from_who=from_who, hai=hai, m="40426,52279", machi=56, ten="30,1000,0", yaku="8,1")

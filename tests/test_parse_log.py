@@ -11,10 +11,12 @@ from tenhou_xml import (
     PHOENIX_HANCHAN,
     SANMA_HANCHAN,
     agari,
+    called_win,
     game,
     ids,
     init,
 )
+from tenhou_xml import closed_win as win
 
 LOG_ID = "2024010112gm-00a9-0000-0123abcd"
 
@@ -23,11 +25,6 @@ def only_hand(xml: str) -> dict:
     hands = parse_log(LOG_ID, xml).hands
     assert len(hands) == 1
     return hands[0]
-
-
-def win(who: int = 1, from_who: int = 0) -> str:
-    """A riichi ron with the shared closed hand."""
-    return agari(who=who, from_who=from_who, hai=CLOSED_HAND, machi=84, ten="40,1300,0", yaku="1,1,53,0", ura="40")
 
 
 @pytest.mark.parametrize("game_type", [PHOENIX_HANCHAN, PHOENIX_EAST_ONLY], ids=["hanchan", "east-only"])
@@ -175,11 +172,7 @@ def test_a_closed_hand_without_14_tiles_is_quarantined_for_its_tile_total():
 
 
 def test_a_hand_with_calls_is_quarantined_until_calls_are_supported():
-    # 123m 456p 11z concealed plus a pon of 7s (m=40426, made up) and a chi.
-    hai = ids(0, 4, 8, 48, 53, 56, 108, 109)
-    xml = game(init(), agari(who=1, from_who=0, hai=hai, m="40426,52279", machi=56, ten="30,1000,0", yaku="8,1"))
-
-    assert only_hand(xml)["quarantineReasons"] == ["calls-not-supported"]
+    assert only_hand(game(init(), called_win()))["quarantineReasons"] == ["calls-not-supported"]
 
 
 def test_a_yaku_without_a_contract_key_quarantines_the_hand():
