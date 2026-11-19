@@ -8,6 +8,8 @@ Tile IDs follow Tenhou's 136-tile layout: 0-35 are 1m-9m (four copies each),
 Haku, Hatsu, Chun. The first copy of each five (16, 52, 88) is the red five.
 """
 
+import re
+
 PHOENIX_HANCHAN = 0xA9  # 4-player, kuitan, aka, hanchan
 PHOENIX_EAST_ONLY = 0xA1  # 4-player, kuitan, aka, east-only
 SANMA_HANCHAN = 0xB9  # 3-player
@@ -196,3 +198,23 @@ def called_win(who: int = 1, from_who: int = 0) -> str:
     """
     return agari(who=who, from_who=from_who, hai=CALLED_HAND, m=CALLED_HAND_CALLS, machi=84,
                  ten="30,2000,0", yaku="20,1,54,1", dora="116")
+
+
+class Wall:
+    """Hands out tile IDs for tiles written in mpsz, never the same ID twice, so a hand built
+    from it holds each physical tile once. A 5 is a copy other than the red five; a 0 is the
+    red five."""
+
+    def __init__(self) -> None:
+        self._taken: set[int] = set()
+
+    def take(self, tiles: str) -> tuple[int, ...]:
+        taken = []
+        for ranks, suit in re.findall(r"([0-9]+)([mpsz])", tiles):
+            for rank in ranks:
+                kind = "mpsz".index(suit) * 9 + (int(rank) or 5) - 1
+                copies = (0,) if rank == "0" else (1, 2, 3) if rank == "5" and suit != "z" else (0, 1, 2, 3)
+                tile_id = next(kind * 4 + copy for copy in copies if kind * 4 + copy not in self._taken)
+                self._taken.add(tile_id)
+                taken.append(tile_id)
+        return tuple(taken)
