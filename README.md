@@ -20,7 +20,7 @@ Database dumps ───── import-dump ───┼─► Log store ──(s
 **Stage 1: ingest** parses every win in the log store into a hand and keeps it in the hand store. Only 4-player games with open tanyao and red fives are taken; sanma and other rulesets are skipped. Each hand records:
 
 - its ID, `<logId>/<roundIndex>/<winIndex>`, which depends only on the source log, so re-running ingest never changes it
-- its tiles and calls, in `mpsz` notation
+- its tiles and calls, in `mpsz` notation, with each call also as its call string, such as `c423p` (below)
 - its situation (winds, dealer, honba, riichi sticks, tsumo or ron, riichi, ippatsu, last tile, rinshan, chankan, first draw), worked out from the game's moves, and whether it is the second winner of a double ron, which collects none of the honba and riichi sticks on the table
 - its answer key: the yaku, han, fu, limit tier, points and payments Tenhou recorded, plus the raw fu and the fu breakdown once the cross-check (below) has matched
 - its plain values, the facts drills filter on directly: han, fu, raw fu, limit tier, dealer, tsumo or ron, open or closed, yaku, dora count, honba, riichi sticks and call types
@@ -39,6 +39,20 @@ Every hand then goes through these checks:
 A hand that fails any check is quarantined: it stays in the hand store with a reason code per failed check and never reaches the trainer bundle.
 
 **Stage 2: export** builds the trainer bundle from the verified hands. Each drill in the drill catalogue ([`src/logparser/drills.toml`](src/logparser/drills.toml)) draws its hands by searching the whole hand store, and the bundle stores every hand once, even when it is in several drills: a `manifest.json` plus chunk files of hands. The manifest lists each drill's key with the IDs of its hands, and counts hands per drill, tag and limit tier. The bundle's contract is the JSON Schema in [`src/logparser/schema/trainer-bundle.schema.json`](src/logparser/schema/trainer-bundle.schema.json). It never holds player names, replay links or quarantined hands.
+
+The trainer leaves out double riichi, haitei, houtei, rinshan, chankan, tenhou and chiihou. A hand won in one of those situations stays in the hand store and never reaches the bundle, so a bundle hand's situation gives only its winds, dealer, honba, riichi sticks, second winner, tsumo or ron, riichi and ippatsu.
+
+In the bundle each call is its call string: the call's tiles as they lie on the table, left to right, then the suit.
+
+| Call string | Call |
+|---|---|
+| `c423p` | Chi of 234p, calling the 4p |
+| `c555p`, `5c55p`, `55c5p` | Pon of 5p from the player on the left (kamicha), across (toimen), on the right (shimocha) |
+| `c1111z`, `1c111z`, `111c1z` | Open kan of East from the left, across, the right |
+| `c5c055p` | Added kan: the 5p called from the left, the red 5p added to it |
+| `f505f5m` | Closed kan of 5m |
+
+`c` goes before a turned tile: the called tile, and for an added kan the added tile, which follows it. The turned tile's place says whose discard it was. `f` goes before a face-down tile, the two outer tiles of a closed kan; its red five lies second so that it shows.
 
 Only `download` uses the network. Ingest and export read and write local files only.
 
@@ -111,7 +125,7 @@ A report shows how often each tag and limit tier occurs. After a parser change, 
 uv run logparser export
 ```
 
-Writes the trainer bundle, replacing any bundle already in its folder. `--catalogue` uses another drill catalogue, `--chunk-size` sets how many hands go in each chunk file, and `--seed` changes how hands are drawn at random.
+Writes the trainer bundle, replacing any bundle already in its folder. A hand store ingested before calls had call strings is refused: run ingest again first. `--catalogue` uses another drill catalogue, `--chunk-size` sets how many hands go in each chunk file, and `--seed` changes how hands are drawn at random.
 
 The drill catalogue is configuration: adding or retuning a drill means editing [`drills.toml`](src/logparser/drills.toml) and exporting again, with no code changes. Its format is described at the top of that file. Each drill names:
 
@@ -134,17 +148,16 @@ The catalogue holds every drill in the drill table, each aiming for 500 hands:
 | `hidden-dora` | Hands holding dora named by the dora indicators | About half `wraparound-dora`, half lookalikes |
 | `big-hands` | Haneman and above | A fifth sanbaiman, kazoe yakuman or yakuman |
 | `payments` | Tsumo hands | |
-| `rare-situations` | Hands with haitei, houtei, rinshan, chankan or double riichi | A fifth for each of the five; ippatsu is left out |
 
 A drill draws on the newest year of logs first and reaches back a year at a time only while it is short. A drill is never shrunk to fit. When every year in the hand store together still leaves one part of a drill short, such as its quota of sanbaiman and above, the drill's other parts make up the difference, newest year first. A drill falls short of its target only when its whole pool does. Export lists each drill with a part that ran out after the summary line, with how many hands the drill has and how many each short part found. For example, on a small hand store:
 
 ```
 Short of hands, even drawing on every year of logs in the hand store:
   big-hands: 500 of 500 hands, made up from its other parts (limitTier = sanbaiman/kazoe-yakuman/yakuman: 80 of 100)
-  rare-situations: 460 of 500 hands, 40 short (yaku = chankan: 30 of 100; yaku = double-riichi: 90 of 100)
+  high-fu: 460 of 500 hands, 40 short
 ```
 
-The rare drills need the logs of many games: sanbaiman and above, chankan and double riichi are a small share of all hands. A year of Phoenix games, about 200,000 of them, should leave no part of these drills short.
+The rare parts need the logs of many games: sanbaiman and above are about 1 in 1,200 hands. A year of Phoenix games, about 200,000 of them, should leave no part of a drill short.
 
 ### Where data lives
 

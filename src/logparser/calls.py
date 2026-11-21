@@ -24,6 +24,8 @@ of its kind, so a kan of fives always holds the red five.
 from collections.abc import Iterable
 from dataclasses import dataclass
 
+from logparser.tiles import SUITS, rank
+
 CHI = "chi"
 PON = "pon"
 OPEN_KAN = "open-kan"
@@ -70,6 +72,28 @@ def decode_call(code: int) -> Call:
     if called_from is None:
         return Call(type=CLOSED_KAN, tiles=tiles)
     return Call(type=OPEN_KAN, tiles=tiles, called_tile=tile, called_from=called_from)
+
+
+def call_string(call: Call) -> str:
+    """A call as its call string: its tiles as they lie on the table, left to right, then the suit.
+
+    `c` goes before a turned tile: the called tile, and for an added kan the added tile, which follows it.
+    The turned tile lies first when called from kamicha, second from toimen and last from shimocha; the
+    call's other tiles keep their order around it. `f` goes before a face-down tile: the two outer tiles
+    of a closed kan, whose red five lies second so that it shows.
+
+        c423p    chi of 234p, calling the 4p        55c5p    pon of 5p from shimocha
+        1c111z   open kan of East from toimen       c5c055p  added kan: the 5p called, the red 5p added
+        f505f5m  closed kan of 5m
+    """
+    suit = SUITS[call.tiles[0] // 36]
+    if call.type == CLOSED_KAN:
+        first, second, third, fourth = (rank(tile) for tile in call.tiles)
+        return f"f{second}{first}{third}f{fourth}{suit}"  # a red five is the first copy
+    turned = f"c{rank(call.called_tile)}" + ("" if call.added_tile is None else f"c{rank(call.added_tile)}")
+    others = [str(rank(tile)) for tile in call.tiles if tile not in (call.called_tile, call.added_tile)]
+    position = {"kamicha": 0, "toimen": 1, "shimocha": len(others)}[call.called_from]
+    return "".join(others[:position] + [turned] + others[position:]) + suit
 
 
 def _check(readable: bool, code: int) -> None:

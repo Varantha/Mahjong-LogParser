@@ -19,7 +19,7 @@ What one ingest found: the hands parsed, the quarantined hands grouped by reason
 _Avoid_: ingest log, stats, summary
 
 **Trainer bundle**:
-The curated slice of the hand store that the Scoring Trainer ships. The second stage's output.
+The curated slice of the hand store that the Scoring Trainer ships. The second stage's output. It leaves out hands won by double riichi, haitei, houtei, rinshan, chankan, tenhou or chiihou.
 _Avoid_: export, output, app data
 
 ### Hands
@@ -31,6 +31,10 @@ _Avoid_: agari (outside parser code), win record, problem, question
 **Concealed tiles**:
 The tiles of a hand that are not part of any call.
 _Avoid_: hand (for the tiles), closed hand
+
+**Call string**:
+A call written as its tiles lie on the table, left to right, then the suit: `c` before a turned tile, `f` before a face-down one, such as `c423p` or `f505f5m`. The turned tile's place says whose discard it was. The trainer bundle gives each call as its call string.
+_Avoid_: meld string, call notation, call object
 
 **Raw fu**:
 A hand's fu before it is rounded up to the next 10.

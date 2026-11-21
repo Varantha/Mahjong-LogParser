@@ -7,7 +7,7 @@
     { "$ref": "#/$defs/handChunk" }
   ],
   "$defs": {
-    "schemaVersion": { "const": "1.1.0" },
+    "schemaVersion": { "const": "2.0.0" },
 
     "manifest": {
       "description": "manifest.json: what the bundle holds and where its hands are.",
@@ -88,7 +88,7 @@
     },
 
     "hand": {
-      "description": "One scorable win: its tiles, its situation, its answer key, its plain values and its tags.",
+      "description": "One scorable win: its tiles, its situation, its answer key, its plain values and its tags. The trainer leaves out double riichi, haitei, houtei, rinshan, chankan, tenhou and chiihou, so no hand in the bundle was won in one of those situations or has one of those yaku (since 2.0.0).",
       "type": "object",
       "additionalProperties": false,
       "required": ["id", "situation", "tiles", "answerKey", "plainValues", "tags"],
@@ -116,7 +116,7 @@
     "situation": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["roundWind", "seatWind", "dealer", "honba", "riichiSticks", "secondWinner", "tsumo", "riichi", "doubleRiichi", "ippatsu", "lastTile", "rinshan", "chankan", "firstDraw"],
+      "required": ["roundWind", "seatWind", "dealer", "honba", "riichiSticks", "secondWinner", "tsumo", "riichi", "ippatsu"],
       "properties": {
         "roundWind": { "$ref": "#/$defs/wind" },
         "seatWind": { "$ref": "#/$defs/wind" },
@@ -128,29 +128,9 @@
           "type": "boolean"
         },
         "tsumo": { "description": "True for a win by tsumo, false for ron.", "type": "boolean" },
-        "riichi": { "description": "True when the hand wins in riichi, double riichi included.", "type": "boolean" },
-        "doubleRiichi": {
-          "description": "True when the hand's riichi was declared with its first discard of the round, before any call (closed kans included).",
-          "type": "boolean"
-        },
+        "riichi": { "description": "True when the hand wins in riichi.", "type": "boolean" },
         "ippatsu": {
-          "description": "True when the hand wins in its ippatsu window: after its riichi is accepted, before its next discard and before any call (closed kans included). Robbing an added kan is still in the window.",
-          "type": "boolean"
-        },
-        "lastTile": {
-          "description": "True when the hand wins on the live wall's last tile: its draw by tsumo (haitei) or the discard after it by ron (houtei). A draw from the dead wall after a kan and a robbed kan are never the last tile.",
-          "type": "boolean"
-        },
-        "rinshan": {
-          "description": "True when the hand wins by tsumo on the tile drawn from the dead wall after its own kan.",
-          "type": "boolean"
-        },
-        "chankan": {
-          "description": "True when the hand wins by ron on the tile another player adds to an added kan, robbing the kan.",
-          "type": "boolean"
-        },
-        "firstDraw": {
-          "description": "True when the hand wins by tsumo on its first draw of the round, before any call (closed kans included): tenhou for the dealer, chiihou for the others.",
+          "description": "True when the hand wins in its ippatsu window: after its riichi is accepted, before its next discard and before any call (closed kans included).",
           "type": "boolean"
         }
       }
@@ -182,29 +162,9 @@
     "tile": { "type": "string", "pattern": "^([0-9][mps]|[1-7]z)$" },
 
     "call": {
-      "description": "One call. A hand whose only calls are closed kans is closed. Drawing the turned tile is the trainer's job.",
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["type", "tiles", "calledTile", "calledFrom"],
-      "properties": {
-        "type": { "enum": ["chi", "pon", "open-kan", "closed-kan", "added-kan"] },
-        "tiles": {
-          "description": "All the call's tiles, 3 or 4 of one suit, called and added tiles included. A red five is 0.",
-          "type": "string",
-          "pattern": "^([0-9]{3,4}[mps]|[1-7]{3,4}z)$"
-        },
-        "calledTile": {
-          "description": "The tile taken from another player's discard. For an added kan, the tile its pon called. Null for a closed kan.",
-          "oneOf": [{ "$ref": "#/$defs/tile" }, { "type": "null" }]
-        },
-        "calledFrom": {
-          "description": "Whose discard the called tile was, seen from the winner: kamicha (the player before, on the left), toimen (across) or shimocha (the player after, on the right). A chi is always from kamicha. Null for a closed kan.",
-          "enum": ["kamicha", "toimen", "shimocha", null]
-        }
-      },
-      "if": { "properties": { "type": { "const": "closed-kan" } } },
-      "then": { "properties": { "calledTile": { "type": "null" }, "calledFrom": { "type": "null" } } },
-      "else": { "properties": { "calledTile": { "type": "string" }, "calledFrom": { "type": "string" } } }
+      "description": "One call as its call string: the call's tiles as they lie on the table, left to right, then the suit, in mpsz notation. c goes before a turned tile: the called tile, taken from another player's discard, and for an added kan the added tile, which follows the called tile its pon took. The turned tile lies first when called from kamicha (the player before, on the left), second from toimen (across) and last from shimocha (the player after, on the right); the call's other tiles keep their order around it. f goes before a face-down tile: the two outer tiles of a closed kan, whose red five lies second so that it shows. Three tiles of different ranks are a chi, always from kamicha; three of one kind a pon; four with one c an open kan; four with two c an added kan; four with f a closed kan. Examples: c423p (chi of 234p calling the 4p), 55c5p (pon from shimocha), 1c111z (open kan from toimen), c5c055p (added kan: the 5p called from kamicha, the red 5p added), f505f5m (closed kan). A hand whose only calls are closed kans is closed. A string since 2.0.0; an object before.",
+      "type": "string",
+      "pattern": "^((c[0-9]{3,4}|[0-9]c[0-9]{2,3}|[0-9]{2,3}c[0-9]|c[0-9]c[0-9]{3}|[0-9]c[0-9]c[0-9]{2}|[0-9]{2}c[0-9]c[0-9]|f[0-9]{3}f[0-9])[mps]|(c[1-7]{3,4}|[1-7]c[1-7]{2,3}|[1-7]{2,3}c[1-7]|c[1-7]c[1-7]{3}|[1-7]c[1-7]c[1-7]{2}|[1-7]{2}c[1-7]c[1-7]|f[1-7]{3}f[1-7])z)$"
     },
 
     "answerKey": {

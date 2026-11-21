@@ -119,20 +119,3 @@ quotas = [{ share = 0.2, where = { limitTier = ["sanbaiman", "kazoe-yakuman", "y
 key = "payments"
 target = 500
 pool = { tsumo = true }
-
-# Hands with haitei, houtei, rinshan, chankan or double riichi, a fifth of the drill each
-# rather than at their real-game frequency. Chankan is the rarest by far, about 1 in 7,000
-# hands, so this drill needs the logs of many more games than most. Ippatsu is left out:
-# it is common and dull, and its hands still turn up in other drills with the situation
-# shown. Skill: situational yaku.
-[[drill]]
-key = "rare-situations"
-target = 500
-pool = { yaku = ["haitei", "houtei", "rinshan", "chankan", "double-riichi"] }
-quotas = [
-    { share = 0.2, where = { yaku = "haitei" } },
-    { share = 0.2, where = { yaku = "houtei" } },
-    { share = 0.2, where = { yaku = "rinshan" } },
-    { share = 0.2, where = { yaku = "chankan" } },
-    { share = 0.2, where = { yaku = "double-riichi" } },
-]

@@ -8,13 +8,14 @@ import pytest
 from jsonschema import Draft202012Validator
 
 from logparser.drills import Conditions, Drill
-from logparser.export import export_bundle
+from logparser.export import HandStoreOutOfDate, export_bundle
 from logparser.hand_store import HandStore
 from logparser.ingest import ingest
 from logparser.log_store import LogStore
 from logparser.recalculation import FU_KEYS
 from logparser.tags import TAGS
 from logparser.yaku import TENHOU_YAKU_KEYS
+from test_situation import AGREEING
 from tenhou_xml import (CLOSED_HAND, KAMICHA, Wall, added_kan, agari, called_win, chi, closed_kan, closed_win, game,
                         ids, init, m, short_win, turns, win)
 
@@ -48,7 +49,7 @@ def bundle_hands(folder: Path) -> list[dict]:
     return [hand for chunk in manifest["chunks"] for hand in json.loads((folder / chunk).read_text())["hands"]]
 
 
-def test_every_bundle_file_validates_against_the_schema_at_version_1_1_0(hand_store, tmp_path):
+def test_every_bundle_file_validates_against_the_schema_at_version_2_0_0(hand_store, tmp_path):
     schema = json.loads(SCHEMA_PATH.read_text())
     Draft202012Validator.check_schema(schema)
 
@@ -57,7 +58,7 @@ def test_every_bundle_file_validates_against_the_schema_at_version_1_1_0(hand_st
     files = bundle_files(tmp_path / "bundle")
     for name, data in files.items():
         Draft202012Validator(schema).validate(data)
-    assert files["manifest.json"]["schemaVersion"] == "1.1.0"
+    assert files["manifest.json"]["schemaVersion"] == "2.0.0"
 
 
 def test_the_manifest_lists_each_drill_with_the_ids_of_its_hands_and_counts_them(hand_store, tmp_path):
@@ -88,12 +89,7 @@ def test_each_hand_appears_once_with_its_id_situation_tiles_answer_key_plain_val
             "secondWinner": False,
             "tsumo": False,
             "riichi": False,
-            "doubleRiichi": False,
             "ippatsu": False,
-            "lastTile": False,
-            "rinshan": False,
-            "chankan": False,
-            "firstDraw": False,
         },
         "tiles": {
             "concealed": "123m45699p234789s",
@@ -164,7 +160,7 @@ def test_the_bundle_carries_each_kind_of_payment_with_the_honba_and_riichi_stick
     }
 
 
-def test_a_hand_with_calls_reaches_the_bundle_with_each_call_as_an_object(tmp_path):
+def test_a_hand_with_calls_reaches_the_bundle_with_each_call_as_its_call_string(tmp_path):
     # A chi with the red 5m and a pon of Chun (CALLED_HAND). Then a closed kan of 5m and an
     # added kan of 5p whose added tile is the red 5p, with 234s 678s 33m concealed: tanyao and
     # two aka dora, 3 han 50 fu on a ron of 3m.
@@ -181,16 +177,23 @@ def test_a_hand_with_calls_reaches_the_bundle_with_each_call_as_an_object(tmp_pa
 
     calls = [hand["tiles"]["calls"] for hand in bundle_hands(tmp_path / "bundle")]
 
-    assert calls == [
-        [
-            {"type": "chi", "tiles": "340m", "calledTile": "0m", "calledFrom": "kamicha"},
-            {"type": "pon", "tiles": "777z", "calledTile": "7z", "calledFrom": "toimen"},
-        ],
-        [
-            {"type": "closed-kan", "tiles": "0555m", "calledTile": None, "calledFrom": None},
-            {"type": "added-kan", "tiles": "0555p", "calledTile": "5p", "calledFrom": "kamicha"},
-        ],
-    ]
+    assert calls == [["c034m", "7c77z"], ["f505f5m", "c5c055p"]]
+
+
+def test_export_refuses_a_hand_store_whose_calls_have_no_call_strings_and_writes_nothing(tmp_path):
+    logs = LogStore(tmp_path / "log-store")
+    logs.add(LOG_ID, game(init(), called_win(who=1)))
+    with HandStore(tmp_path / "hand-store.sqlite") as hands:
+        ingest(logs, hands)
+        [hand] = hands.log_hands(LOG_ID)
+        for call in hand["tiles"]["calls"]:
+            del call["string"]  # as ingest wrote calls before they had call strings
+        hands.replace_log(LOG_ID, [hand])
+
+        with pytest.raises(HandStoreOutOfDate, match=f"{LOG_ID}/0/0"):
+            export_bundle(hands, tmp_path / "bundle", EVERYTHING, built_at=BUILT_AT)
+
+    assert not (tmp_path / "bundle").exists()
 
 
 @pytest.fixture
@@ -255,16 +258,46 @@ def test_the_manifest_counts_the_hands_at_each_limit_tier_listing_every_tier(tmp
         "none": 1, "mangan": 1, "haneman": 0, "baiman": 0, "sanbaiman": 0, "kazoe-yakuman": 0, "yakuman": 1}
 
 
-def test_the_schema_requires_a_closed_kan_to_have_no_called_tile_and_other_calls_to_have_one():
-    validator = Draft202012Validator(json.loads(SCHEMA_PATH.read_text()))
-    call_schema = {"$ref": "#/$defs/call", "$defs": validator.schema["$defs"]}
-    closed_kan_call = {"type": "closed-kan", "tiles": "1111z", "calledTile": None, "calledFrom": None}
-    pon_call = {"type": "pon", "tiles": "111z", "calledTile": "1z", "calledFrom": "toimen"}
+@pytest.mark.parametrize("yaku", ["double-riichi", "haitei", "houtei", "rinshan", "chankan", "tenhou", "chiihou"])
+def test_a_verified_hand_won_in_a_situation_the_trainer_leaves_out_never_reaches_the_bundle(yaku, tmp_path):
+    logs = LogStore(tmp_path / "log-store")
+    logs.add(LOG_ID, AGREEING[yaku])
+    with HandStore(tmp_path / "hand-store.sqlite") as hands:
+        ingest(logs, hands)
+        verified = len(list(hands.verified_hands()))
+        manifest = export_bundle(hands, tmp_path / "bundle", EVERYTHING, built_at=BUILT_AT).manifest
 
-    assert Draft202012Validator(call_schema).is_valid(closed_kan_call)
-    assert Draft202012Validator(call_schema).is_valid(pon_call)
-    assert not Draft202012Validator(call_schema).is_valid({**closed_kan_call, "calledTile": "1z", "calledFrom": "toimen"})
-    assert not Draft202012Validator(call_schema).is_valid({**pon_call, "calledTile": None, "calledFrom": None})
+    assert (verified, manifest["counts"]["hands"], manifest["drills"]) == (1, 0, [{"key": "everything", "handIds": []}])
+
+
+def test_a_hand_won_with_ippatsu_reaches_the_bundle_and_its_situation_says_so(tmp_path):
+    logs = LogStore(tmp_path / "log-store")
+    logs.add(LOG_ID, AGREEING["ippatsu"])
+    with HandStore(tmp_path / "hand-store.sqlite") as hands:
+        ingest(logs, hands)
+        export_bundle(hands, tmp_path / "bundle", EVERYTHING, built_at=BUILT_AT)
+
+    [hand] = bundle_hands(tmp_path / "bundle")
+    assert (hand["situation"]["riichi"], hand["situation"]["ippatsu"]) == (True, True)
+    assert set(hand["situation"]) == {"roundWind", "seatWind", "dealer", "honba", "riichiSticks", "secondWinner", "tsumo",
+                                      "riichi", "ippatsu"}
+
+
+@pytest.mark.parametrize("call", ["c423p", "5c55p", "66c6z", "c1111z", "1c111z", "111c1z", "c5c055p", "5c0c55p",
+                                  "55c5c5p", "f505f5m", "f111f1z"])
+def test_the_schema_takes_every_shape_of_call_string(call):
+    assert call_validator().is_valid(call)
+
+
+@pytest.mark.parametrize("call", ["423p", "cc555p", "c55p", "c5c55p", "c11111z", "f1111z", "c888z", "c423",
+                                  {"type": "pon", "tiles": "111z", "calledTile": "1z", "calledFrom": "toimen"}])
+def test_the_schema_refuses_a_call_that_is_no_call_string(call):
+    assert not call_validator().is_valid(call)
+
+
+def call_validator() -> Draft202012Validator:
+    schema = json.loads(SCHEMA_PATH.read_text())
+    return Draft202012Validator({"$ref": "#/$defs/call", "$defs": schema["$defs"]})
 
 
 def test_quarantined_hands_player_names_and_replay_links_never_reach_the_bundle(hand_store, tmp_path):
