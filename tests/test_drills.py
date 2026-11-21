@@ -339,11 +339,11 @@ def numbered(count: int, start: int = 0, **values) -> list[dict]:
     return [hand(number, **values) for number in range(start, start + count)]
 
 
-def test_the_catalogue_holds_every_drill_in_the_drill_table_each_aiming_for_500():
+def test_the_catalogue_holds_every_drill_in_the_drill_table_each_aiming_for_1000():
     assert [(drill.key, drill.target) for drill in load_catalogue()] == [
-        ("everything", 500), ("fu-rounding-edge", 500), ("tricky-waits", 500), ("high-fu", 500),
-        ("open-hand-fu", 500), ("mangan-or-not", 500), ("open-hand-han", 500), ("hidden-dora", 500),
-        ("big-hands", 500), ("payments", 500)]
+        ("everything", 1000), ("fu-rounding-edge", 1000), ("tricky-waits", 1000), ("high-fu", 1000),
+        ("open-hand-fu", 1000), ("mangan-or-not", 1000), ("open-hand-han", 1000), ("hidden-dora", 1000),
+        ("big-hands", 1000), ("tsumo-payments", 1000), ("ron-payments", 1000)]
 
 
 @pytest.mark.parametrize("key, tag", [
@@ -352,107 +352,118 @@ def test_the_catalogue_holds_every_drill_in_the_drill_table_each_aiming_for_500(
     ("high-fu", "high-fu"),
 ])
 def test_a_drill_on_a_tag_that_gives_nothing_away_takes_only_hands_with_that_tag(key, tag):
-    tagged = numbered(300, tags=[tag]) + numbered(300, 300, tags=[tag, "kuisagari"], open=True)
-    untagged = numbered(400, 600) + numbered(400, 1000, tags=["kuisagari"], open=True)
+    tagged = numbered(600, tags=[tag]) + numbered(600, 600, tags=[tag, "kuisagari"], open=True)
+    untagged = numbered(800, 1200) + numbered(800, 2000, tags=["kuisagari"], open=True)
 
     drill = shipped_drill(key, tagged + untagged)
 
-    assert (len(drill.hand_ids), drawn_ids(drill) <= ids(tagged)) == (500, True)
+    assert (len(drill.hand_ids), drawn_ids(drill) <= ids(tagged)) == (1000, True)
 
 
-def test_everything_draws_500_hands_of_every_kind():
-    hands = (numbered(200) + numbered(200, 200, tsumo=True, dealer=True)
-             + numbered(200, 400, han=13, limitTier="yakuman", yaku=["kokushi-musou"], open=False))
+def test_everything_draws_1000_hands_of_every_kind():
+    hands = (numbered(400) + numbered(400, 400, tsumo=True, dealer=True)
+             + numbered(400, 800, han=13, limitTier="yakuman", yaku=["kokushi-musou"], open=False))
 
     everything = shipped_drill("everything", hands)
 
-    assert len(everything.hand_ids) == 500 and everything.short_by == 0
+    assert len(everything.hand_ids) == 1000 and everything.short_by == 0
 
 
 def test_open_hand_fu_takes_open_hands_up_to_4_han_half_of_them_with_the_open_pinfu_shape():
-    open_pinfu_shape = (numbered(200, han=1, rawFu=20, open=True, tags=["open-pinfu-shape"])
-                        + numbered(200, 200, han=4, rawFu=20, open=True, tags=["open-pinfu-shape"]))
-    lookalikes = numbered(200, 400, han=2, rawFu=24, open=True) + numbered(200, 600, han=3, rawFu=32, open=True)
+    open_pinfu_shape = (numbered(400, han=1, rawFu=20, open=True, tags=["open-pinfu-shape"])
+                        + numbered(400, 400, han=4, rawFu=20, open=True, tags=["open-pinfu-shape"]))
+    lookalikes = numbered(400, 800, han=2, rawFu=24, open=True) + numbered(400, 1200, han=3, rawFu=32, open=True)
     # Raw fu 20 is only a trap below mangan, and a closed hand at 20 fu is pinfu tsumo.
-    other_hands = (numbered(200, 800, han=5, rawFu=20, limitTier="mangan", open=True, tags=["open-pinfu-shape"])
-                   + numbered(200, 1000, han=2, fu=20, rawFu=20, tsumo=True, yaku=["menzen-tsumo", "pinfu"]))
+    other_hands = (numbered(400, 1600, han=5, rawFu=20, limitTier="mangan", open=True, tags=["open-pinfu-shape"])
+                   + numbered(400, 2000, han=2, fu=20, rawFu=20, tsumo=True, yaku=["menzen-tsumo", "pinfu"]))
 
     open_hand_fu = shipped_drill("open-hand-fu", open_pinfu_shape + lookalikes + other_hands)
 
     drawn = drawn_ids(open_hand_fu)
-    assert (len(drawn & ids(open_pinfu_shape)), len(drawn & ids(lookalikes)), len(drawn)) == (250, 250, 500)
+    assert (len(drawn & ids(open_pinfu_shape)), len(drawn & ids(lookalikes)), len(drawn)) == (500, 500, 1000)
 
 
 def test_mangan_or_not_takes_hands_with_3_or_4_han_half_of_them_pushed_to_mangan_by_fu():
-    fu_mangan = (numbered(200, han=3, fu=70, limitTier="mangan", tags=["fu-mangan"])
-                 + numbered(200, 200, han=4, fu=40, limitTier="mangan", tags=["fu-mangan"]))
-    lookalikes = numbered(200, 400, han=3, fu=60) + numbered(200, 600, han=4, fu=30)
-    other_hands = numbered(200, 800, han=2, fu=70) + numbered(200, 1000, han=5, fu=40, limitTier="mangan")
+    fu_mangan = (numbered(400, han=3, fu=70, limitTier="mangan", tags=["fu-mangan"])
+                 + numbered(400, 400, han=4, fu=40, limitTier="mangan", tags=["fu-mangan"]))
+    lookalikes = numbered(400, 800, han=3, fu=60) + numbered(400, 1200, han=4, fu=30)
+    other_hands = numbered(400, 1600, han=2, fu=70) + numbered(400, 2000, han=5, fu=40, limitTier="mangan")
 
     mangan_or_not = shipped_drill("mangan-or-not", fu_mangan + lookalikes + other_hands)
 
     drawn = drawn_ids(mangan_or_not)
-    assert (len(drawn & ids(fu_mangan)), len(drawn & ids(lookalikes)), len(drawn)) == (250, 250, 500)
+    assert (len(drawn & ids(fu_mangan)), len(drawn & ids(lookalikes)), len(drawn)) == (500, 500, 1000)
 
 
 def test_open_hand_han_takes_hands_with_a_yaku_worth_less_open_half_of_them_closed_lookalikes():
-    open_hands = (numbered(150, yaku=["honitsu"], open=True) + numbered(150, 150, yaku=["sanshoku-doujun"], open=True)
-                  + numbered(50, 300, yaku=["chanta"], open=True) + numbered(50, 350, yaku=["junchan"], open=True))
-    closed_hands = (numbered(150, 400, yaku=["riichi", "ittsu"]) + numbered(150, 550, yaku=["chinitsu"]))
-    other_hands = numbered(300, 700, yaku=["tanyao"], open=True) + numbered(300, 1000, yaku=["sanshoku-doukou"])
+    open_hands = (numbered(300, yaku=["honitsu"], open=True) + numbered(300, 300, yaku=["sanshoku-doujun"], open=True)
+                  + numbered(100, 600, yaku=["chanta"], open=True) + numbered(100, 700, yaku=["junchan"], open=True))
+    closed_hands = (numbered(300, 800, yaku=["riichi", "ittsu"]) + numbered(300, 1100, yaku=["chinitsu"]))
+    other_hands = numbered(600, 1400, yaku=["tanyao"], open=True) + numbered(600, 2000, yaku=["sanshoku-doukou"])
 
     open_hand_han = shipped_drill("open-hand-han", open_hands + closed_hands + other_hands)
 
     drawn = drawn_ids(open_hand_han)
-    assert (len(drawn & ids(open_hands)), len(drawn & ids(closed_hands)), len(drawn)) == (250, 250, 500)
+    assert (len(drawn & ids(open_hands)), len(drawn & ids(closed_hands)), len(drawn)) == (500, 500, 1000)
 
 
 def test_hidden_dora_takes_hands_holding_dora_half_of_them_named_by_an_indicator_that_wraps_round():
-    wraparound = numbered(400, yaku=["riichi", "dora"], doraCount=1, tags=["wraparound-dora"])
-    lookalikes = numbered(400, 400, yaku=["tanyao", "dora", "aka-dora"], doraCount=3, open=True)
+    wraparound = numbered(800, yaku=["riichi", "dora"], doraCount=1, tags=["wraparound-dora"])
+    lookalikes = numbered(800, 800, yaku=["tanyao", "dora", "aka-dora"], doraCount=3, open=True)
     # Red fives and ura dora: dora a player doesn't find by reading the dora indicators.
-    other_dora = (numbered(200, 800, yaku=["riichi", "aka-dora"], doraCount=1)
-                  + numbered(200, 1000, yaku=["riichi", "ura-dora"], doraCount=2))
-    no_dora = numbered(200, 1200)
+    other_dora = (numbered(400, 1600, yaku=["riichi", "aka-dora"], doraCount=1)
+                  + numbered(400, 2000, yaku=["riichi", "ura-dora"], doraCount=2))
+    no_dora = numbered(400, 2400)
 
     hidden_dora = shipped_drill("hidden-dora", wraparound + lookalikes + other_dora + no_dora)
 
     drawn = drawn_ids(hidden_dora)
-    assert (len(drawn & ids(wraparound)), len(drawn & ids(lookalikes)), len(drawn)) == (250, 250, 500)
+    assert (len(drawn & ids(wraparound)), len(drawn & ids(lookalikes)), len(drawn)) == (500, 500, 1000)
 
 
 def test_big_hands_takes_haneman_and_above_giving_a_fifth_of_the_drill_to_sanbaiman_kazoe_yakuman_and_yakuman():
-    common = numbered(600, han=6, limitTier="haneman") + numbered(200, 600, han=8, limitTier="baiman")
-    rare = (numbered(30, 800, han=11, limitTier="sanbaiman") + numbered(30, 830, han=13, limitTier="kazoe-yakuman")
-            + numbered(40, 860, han=13, limitTier="yakuman"))
-    mangan = numbered(300, 900, han=5, limitTier="mangan")
+    common = numbered(1200, han=6, limitTier="haneman") + numbered(400, 1200, han=8, limitTier="baiman")
+    rare = (numbered(60, 1600, han=11, limitTier="sanbaiman") + numbered(60, 1660, han=13, limitTier="kazoe-yakuman")
+            + numbered(80, 1720, han=13, limitTier="yakuman"))
+    mangan = numbered(600, 1800, han=5, limitTier="mangan")
 
     big_hands = shipped_drill("big-hands", common + rare + mangan)
 
     assert (len(big_hands.hand_ids), drawn_ids(big_hands) >= ids(rare), drawn_ids(big_hands) & ids(mangan)) == (
-        500, True, set())
+        1000, True, set())
 
 
 def test_big_hands_short_of_sanbaiman_and_above_says_so_and_makes_up_the_rest_with_haneman_and_baiman():
-    # A few thousand haneman, but only 22 hands above baiman.
-    common = numbered(2000, han=6, limitTier="haneman")
-    rare = numbered(8, 2000, han=11, limitTier="sanbaiman") + numbered(14, 2008, han=13, limitTier="yakuman")
+    # A few thousand haneman, but only 44 hands above baiman.
+    common = numbered(4000, han=6, limitTier="haneman")
+    rare = numbered(16, 4000, han=11, limitTier="sanbaiman") + numbered(28, 4016, han=13, limitTier="yakuman")
 
     big_hands = shipped_drill("big-hands", common + rare)
 
-    assert (len(big_hands.hand_ids), big_hands.short_by, drawn_ids(big_hands) >= ids(rare)) == (500, 0, True)
+    assert (len(big_hands.hand_ids), big_hands.short_by, drawn_ids(big_hands) >= ids(rare)) == (1000, 0, True)
     assert big_hands.shortfalls == [
-        Shortfall(part="limitTier = sanbaiman/kazoe-yakuman/yakuman", wanted=100, found=22)]
+        Shortfall(part="limitTier = sanbaiman/kazoe-yakuman/yakuman", wanted=200, found=44)]
 
 
-def test_payments_takes_tsumo_hands_dealer_and_non_dealer_some_with_honba():
-    non_dealer = numbered(300, tsumo=True, yaku=["menzen-tsumo"]) + numbered(100, 300, tsumo=True, honba=1)
-    dealer = numbered(150, 400, tsumo=True, dealer=True) + numbered(50, 550, tsumo=True, dealer=True, honba=2)
-    ron = numbered(300, 600, honba=1)
+def test_tsumo_payments_takes_tsumo_hands_dealer_and_non_dealer_some_with_honba():
+    non_dealer = numbered(600, tsumo=True, yaku=["menzen-tsumo"]) + numbered(200, 600, tsumo=True, honba=1)
+    dealer = numbered(300, 800, tsumo=True, dealer=True) + numbered(100, 1100, tsumo=True, dealer=True, honba=2)
+    ron = numbered(600, 1200, honba=1)
 
-    payments = shipped_drill("payments", non_dealer + dealer + ron)
+    tsumo_payments = shipped_drill("tsumo-payments", non_dealer + dealer + ron)
 
-    drawn = drawn_ids(payments)
-    assert (len(drawn), drawn & ids(ron)) == (500, set())
-    assert drawn & ids(dealer) and drawn & ids(non_dealer) and drawn & ids(non_dealer[300:] + dealer[150:])
+    drawn = drawn_ids(tsumo_payments)
+    assert (len(drawn), drawn & ids(ron)) == (1000, set())
+    assert drawn & ids(dealer) and drawn & ids(non_dealer) and drawn & ids(non_dealer[600:] + dealer[300:])
 
+
+def test_ron_payments_takes_ron_hands_dealer_and_non_dealer_some_with_honba():
+    non_dealer = numbered(600) + numbered(200, 600, honba=1)
+    dealer = numbered(300, 800, dealer=True) + numbered(100, 1100, dealer=True, honba=2)
+    tsumo = numbered(600, 1200, tsumo=True, honba=1)
+
+    ron_payments = shipped_drill("ron-payments", non_dealer + dealer + tsumo)
+
+    drawn = drawn_ids(ron_payments)
+    assert (len(drawn), drawn & ids(tsumo)) == (1000, set())
+    assert drawn & ids(dealer) and drawn & ids(non_dealer) and drawn & ids(non_dealer[600:] + dealer[300:])

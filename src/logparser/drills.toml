@@ -39,12 +39,12 @@
 # Random hands at their real-game frequency. Skill: general scoring.
 [[drill]]
 key = "everything"
-target = 500
+target = 1000
 
 # Hands whose points change with raw fu 2 higher or lower. Skill: careful fu counting.
 [[drill]]
 key = "fu-rounding-edge"
-target = 500
+target = 1000
 pool = { tags = "knife-edge-fu" }
 
 # Hands whose tiles split into sets and a pair in more than one way, at different fu,
@@ -52,7 +52,7 @@ pool = { tags = "knife-edge-fu" }
 # Skill: choosing the highest-scoring way to split the tiles.
 [[drill]]
 key = "tricky-waits"
-target = 500
+target = 1000
 pool = { tags = "ambiguous-wait" }
 
 # Hands with 50 fu or more, as ingest's high-fu threshold sets it, and 4 han or fewer,
@@ -60,7 +60,7 @@ pool = { tags = "ambiguous-wait" }
 # Skill: large fu from kans and honour triplets.
 [[drill]]
 key = "high-fu"
-target = 500
+target = 1000
 pool = { tags = "high-fu" }
 
 # Open hands with 4 han or fewer. About half have the open pinfu shape: raw fu 20, scored
@@ -68,7 +68,7 @@ pool = { tags = "high-fu" }
 # Skill: open hands with 20 fu round up to 30.
 [[drill]]
 key = "open-hand-fu"
-target = 500
+target = 1000
 pool = { open = true, han = [1, 2, 3, 4] }
 trap = { tags = "open-pinfu-shape" }
 lookalikes = 0.5
@@ -78,7 +78,7 @@ lookalikes = 0.5
 # that stay below mangan. Skill: when fu push 3-4 han to mangan.
 [[drill]]
 key = "mangan-or-not"
-target = 500
+target = 1000
 pool = { han = [3, 4] }
 trap = { tags = "fu-mangan" }
 lookalikes = 0.5
@@ -87,7 +87,7 @@ lookalikes = 0.5
 # Skill: the han lost when the hand is open.
 [[drill]]
 key = "open-hand-han"
-target = 500
+target = 1000
 pool = { yaku = ["sanshoku-doujun", "ittsu", "chanta", "junchan", "honitsu", "chinitsu"] }
 trap = { open = true }
 lookalikes = 0.5
@@ -98,7 +98,7 @@ lookalikes = 0.5
 # Skill: reading dora indicators.
 [[drill]]
 key = "hidden-dora"
-target = 500
+target = 1000
 pool = { yaku = "dora" }
 trap = { tags = "wraparound-dora" }
 lookalikes = 0.5
@@ -109,13 +109,20 @@ lookalikes = 0.5
 # Skill: han counting for big hands, limit tiers.
 [[drill]]
 key = "big-hands"
-target = 500
+target = 1000
 pool = { limitTier = ["haneman", "baiman", "sanbaiman", "kazoe-yakuman", "yakuman"] }
 quotas = [{ share = 0.2, where = { limitTier = ["sanbaiman", "kazoe-yakuman", "yakuman"] } }]
 
 # Tsumo hands, dealer and non-dealer, at their real-game frequency: about 3 in 10 are
-# the dealer's and about a third have honba. Skill: payment splits.
+# the dealer's and about a third have honba. Skill: scoring a tsumo and splitting its payments.
 [[drill]]
-key = "payments"
-target = 500
+key = "tsumo-payments"
+target = 1000
 pool = { tsumo = true }
+
+# Ron hands, dealer and non-dealer, at their real-game frequency.
+# Skill: scoring a ron, paid by the discarder alone.
+[[drill]]
+key = "ron-payments"
+target = 1000
+pool = { tsumo = false }

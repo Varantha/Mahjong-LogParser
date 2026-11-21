@@ -7,7 +7,7 @@
     { "$ref": "#/$defs/handChunk" }
   ],
   "$defs": {
-    "schemaVersion": { "const": "2.0.0" },
+    "schemaVersion": { "const": "2.1.0" },
 
     "manifest": {
       "description": "manifest.json: what the bundle holds and where its hands are.",
@@ -53,7 +53,7 @@
           }
         },
         "chunks": {
-          "description": "The hand chunk files, relative to manifest.json.",
+          "description": "The hand chunk files, relative to manifest.json. Since 2.1.0 the hands lie in the order of the first drill that holds them, as `drills` lists them, so the first drill's hands fill the first chunks.",
           "type": "array",
           "uniqueItems": true,
           "items": { "type": "string", "pattern": "^hands-[0-9]{3,}\\.json$" }
@@ -66,13 +66,19 @@
     },
 
     "drill": {
-      "description": "A drill's key (the trainer translates it) and the IDs of its hands.",
+      "description": "A drill's key (the trainer translates it), the IDs of its hands and the chunks that hold them.",
       "type": "object",
       "additionalProperties": false,
       "required": ["key", "handIds"],
       "properties": {
         "key": { "$ref": "#/$defs/key" },
-        "handIds": { "type": "array", "uniqueItems": true, "items": { "$ref": "#/$defs/handId" } }
+        "handIds": { "type": "array", "uniqueItems": true, "items": { "$ref": "#/$defs/handId" } },
+        "chunks": {
+          "description": "The hand chunk files that hold at least one of the drill's hands, in the manifest's order. Once these have arrived, every hand of the drill has. Added in 2.1.0.",
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "type": "string", "pattern": "^hands-[0-9]{3,}\\.json$" }
+        }
       }
     },
 

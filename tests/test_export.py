@@ -49,7 +49,7 @@ def bundle_hands(folder: Path) -> list[dict]:
     return [hand for chunk in manifest["chunks"] for hand in json.loads((folder / chunk).read_text())["hands"]]
 
 
-def test_every_bundle_file_validates_against_the_schema_at_version_2_0_0(hand_store, tmp_path):
+def test_every_bundle_file_validates_against_the_schema_at_version_2_1_0(hand_store, tmp_path):
     schema = json.loads(SCHEMA_PATH.read_text())
     Draft202012Validator.check_schema(schema)
 
@@ -58,15 +58,16 @@ def test_every_bundle_file_validates_against_the_schema_at_version_2_0_0(hand_st
     files = bundle_files(tmp_path / "bundle")
     for name, data in files.items():
         Draft202012Validator(schema).validate(data)
-    assert files["manifest.json"]["schemaVersion"] == "2.0.0"
+    assert files["manifest.json"]["schemaVersion"] == "2.1.0"
 
 
-def test_the_manifest_lists_each_drill_with_the_ids_of_its_hands_and_counts_them(hand_store, tmp_path):
+def test_the_manifest_lists_each_drill_with_the_ids_of_its_hands_and_its_chunks_and_counts_them(hand_store, tmp_path):
     export_bundle(hand_store, tmp_path / "bundle", EVERYTHING, built_at=BUILT_AT, seed=7)
 
     manifest = json.loads((tmp_path / "bundle" / "manifest.json").read_text())
 
-    assert manifest["drills"] == [{"key": "everything", "handIds": [f"{LOG_ID}/0/0", f"{LOG_ID}/2/0", f"{LOG_ID}/3/0"]}]
+    assert manifest["drills"] == [{"key": "everything", "handIds": [f"{LOG_ID}/0/0", f"{LOG_ID}/2/0", f"{LOG_ID}/3/0"],
+                                   "chunks": ["hands-000.json"]}]
     assert (manifest["counts"]["hands"], manifest["counts"]["drills"]) == (3, {"everything": 3})
     assert manifest["build"] == {"builtAt": "2026-01-02T03:04:05Z", "generator": "mahjong-logparser 2.0.0.dev0", "seed": 7}
 
@@ -267,7 +268,7 @@ def test_a_verified_hand_won_in_a_situation_the_trainer_leaves_out_never_reaches
         verified = len(list(hands.verified_hands()))
         manifest = export_bundle(hands, tmp_path / "bundle", EVERYTHING, built_at=BUILT_AT).manifest
 
-    assert (verified, manifest["counts"]["hands"], manifest["drills"]) == (1, 0, [{"key": "everything", "handIds": []}])
+    assert (verified, manifest["counts"]["hands"], manifest["drills"]) == (1, 0, [{"key": "everything", "handIds": [], "chunks": []}])
 
 
 def test_a_hand_won_with_ippatsu_reaches_the_bundle_and_its_situation_says_so(tmp_path):
@@ -317,11 +318,38 @@ def test_export_builds_each_drill_in_the_catalogue_from_the_hand_store_storing_a
     manifest = export_bundle(payments_hand_store, tmp_path / "bundle", drills, built_at=BUILT_AT).manifest
 
     assert manifest["drills"] == [
-        {"key": "everything", "handIds": [f"{LOG_ID}/0/0", f"{LOG_ID}/1/0", f"{LOG_ID}/2/0"]},
-        {"key": "payments", "handIds": [f"{LOG_ID}/0/0", f"{LOG_ID}/1/0"]},
+        {"key": "everything", "handIds": [f"{LOG_ID}/0/0", f"{LOG_ID}/1/0", f"{LOG_ID}/2/0"], "chunks": ["hands-000.json"]},
+        {"key": "payments", "handIds": [f"{LOG_ID}/0/0", f"{LOG_ID}/1/0"], "chunks": ["hands-000.json"]},
     ]
     assert (manifest["counts"]["hands"], manifest["counts"]["drills"]) == (3, {"everything": 3, "payments": 2})
     assert [hand["id"] for hand in bundle_hands(tmp_path / "bundle")] == [f"{LOG_ID}/0/0", f"{LOG_ID}/1/0", f"{LOG_ID}/2/0"]
+
+
+def test_hands_lie_in_the_order_of_the_first_drill_that_holds_them_and_each_drill_names_its_chunks(
+        payments_hand_store, tmp_path):
+    # The ron is the last hand by ID; its drill comes first, so it lies first.
+    drills = [Drill(key="ron-payments", target=500, pool=Conditions({"tsumo": False})),
+              Drill(key="tsumo-payments", target=500, pool=Conditions({"tsumo": True})),
+              Drill(key="everything", target=500)]
+
+    manifest = export_bundle(payments_hand_store, tmp_path / "bundle", drills, built_at=BUILT_AT, chunk_size=1).manifest
+
+    files = bundle_files(tmp_path / "bundle")
+    assert [[hand["id"] for hand in files[name]["hands"]] for name in manifest["chunks"]] == [
+        [f"{LOG_ID}/2/0"], [f"{LOG_ID}/0/0"], [f"{LOG_ID}/1/0"]]
+    assert {drill["key"]: drill["chunks"] for drill in manifest["drills"]} == {
+        "ron-payments": ["hands-000.json"],
+        "tsumo-payments": ["hands-001.json", "hands-002.json"],
+        "everything": ["hands-000.json", "hands-001.json", "hands-002.json"],
+    }
+
+
+def test_the_schema_takes_a_drill_without_its_chunks_as_bundles_before_2_1_0_had_none():
+    schema = json.loads(SCHEMA_PATH.read_text())
+    drill = Draft202012Validator({"$ref": "#/$defs/drill", "$defs": schema["$defs"]})
+
+    assert drill.is_valid({"key": "everything", "handIds": []})
+    assert not drill.is_valid({"key": "everything", "handIds": [], "chunks": ["manifest.json"]})
 
 
 def test_export_says_which_drills_the_hand_store_leaves_short_and_by_how_much(payments_hand_store, tmp_path):
