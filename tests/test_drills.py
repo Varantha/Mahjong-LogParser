@@ -343,7 +343,7 @@ def test_the_catalogue_holds_every_drill_in_the_drill_table_each_aiming_for_500(
     assert [(drill.key, drill.target) for drill in load_catalogue()] == [
         ("everything", 500), ("fu-rounding-edge", 500), ("tricky-waits", 500), ("high-fu", 500),
         ("open-hand-fu", 500), ("mangan-or-not", 500), ("open-hand-han", 500), ("hidden-dora", 500),
-        ("big-hands", 500), ("payments", 500), ("rare-situations", 500)]
+        ("big-hands", 500), ("payments", 500)]
 
 
 @pytest.mark.parametrize("key, tag", [
@@ -456,33 +456,3 @@ def test_payments_takes_tsumo_hands_dealer_and_non_dealer_some_with_honba():
     assert (len(drawn), drawn & ids(ron)) == (500, set())
     assert drawn & ids(dealer) and drawn & ids(non_dealer) and drawn & ids(non_dealer[300:] + dealer[150:])
 
-
-def situations(counts: dict[str, int]) -> dict[str, list[dict]]:
-    """For each situational yaku, that many hands with it, numbered so no two hands share an ID."""
-    hands, start = {}, 0
-    for yaku, count in counts.items():
-        hands[yaku] = numbered(count, start, yaku=["riichi", yaku], tsumo=yaku in ("haitei", "rinshan"))
-        start += count
-    return hands
-
-
-def test_rare_situations_gives_haitei_houtei_rinshan_chankan_and_double_riichi_equal_shares_and_leaves_out_ippatsu():
-    # In real games ippatsu outnumbers the others put together, and haitei and houtei outnumber chankan.
-    hands = situations({"ippatsu": 3000, "haitei": 400, "houtei": 400, "rinshan": 300, "double-riichi": 150,
-                        "chankan": 120})
-
-    rare_situations = shipped_drill("rare-situations", [hand for group in hands.values() for hand in group])
-
-    drawn = drawn_ids(rare_situations)
-    assert {yaku: len(drawn & ids(group)) for yaku, group in hands.items()} == {
-        "ippatsu": 0, "haitei": 100, "houtei": 100, "rinshan": 100, "double-riichi": 100, "chankan": 100}
-
-
-def test_rare_situations_short_of_chankan_says_so_and_makes_up_the_rest_with_the_other_situations():
-    hands = situations({"haitei": 400, "houtei": 400, "rinshan": 300, "double-riichi": 150, "chankan": 12})
-
-    rare_situations = shipped_drill("rare-situations", [hand for group in hands.values() for hand in group])
-
-    drawn = drawn_ids(rare_situations)
-    assert (len(drawn), rare_situations.short_by, drawn >= ids(hands["chankan"])) == (500, 0, True)
-    assert rare_situations.shortfalls == [Shortfall(part="yaku = chankan", wanted=100, found=12)]

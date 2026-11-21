@@ -231,8 +231,8 @@ def test_a_hand_with_calls_records_each_call_in_the_order_it_was_made():
     hand = only_hand(game(init(), called_win()))
 
     assert hand["tiles"]["calls"] == [
-        {"type": "chi", "tiles": "340m", "calledTile": "0m", "calledFrom": "kamicha"},
-        {"type": "pon", "tiles": "777z", "calledTile": "7z", "calledFrom": "toimen"},
+        {"type": "chi", "tiles": "340m", "calledTile": "0m", "calledFrom": "kamicha", "string": "c034m"},
+        {"type": "pon", "tiles": "777z", "calledTile": "7z", "calledFrom": "toimen", "string": "7c77z"},
     ]
     assert hand["tiles"]["concealed"] == "45699p234s"
 
@@ -250,15 +250,16 @@ def win_with_calls(*codes_in_call_order: int, hai: str = ELEVEN_CONCEALED) -> st
     ("code", "call"),
     [
         (chi((8, 12, 16), called=12),
-         {"type": "chi", "tiles": "340m", "calledTile": "4m", "calledFrom": "kamicha"}),
+         {"type": "chi", "tiles": "340m", "calledTile": "4m", "calledFrom": "kamicha", "string": "c430m"}),
         (pon((52, 53, 54), called=53, from_seat=TOIMEN),
-         {"type": "pon", "tiles": "055p", "calledTile": "5p", "calledFrom": "toimen"}),
+         {"type": "pon", "tiles": "055p", "calledTile": "5p", "calledFrom": "toimen", "string": "0c55p"}),
         (open_kan(89, from_seat=SHIMOCHA),
-         {"type": "open-kan", "tiles": "0555s", "calledTile": "5s", "calledFrom": "shimocha"}),
+         {"type": "open-kan", "tiles": "0555s", "calledTile": "5s", "calledFrom": "shimocha", "string": "055c5s"}),
         (closed_kan(16),
-         {"type": "closed-kan", "tiles": "0555m", "calledTile": None, "calledFrom": None}),
+         {"type": "closed-kan", "tiles": "0555m", "calledTile": None, "calledFrom": None, "string": "f505f5m"}),
         (added_kan((53, 54, 55), called=54, from_seat=KAMICHA),  # the red 5p (52) is the added tile
-         {"type": "added-kan", "tiles": "0555p", "calledTile": "5p", "calledFrom": "kamicha"}),
+         {"type": "added-kan", "tiles": "0555p", "calledTile": "5p", "calledFrom": "kamicha",
+          "string": "c5c055p"}),
     ],
     ids=["chi", "pon", "open-kan", "closed-kan", "added-kan"],
 )

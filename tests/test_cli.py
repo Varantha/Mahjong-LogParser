@@ -10,7 +10,7 @@ from fake_tenhou import FILE_INDEXES, FakeClock, FakeTenhou
 from logparser.cli import main
 from logparser.hand_store import HandStore
 from logparser.log_store import LogStore
-from tenhou_xml import closed_win, game, init, short_win
+from tenhou_xml import called_win, closed_win, game, init, short_win
 
 LOG_ID = "2024010112gm-00a9-0000-0123abcd"
 
@@ -41,6 +41,23 @@ def test_every_location_can_be_given_on_the_command_line(tmp_path, no_network):
     assert (manifest["chunks"], manifest["build"]["seed"]) == (["hands-000.json"], 3)
     [report_folder] = reports.iterdir()
     assert (report_folder / "report.json").is_file()
+
+
+def test_export_refuses_a_hand_store_from_before_call_strings_and_says_to_ingest_again(tmp_path, no_network):
+    (tmp_path / f"{LOG_ID}.xml").write_text(game(init(), called_win()))
+    logs, hands, bundle = tmp_path / "logs", tmp_path / "hands.sqlite", tmp_path / "out"
+    main(["add-logs", "--log-store", str(logs), str(tmp_path / f"{LOG_ID}.xml")])
+    main(["ingest", "--log-store", str(logs), "--hand-store", str(hands), "--reports", str(tmp_path / "reports")])
+    with HandStore(hands) as store:
+        [hand] = store.log_hands(LOG_ID)
+        for call in hand["tiles"]["calls"]:
+            del call["string"]
+        store.replace_log(LOG_ID, [hand])
+
+    with pytest.raises(SystemExit, match="Export refused: .* Run ingest again, then export"):
+        main(["export", "--hand-store", str(hands), "--bundle", str(bundle)])
+
+    assert not bundle.exists()
 
 
 def test_export_says_which_drills_fall_short_by_how_much_and_which_part_of_a_drill_ran_out(tmp_path, capsys):

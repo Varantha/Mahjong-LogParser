@@ -20,7 +20,7 @@ from pathlib import Path
 from logparser.downloader import DEFAULT_INTERVAL, Downloader, DownloadStopped
 from logparser.drills import CATALOGUE_PATH, load_catalogue
 from logparser.dump_import import import_dump
-from logparser.export import DEFAULT_CHUNK_SIZE, export_bundle
+from logparser.export import DEFAULT_CHUNK_SIZE, HandStoreOutOfDate, export_bundle
 from logparser.hand_store import HandStore
 from logparser.ingest import NoLogsToIngest, ingest
 from logparser.log_store import LogStore
@@ -162,8 +162,11 @@ def _ingest(args) -> None:
 
 def _export(args) -> None:
     with HandStore(args.hand_store) as hands:
-        summary = export_bundle(hands, args.bundle, load_catalogue(args.catalogue),
-                                chunk_size=args.chunk_size, seed=args.seed)
+        try:
+            summary = export_bundle(hands, args.bundle, load_catalogue(args.catalogue),
+                                    chunk_size=args.chunk_size, seed=args.seed)
+        except HandStoreOutOfDate as refused:
+            raise SystemExit(f"Export refused: {refused}. Run ingest again, then export.") from refused
     manifest = summary.manifest
     drills = ", ".join(f"{key} {count}" for key, count in manifest["counts"]["drills"].items())
     print(f"Wrote {manifest['counts']['hands']} hands in {len(manifest['chunks'])} chunks to {args.bundle} ({drills})")

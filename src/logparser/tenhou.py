@@ -9,7 +9,8 @@ Every win (AGARI) in a taken game becomes a hand record, a JSON-ready dict:
                        ippatsu, last tile, rinshan, chankan and first draw, worked out from the
                        round's moves (see `logparser.situation`)
     tiles              concealed tiles, calls, winning tile and dora indicators, in mpsz.
-                       Each call is {type, tiles, calledTile, calledFrom}, in the order made.
+                       Each call is {type, tiles, calledTile, calledFrom, string}, in the order made;
+                       `string` is its call string (see `logparser.calls.call_string`).
     answerKey          Tenhou's recorded yaku (contract keys), han, fu, limit tier, points and
                        payments, plus the raw fu and fu breakdown (contract keys) of a hand whose
                        cross-check matched; both are None for any other hand
@@ -25,7 +26,7 @@ import re
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass, field
 
-from logparser.calls import Call, decode_call
+from logparser.calls import Call, call_string, decode_call
 from logparser.payments import payments, score_changes
 from logparser.plain_values import plain_values
 from logparser.situation import CALL, DISCARD, DRAW, Move, RoundMoves
@@ -216,6 +217,7 @@ def _call_record(call: Call) -> dict:
         "tiles": mpsz(call.tiles),
         "calledTile": None if call.called_tile is None else tile(call.called_tile),
         "calledFrom": call.called_from,
+        "string": call_string(call),
     }
 
 

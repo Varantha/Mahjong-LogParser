@@ -5,6 +5,11 @@ drill catalogue by searching the whole hand store (see docs/adr/0001); the
 bundle then stores every hand once, split into chunk files, with a manifest
 saying which hands belong to which drill. Export reads only local files: it
 never uses the network.
+
+The trainer leaves out double riichi, haitei, houtei, rinshan, chankan, tenhou
+and chiihou, so a hand won in one of those situations never reaches the bundle,
+and the bundle's situation doesn't have them. Each call reaches the bundle as
+its call string alone.
 """
 
 import json
@@ -19,12 +24,18 @@ from logparser.counts import HandCounts
 from logparser.drills import DrawnDrill, Drill, draw_drills
 from logparser.hand_store import HandStore
 
-SCHEMA_VERSION = "1.1.0"
+SCHEMA_VERSION = "2.0.0"
 SCHEMA_PATH = Path(__file__).parent / "schema" / "trainer-bundle.schema.json"
 DEFAULT_CHUNK_SIZE = 200
 # The parts of a hand-store record the trainer sees. Replay links, quarantine
 # reasons and anything else stay in the hand store.
 BUNDLE_FIELDS = ("id", "situation", "tiles", "answerKey", "plainValues", "tags")
+# The parts of a situation the trainer leaves out. A hand with one of them set stays in the hand store.
+LEFT_OUT_SITUATIONS = frozenset({"doubleRiichi", "lastTile", "rinshan", "chankan", "firstDraw"})
+
+
+class HandStoreOutOfDate(Exception):
+    """The hand store holds a hand from before calls had call strings."""
 
 
 @dataclass(frozen=True)
@@ -43,8 +54,9 @@ def export_bundle(hands: HandStore, folder: Path, catalogue: list[Drill], *,
                   chunk_size: int = DEFAULT_CHUNK_SIZE, seed: int = 0,
                   built_at: datetime | None = None) -> ExportSummary:
     """Writes the trainer bundle to `folder`, replacing any earlier bundle there. Returns its manifest and
-    each drill as drawn, so the caller can say which drills fall short."""
-    drawn = draw_drills(catalogue, hands.verified_hands(), seed=seed)
+    each drill as drawn, so the caller can say which drills fall short. Raises HandStoreOutOfDate, writing
+    nothing, when a hand it would export has a call without a call string."""
+    drawn = draw_drills(catalogue, (hand for hand in hands.verified_hands() if not _left_out(hand)), seed=seed)
     drills = [{"key": drill.key, "handIds": drill.hand_ids} for drill in drawn]
 
     hand_ids = sorted({hand_id for drill in drills for hand_id in drill["handIds"]})
@@ -78,8 +90,18 @@ def export_bundle(hands: HandStore, folder: Path, catalogue: list[Drill], *,
     return ExportSummary(manifest, drawn)
 
 
+def _left_out(record: dict) -> bool:
+    return any(record["situation"][situation] for situation in LEFT_OUT_SITUATIONS)
+
+
 def _bundle_hand(record: dict) -> dict:
-    return {field: record[field] for field in BUNDLE_FIELDS}
+    hand = {field: record[field] for field in BUNDLE_FIELDS}
+    hand["situation"] = {key: value for key, value in record["situation"].items() if key not in LEFT_OUT_SITUATIONS}
+    try:
+        hand["tiles"] = {**record["tiles"], "calls": [call["string"] for call in record["tiles"]["calls"]]}
+    except KeyError:
+        raise HandStoreOutOfDate(f"hand {record['id']} was ingested before calls had call strings") from None
+    return hand
 
 
 def _write(folder: Path, manifest: dict, chunks: dict[str, dict]) -> None:

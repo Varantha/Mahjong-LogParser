@@ -8,7 +8,7 @@ player across (toimen), 3 the previous player (kamicha), 0 nobody.
 
 import pytest
 
-from logparser.calls import Call, decode_call, hand_is_open
+from logparser.calls import Call, call_string, decode_call, hand_is_open
 
 CLOSED_KAN_OF_EAST = 108 << 8
 CLOSED_KAN_OF_FIVE_MAN = 16 << 8
@@ -109,3 +109,41 @@ def test_a_hand_whose_only_calls_are_closed_kans_counts_as_closed():
 )
 def test_any_other_call_opens_the_hand_even_beside_a_closed_kan(code):
     assert hand_is_open([decode_call(CLOSED_KAN_OF_EAST).type, decode_call(code).type]) is True
+
+
+@pytest.mark.parametrize(("call", "string"), [
+    # A chi's called tile lies first, turned; its other tiles follow in order.
+    (Call(type="chi", tiles=(40, 44, 48), called_tile=48, called_from="kamicha"), "c423p"),
+    (Call(type="chi", tiles=(49, 52, 58), called_tile=49, called_from="kamicha"), "c406p"),
+    # A pon's turned tile lies on the side of the seat it came from.
+    (Call(type="pon", tiles=(128, 129, 130), called_tile=129, called_from="kamicha"), "c666z"),
+    (Call(type="pon", tiles=(128, 129, 130), called_tile=129, called_from="toimen"), "6c66z"),
+    (Call(type="pon", tiles=(128, 129, 130), called_tile=129, called_from="shimocha"), "66c6z"),
+    # So does an open kan's; from toimen it lies second, from shimocha last.
+    (Call(type="open-kan", tiles=(108, 109, 110, 111), called_tile=110, called_from="kamicha"), "c1111z"),
+    (Call(type="open-kan", tiles=(108, 109, 110, 111), called_tile=110, called_from="toimen"), "1c111z"),
+    (Call(type="open-kan", tiles=(108, 109, 110, 111), called_tile=110, called_from="shimocha"), "111c1z"),
+    # An added kan's added tile follows the called tile, turned too.
+    (Call(type="added-kan", tiles=(4, 5, 6, 7), called_tile=5, called_from="kamicha", added_tile=7), "c2c222m"),
+    (Call(type="added-kan", tiles=(4, 5, 6, 7), called_tile=5, called_from="toimen", added_tile=7), "2c2c22m"),
+    (Call(type="added-kan", tiles=(4, 5, 6, 7), called_tile=5, called_from="shimocha", added_tile=7), "22c2c2m"),
+    # A closed kan's outer tiles lie face down.
+    (Call(type="closed-kan", tiles=(108, 109, 110, 111)), "f111f1z"),
+])
+def test_a_call_string_shows_a_calls_tiles_as_they_lie_with_c_before_a_turned_tile_and_f_before_a_face_down_one(
+        call, string):
+    assert call_string(call) == string
+
+
+@pytest.mark.parametrize(("call", "string"), [
+    (Call(type="pon", tiles=(52, 53, 54), called_tile=52, called_from="toimen"), "5c05p"),
+    (Call(type="pon", tiles=(52, 53, 54), called_tile=53, called_from="toimen"), "0c55p"),
+    (Call(type="open-kan", tiles=(88, 89, 90, 91), called_tile=88, called_from="shimocha"), "555c0s"),
+    # The red five is the called tile of the first, the added tile of the second.
+    (Call(type="added-kan", tiles=(52, 53, 54, 55), called_tile=52, called_from="kamicha", added_tile=54), "c0c555p"),
+    (Call(type="added-kan", tiles=(52, 53, 54, 55), called_tile=54, called_from="kamicha", added_tile=52), "c5c055p"),
+    # A closed kan's red five lies second, face up.
+    (Call(type="closed-kan", tiles=(16, 17, 18, 19)), "f505f5m"),
+])
+def test_a_call_string_keeps_a_red_five_where_it_lies(call, string):
+    assert call_string(call) == string
