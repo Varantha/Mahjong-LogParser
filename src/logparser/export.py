@@ -6,6 +6,11 @@ bundle then stores every hand once, split into chunk files, with a manifest
 saying which hands belong to which drill. Export reads only local files: it
 never uses the network.
 
+The hands lie in the order of the first drill that holds them, as the catalogue
+lists its drills, so a drill's hands fill few chunks and the first drill's fill
+the first ones. The manifest names each drill's chunks, so the trainer can deal
+a drill's first hand before every chunk has arrived.
+
 The trainer leaves out double riichi, haitei, houtei, rinshan, chankan, tenhou
 and chiihou, so a hand won in one of those situations never reaches the bundle,
 and the bundle's situation doesn't have them. Each call reaches the bundle as
@@ -24,7 +29,7 @@ from logparser.counts import HandCounts
 from logparser.drills import DrawnDrill, Drill, draw_drills
 from logparser.hand_store import HandStore
 
-SCHEMA_VERSION = "2.0.0"
+SCHEMA_VERSION = "2.1.0"
 SCHEMA_PATH = Path(__file__).parent / "schema" / "trainer-bundle.schema.json"
 DEFAULT_CHUNK_SIZE = 200
 # The parts of a hand-store record the trainer sees. Replay links, quarantine
@@ -57,14 +62,16 @@ def export_bundle(hands: HandStore, folder: Path, catalogue: list[Drill], *,
     each drill as drawn, so the caller can say which drills fall short. Raises HandStoreOutOfDate, writing
     nothing, when a hand it would export has a call without a call string."""
     drawn = draw_drills(catalogue, (hand for hand in hands.verified_hands() if not _left_out(hand)), seed=seed)
-    drills = [{"key": drill.key, "handIds": drill.hand_ids} for drill in drawn]
-
-    hand_ids = sorted({hand_id for drill in drills for hand_id in drill["handIds"]})
+    # Each hand once, in the order of the first drill that holds it.
+    hand_ids = list(dict.fromkeys(hand_id for drill in drawn for hand_id in drill.hand_ids))
     bundle_hands = [_bundle_hand(hands.get(hand_id)) for hand_id in hand_ids]
     chunks = {
         f"hands-{number:03d}.json": {"schemaVersion": SCHEMA_VERSION, "hands": bundle_hands[start:start + chunk_size]}
         for number, start in enumerate(range(0, len(bundle_hands), chunk_size))
     }
+    chunk_of = {hand["id"]: name for name, chunk in chunks.items() for hand in chunk["hands"]}
+    drills = [{"key": drill.key, "handIds": drill.hand_ids,
+               "chunks": sorted({chunk_of[hand_id] for hand_id in drill.hand_ids})} for drill in drawn]
     counts = HandCounts(bundle_hands)
     manifest = {
         "schemaVersion": SCHEMA_VERSION,
